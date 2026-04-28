@@ -9,14 +9,29 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LoansRouteImport } from './routes/loans'
+import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as CustomersRouteImport } from './routes/customers'
+import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoansLoanIdRouteImport } from './routes/loans.$loanId'
 import { Route as CustomersIdRouteImport } from './routes/customers.$id'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PaymentsRoute = PaymentsRouteImport.update({
   id: '/payments',
   path: '/payments',
@@ -32,9 +47,24 @@ const LoansRoute = LoansRouteImport.update({
   path: '/loans',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExpensesRoute = ExpensesRouteImport.update({
+  id: '/expenses',
+  path: '/expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CustomersRoute = CustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActivityRoute = ActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -55,29 +85,44 @@ const CustomersIdRoute = CustomersIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
+  '/calendar': typeof CalendarRoute
   '/customers': typeof CustomersRouteWithChildren
+  '/expenses': typeof ExpensesRoute
   '/loans': typeof LoansRouteWithChildren
   '/login': typeof LoginRoute
   '/payments': typeof PaymentsRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/customers/$id': typeof CustomersIdRoute
   '/loans/$loanId': typeof LoansLoanIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
+  '/calendar': typeof CalendarRoute
   '/customers': typeof CustomersRouteWithChildren
+  '/expenses': typeof ExpensesRoute
   '/loans': typeof LoansRouteWithChildren
   '/login': typeof LoginRoute
   '/payments': typeof PaymentsRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/customers/$id': typeof CustomersIdRoute
   '/loans/$loanId': typeof LoansLoanIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
+  '/calendar': typeof CalendarRoute
   '/customers': typeof CustomersRouteWithChildren
+  '/expenses': typeof ExpensesRoute
   '/loans': typeof LoansRouteWithChildren
   '/login': typeof LoginRoute
   '/payments': typeof PaymentsRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/customers/$id': typeof CustomersIdRoute
   '/loans/$loanId': typeof LoansLoanIdRoute
 }
@@ -85,42 +130,76 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/activity'
+    | '/calendar'
     | '/customers'
+    | '/expenses'
     | '/loans'
     | '/login'
     | '/payments'
+    | '/reports'
+    | '/settings'
     | '/customers/$id'
     | '/loans/$loanId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/activity'
+    | '/calendar'
     | '/customers'
+    | '/expenses'
     | '/loans'
     | '/login'
     | '/payments'
+    | '/reports'
+    | '/settings'
     | '/customers/$id'
     | '/loans/$loanId'
   id:
     | '__root__'
     | '/'
+    | '/activity'
+    | '/calendar'
     | '/customers'
+    | '/expenses'
     | '/loans'
     | '/login'
     | '/payments'
+    | '/reports'
+    | '/settings'
     | '/customers/$id'
     | '/loans/$loanId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ActivityRoute: typeof ActivityRoute
+  CalendarRoute: typeof CalendarRoute
   CustomersRoute: typeof CustomersRouteWithChildren
+  ExpensesRoute: typeof ExpensesRoute
   LoansRoute: typeof LoansRouteWithChildren
   LoginRoute: typeof LoginRoute
   PaymentsRoute: typeof PaymentsRoute
+  ReportsRoute: typeof ReportsRoute
+  SettingsRoute: typeof SettingsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/payments': {
       id: '/payments'
       path: '/payments'
@@ -142,11 +221,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoansRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/expenses': {
+      id: '/expenses'
+      path: '/expenses'
+      fullPath: '/expenses'
+      preLoaderRoute: typeof ExpensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/customers': {
       id: '/customers'
       path: '/customers'
       fullPath: '/customers'
       preLoaderRoute: typeof CustomersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/activity': {
+      id: '/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof ActivityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -197,10 +297,15 @@ const LoansRouteWithChildren = LoansRoute._addFileChildren(LoansRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ActivityRoute: ActivityRoute,
+  CalendarRoute: CalendarRoute,
   CustomersRoute: CustomersRouteWithChildren,
+  ExpensesRoute: ExpensesRoute,
   LoansRoute: LoansRouteWithChildren,
   LoginRoute: LoginRoute,
   PaymentsRoute: PaymentsRoute,
+  ReportsRoute: ReportsRoute,
+  SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
