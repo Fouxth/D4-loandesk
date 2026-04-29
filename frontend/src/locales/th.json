@@ -1,0 +1,93 @@
+{
+  "app_name": "LoanDesk",
+  "dashboard": {
+    "title": "ภาพรวมระบบ",
+    "description": "สรุปข้อมูลธุรกิจการให้กู้ยืมของคุณ",
+    "stats": {
+      "total_customers": "ลูกค้าทั้งหมด",
+      "active_loans": "สัญญาที่ยังไม่ปิด",
+      "due_today": "ครบกำหนดวันนี้",
+      "overdue": "ค้างชำระเกินกำหนด",
+      "outstanding": "ยอดเงินคงค้างรวม",
+      "today_collections": "ยอดเก็บเงินวันนี้",
+      "monthly_profit": "กำไรรายเดือน"
+    },
+    "charts": {
+      "monthly_collections": "ยอดการจัดเก็บรายเดือน",
+      "status_breakdown": "สัดส่วนสถานะสัญญา",
+      "payment_trend": "แนวโน้มการชำระเงิน (14 วันล่าสุด)"
+    },
+    "loading": "กำลังโหลดข้อมูลแดชบอร์ด..."
+  },
+  "menu": {
+    "dashboard": "แดชบอร์ด",
+    "customers": "ลูกค้า",
+    "loans": "สัญญาเงินกู้",
+    "payments": "การชำระเงิน",
+    "expenses": "ค่าใช้จ่าย",
+    "reports": "รายงาน",
+    "settings": "ตั้งค่า",
+    "calendar": "ปฏิทิน",
+    "activity": "กิจกรรม",
+    "main": "เมนูหลัก",
+    "finance": "การเงินและระบบ"
+  },
+  "customers": {
+    "title": "รายชื่อลูกค้า",
+    "add_new": "เพิ่มลูกค้าใหม่",
+    "edit": "แก้ไขข้อมูลลูกค้า",
+    "search_placeholder": "ค้นหาตามชื่อ, เบอร์โทร, เลขบัตร…",
+    "table": {
+      "name": "ชื่อ-นามสกุล",
+      "phone": "เบอร์โทรศัพท์",
+      "id_card": "เลขบัตรประชาชน",
+      "risk": "ความเสี่ยง",
+      "created_at": "วันที่เพิ่ม",
+      "actions": "จัดการ"
+    },
+    "risk": {
+      "low": "ต่ำ",
+      "medium": "กลาง",
+      "high": "สูง"
+    },
+    "category": {
+      "new": "ลูกค้าใหม่",
+      "regular": "ลูกค้าประจำ",
+      "good": "เครดิตดี",
+      "blocked": "เครดิตไม่ผ่าน"
+    }
+  },
+  "loans": {
+    "title": "รายการสัญญาเงินกู้",
+    "create_new": "สร้างสัญญาเงินกู้",
+    "refinance": "รียอดใหม่",
+    "search_placeholder": "ค้นหาเลขที่สัญญา หรือ ชื่อลูกค้า…",
+    "status": {
+      "all": "ทุกสถานะ",
+      "active": "ปกติ",
+      "overdue": "เกินกำหนด",
+      "completed": "เสร็จสิ้น",
+      "cancelled": "ยกเลิก",
+      "refinanced": "รียอดแล้ว"
+    }
+  },
+  "auth": {
+    "admin": "ผู้ดูแลระบบ",
+    "staff": "เจ้าหน้าที่"
+  },
+  "common": {
+    "save": "บันทึกข้อมูล",
+    "cancel": "ยกเลิก",
+    "delete": "ลบ",
+    "confirm_delete": "คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?",
+    "save_success": "บันทึกข้อมูลเรียบร้อยแล้ว",
+    "delete_success": "ลบข้อมูลเรียบร้อยแล้ว",
+    "total": "ทั้งหมด",
+    "items": "รายการ"
+  },
+  "actions": {
+    "edit": "แก้ไข",
+    "delete": "ลบ",
+    "save": "บันทึก"
+  }
+}

@@ -10,26 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-.output
-.vinxi
-.tanstack/**
-.nitro
 *.local
-backup_old
-# Wrangler / Cloudflare
-.wrangler/
-.dev.vars
-
-# Secrets and sensitive files
-.env
-.env.*
-*.env
-*.key
-*.pem
-*.crt
-*.p12
-*.sqlite
-*.db
 
 # Editor directories and files
 .vscode/*

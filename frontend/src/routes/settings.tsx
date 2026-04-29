@@ -1,0 +1,558 @@
+import { useState, useEffect } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import { AppLayout } from "@/components/AppLayout";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
+import { 
+  getSettings, 
+  updateSetting, 
+  getLoans, 
+  getPayments, 
+  getCustomers,
+  getExpenses
+} from "@/lib/services";
+import { 
+  User, 
+  Moon, 
+  Sun, 
+  LogOut, 
+  Shield, 
+  Building2, 
+  Percent, 
+  Bell, 
+  Database,
+  Smartphone,
+  Users,
+  Loader2,
+  CheckCircle2
+} from "lucide-react";
+
+import { useTranslation } from "react-i18next";
+import { useSettings } from "@/contexts/SettingsContext";
+import { cn } from "@/lib/utils";
+
+export const Route = createFileRoute("/settings")({
+  component: () => (<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>),
+});
+
+function Settings() {
+  const { t, i18n } = useTranslation();
+  const { user, roles, signOut } = useAuth();
+  const { theme, toggle } = useTheme();
+  const { business: globalBusiness, refreshSettings } = useSettings();
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState("profile");
+
+  // Form States
+  const [business, setBusiness] = useState({ nameTH: "", nameEN: "", phone: "", address: "" });
+  const [lending, setLending] = useState({ defaultInterestRate: 2, lateFeePerDay: 50, deductInterestUpfront: true });
+  const [limits, setLimits] = useState<any[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await getSettings();
+        if (data.business_profile) {
+          setBusiness({
+            nameTH: data.business_profile.nameTH || "",
+            nameEN: data.business_profile.nameEN || "",
+            phone: data.business_profile.phone || "",
+            address: data.business_profile.address || ""
+          });
+        }
+        if (data.lending_config) setLending(data.lending_config);
+        
+        if (data.customer_limits && Array.isArray(data.customer_limits)) {
+          setLimits(data.customer_limits);
+        } else {
+          setLimits([
+            { id: 'new', label: 'ลูกค้าใหม่', min: 1000, max: 5000 },
+            { id: 'regular', label: 'ลูกค้าประจำ', min: 3000, max: 20000 },
+            { id: 'good', label: 'เครดิตดี', min: 5000, max: 50000 },
+            { id: 'blocked', label: 'เครดิตไม่ผ่าน', min: 0, max: 0 }
+          ]);
+        }
+      } catch (e) {
+        toast.error("ไม่สามารถโหลดข้อมูลการตั้งค่าได้");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const handleSaveBusiness = async () => {
+    setBusy("business");
+    try {
+      await updateSetting("business_profile", business);
+      await refreshSettings();
+      toast.success("บันทึกข้อมูลร้านค้าเรียบร้อยแล้ว");
+    } catch (e) {
+      toast.error("บันทึกข้อมูลล้มเหลว");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleSaveLending = async () => {
+    setBusy("lending");
+    try {
+      await updateSetting("lending_config", lending);
+      toast.success("บันทึกการตั้งค่าเงินกู้เรียบร้อยแล้ว");
+    } catch (e) {
+      toast.error("บันทึกการตั้งค่าล้มเหลว");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleSaveLimits = async () => {
+    setBusy("limits");
+    try {
+      await updateSetting("customer_limits", limits);
+      toast.success("บันทึกวงเงินกลุ่มลูกค้าเรียบร้อยแล้ว");
+    } catch (e) {
+      toast.error("บันทึกวงเงินล้มเหลว");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    setBusy("export");
+    try {
+      const { utils, writeFile } = await import("xlsx");
+      const [loans, payments, customers] = await Promise.all([
+        getLoans(),
+        getPayments(),
+        getCustomers()
+      ]);
+
+      const wb = utils.book_new();
+      
+      const loansData = loans.map((l: any) => {
+        const loanPayments = payments.filter((p: any) => (p.loanId || p.loan_id) === l.id);
+        const totalPaid = loanPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+        const remaining = (Number(l.totalPayable) || 0) - totalPaid;
+
+        let typeStr = "";
+        const period = l.installmentsCount || l.installments_count || 0;
+        if (l.paymentType === 'daily' || l.payment_type === 'daily') typeStr = `รายวัน (${period} วัน)`;
+        else if (l.paymentType === 'weekly' || l.payment_type === 'weekly') typeStr = `รายสัปดาห์ (${period} งวด)`;
+        else if (l.paymentType === 'monthly' || l.payment_type === 'monthly') typeStr = `รายเดือน (${period} งวด)`;
+        else typeStr = `${l.paymentType} (${period})`;
+
+        return {
+          "เลขที่สัญญา": l.loanNumber || l.loan_number,
+          "ชื่อลูกค้า": l.customerName || l.customer_name,
+          "ประเภทการส่ง": typeStr,
+          "เงินต้น": Number(l.principal),
+          "ยอดที่ต้องชำระ": Number(l.totalPayable || l.total_payable),
+          "ยอดที่ส่งแล้ว": totalPaid,
+          "ยอดคงเหลือ": remaining > 0 ? remaining : 0,
+          "สถานะ": l.status === 'active' ? 'ปกติ' : l.status === 'overdue' ? 'เกินกำหนด' : l.status === 'completed' ? 'เสร็จสิ้น' : l.status === 'refinanced' ? 'ต่อยอด/รีไฟแนนซ์' : 'ยกเลิก',
+          "วันที่เริ่ม": l.startDate || l.start_date,
+          "วันที่สิ้นสุด": l.dueDate || l.due_date
+        };
+      });
+      
+      loansData.sort((a, b) => a["ประเภทการส่ง"].localeCompare(b["ประเภทการส่ง"]));
+      utils.book_append_sheet(wb, utils.json_to_sheet(loansData), "Loans Summary");
+
+      const custData = customers.map((c: any) => ({
+        "ชื่อ-นามสกุล": c.fullName || c.full_name,
+        "เบอร์โทร": c.phone,
+        "เลขบัตร": c.idCard || c.id_card,
+        "ความเสี่ยง": c.riskLevel || c.risk_level,
+        "ที่อยู่": c.address
+      }));
+      utils.book_append_sheet(wb, utils.json_to_sheet(custData), "Customers");
+
+      writeFile(wb, `Debt_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success("ส่งออกรายงานละเอียดเรียบร้อยแล้ว");
+    } catch (e) {
+      console.error(e);
+      toast.error("ไม่สามารถส่งออกข้อมูลได้");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleBackup = async () => {
+    setBusy("backup");
+    try {
+      const data = await Promise.all([
+        getLoans(),
+        getPayments(),
+        getCustomers(),
+        getExpenses(),
+        getSettings()
+      ]);
+      
+      const backup = {
+        loans: data[0],
+        payments: data[1],
+        customers: data[2],
+        expenses: data[3],
+        settings: data[4],
+        timestamp: new Date().toISOString()
+      };
+
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Full_Backup_${new Date().toISOString()}.json`;
+      a.click();
+      toast.success("สำรองข้อมูลเรียบร้อยแล้ว");
+    } catch (e) {
+      toast.error("ไม่สามารถสำรองข้อมูลได้");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const navItems = [
+    { id: "profile", label: "ข้อมูลร้านค้า", icon: Building2 },
+    { id: "account", label: "บัญชีผู้ใช้", icon: User },
+    { id: "lending", label: "ตั้งค่าเงินกู้", icon: Percent },
+    { id: "limits", label: "วงเงินตามกลุ่มลูกค้า", icon: Users },
+    { id: "notifications", label: "การแจ้งเตือน", icon: Bell },
+    { id: "display", label: "การแสดงผล", icon: Moon },
+  ];
+
+  if (loading) return (
+    <div className="flex h-[60vh] items-center justify-center gap-3 text-muted-foreground">
+      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <span className="text-sm font-medium">กำลังโหลดการตั้งค่า...</span>
+    </div>
+  );
+  
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-5xl mx-auto pb-20 px-4 md:px-0">
+      <PageHeader 
+        title="ตั้งค่าระบบ" 
+        description="จัดการข้อมูลร้านค้า บัญชีผู้ใช้ และการตั้งค่าทั่วไปของระบบ" 
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
+        {/* Left Sidebar Navigation */}
+        <div className="space-y-2 hidden md:block">
+          <nav className="flex flex-col gap-1 sticky top-8">
+            {navItems.map((item) => (
+              <a 
+                key={item.id}
+                href={`#${item.id}`} 
+                onClick={() => setActiveSection(item.id)}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-xl transition-all group font-bold text-sm",
+                  activeSection === item.id 
+                    ? "bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20" 
+                    : "hover:bg-muted text-muted-foreground"
+                )}
+              >
+                <item.icon className={cn(
+                  "h-4 w-4 transition-transform",
+                  activeSection === item.id ? "scale-110" : "group-hover:scale-110"
+                )} /> 
+                {item.label}
+                {activeSection === item.id && <CheckCircle2 className="ml-auto h-3 w-3" />}
+              </a>
+            ))}
+          </nav>
+        </div>
+
+        {/* Main Settings Content */}
+        <div className="md:col-span-2 space-y-8">
+          
+          {/* Business Profile */}
+          <section id="profile" className="scroll-mt-24 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                <Building2 className="h-4 w-4" />
+              </div>
+              <h3 className="font-black text-lg">ข้อมูลร้านค้า</h3>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">ชื่อธุรกิจ (ภาษาไทย)</Label>
+                  <Input 
+                    value={business.nameTH} 
+                    onChange={(e) => setBusiness({...business, nameTH: e.target.value})}
+                    placeholder="เช่น มั่งมี การเงิน" 
+                    className="h-11 rounded-xl bg-muted/20" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Business Name (English)</Label>
+                  <Input 
+                    value={business.nameEN} 
+                    onChange={(e) => setBusiness({...business, nameEN: e.target.value})}
+                    placeholder="e.g. LoanDesk Pro" 
+                    className="h-11 rounded-xl bg-muted/20" 
+                  />
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">เบอร์โทรศัพท์ติดต่อ</Label>
+                  <Input 
+                    value={business.phone} 
+                    onChange={(e) => setBusiness({...business, phone: e.target.value})}
+                    placeholder="08x-xxx-xxxx" 
+                    className="h-11 rounded-xl bg-muted/20" 
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">ที่อยู่สำหรับออกใบเสร็จ / รายงาน</Label>
+                <Textarea 
+                  value={business.address} 
+                  onChange={(e) => setBusiness({...business, address: e.target.value})}
+                  placeholder="ระบุที่อยู่เต็มของคุณ..." 
+                  className="rounded-xl bg-muted/20 min-h-[100px]" 
+                />
+              </div>
+              <Button 
+                onClick={handleSaveBusiness} 
+                disabled={busy === "business"}
+                className="rounded-xl px-8 font-bold h-11"
+              >
+                {busy === "business" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                บันทึกข้อมูลร้านค้า
+              </Button>
+            </div>
+          </section>
+
+          {/* Account Settings */}
+          <section id="account" className="scroll-mt-24 space-y-4 pt-4 border-t border-border/50">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-8 w-8 rounded-lg bg-info/10 flex items-center justify-center text-info">
+                <User className="h-4 w-4" />
+              </div>
+              <h3 className="font-black text-lg">บัญชีผู้ใช้</h3>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm">
+              <div className="flex items-center gap-6 mb-8">
+                <div className="h-16 w-16 md:h-20 md:w-20 rounded-3xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary text-2xl md:text-3xl font-black border border-primary/10 shrink-0">
+                  {user?.email?.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <h4 className="font-black text-lg md:text-xl text-foreground truncate">{user?.email}</h4>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Shield className="h-3 w-3 text-info" />
+                    <span className="text-xs font-bold text-info uppercase tracking-wider">
+                      {roles[0] === 'admin' ? 'ผู้ดูแลระบบ (Administrator)' : 'เจ้าหน้าที่ (Staff)'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button variant="outline" className="rounded-xl font-bold border-border/50 h-10 px-6">เปลี่ยนรหัสผ่าน</Button>
+                <Button variant="outline" className="rounded-xl font-bold text-destructive border-destructive/20 hover:bg-destructive/10 h-10 px-6" onClick={signOut}>
+                  <LogOut className="mr-2 h-4 w-4" /> ออกจากระบบ
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          {/* Lending Settings */}
+          <section id="lending" className="scroll-mt-24 space-y-4 pt-4 border-t border-border/50">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-8 w-8 rounded-lg bg-success/10 flex items-center justify-center text-success">
+                <Percent className="h-4 w-4" />
+              </div>
+              <h3 className="font-black text-lg">ตั้งค่าเงินกู้</h3>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-6">
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">อัตราดอกเบี้ยเริ่มต้น (%)</Label>
+                  <div className="relative">
+                    <Input 
+                      type="number" 
+                      value={lending.defaultInterestRate} 
+                      onChange={(e) => setLending({...lending, defaultInterestRate: Number(e.target.value)})}
+                      className="h-11 rounded-xl bg-muted/20 pr-10 font-bold" 
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">%</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">ค่าปรับกรณีจ่ายล่าช้า (บาท/วัน)</Label>
+                  <div className="relative">
+                    <Input 
+                      type="number" 
+                      value={lending.lateFeePerDay} 
+                      onChange={(e) => setLending({...lending, lateFeePerDay: Number(e.target.value)})}
+                      className="h-11 rounded-xl bg-muted/20 pr-10 font-bold" 
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50">
+                <div className="space-y-0.5">
+                  <span className="text-sm font-bold">หักดอกเบี้ยล่วงหน้า</span>
+                  <p className="text-[10px] text-muted-foreground">หักดอกเบี้ยจากยอดเงินต้นทันทีเมื่อทำสัญญา</p>
+                </div>
+                <Switch 
+                  checked={lending.deductInterestUpfront} 
+                  onCheckedChange={(checked) => setLending({...lending, deductInterestUpfront: checked})}
+                />
+              </div>
+              <Button 
+                onClick={handleSaveLending} 
+                disabled={busy === "lending"}
+                className="rounded-xl px-8 font-bold h-11"
+              >
+                {busy === "lending" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                บันทึกการตั้งค่า
+              </Button>
+            </div>
+          </section>
+
+          {/* Customer Group Limits */}
+          <section id="limits" className="scroll-mt-24 space-y-4 pt-4 border-t border-border/50">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                <Users className="h-4 w-4" />
+              </div>
+              <h3 className="font-black text-lg">วงเงินตามกลุ่มลูกค้า</h3>
+            </div>
+            <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+              <div className="grid grid-cols-3 bg-muted/50 p-4 border-b border-border/50">
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">กลุ่มลูกค้า</div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">เริ่มต้น (Min)</div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">สูงสุด (Max)</div>
+              </div>
+              <div className="divide-y divide-border/50">
+                {limits.map((group, idx) => (
+                  <div key={group.id} className="grid grid-cols-3 p-4 items-center gap-2 md:gap-4 hover:bg-muted/20 transition-colors">
+                    <span className="text-xs md:text-sm font-bold truncate">{group.label}</span>
+                    <Input 
+                      type="number" 
+                      value={group.min} 
+                      onChange={(e) => {
+                        const newLimits = [...limits];
+                        newLimits[idx].min = Number(e.target.value);
+                        setLimits(newLimits);
+                      }}
+                      className="h-9 rounded-lg bg-muted/10 text-xs font-bold text-center" 
+                    />
+                    <Input 
+                      type="number" 
+                      value={group.max} 
+                      onChange={(e) => {
+                        const newLimits = [...limits];
+                        newLimits[idx].max = Number(e.target.value);
+                        setLimits(newLimits);
+                      }}
+                      className="h-9 rounded-lg bg-muted/10 text-xs font-bold text-center" 
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="p-6 bg-muted/10">
+                <Button 
+                  onClick={handleSaveLimits} 
+                  disabled={busy === "limits"}
+                  className="rounded-xl px-8 font-bold h-11"
+                >
+                  {busy === "limits" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  บันทึกวงเงิน
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          {/* Notifications */}
+          <section id="notifications" className="scroll-mt-24 space-y-4 pt-4 border-t border-border/50">
+             <div className="flex items-center gap-2 mb-2">
+              <div className="h-8 w-8 rounded-lg bg-warning/10 flex items-center justify-center text-warning">
+                <Bell className="h-4 w-4" />
+              </div>
+              <h3 className="font-black text-lg">การแจ้งเตือน</h3>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-[#06C755]/10 rounded-xl border border-[#06C755]/20 gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-full bg-[#06C755] flex items-center justify-center text-white shrink-0">
+                    <Smartphone className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="text-sm font-bold text-[#06C755]">LINE Notify</span>
+                    <p className="text-[10px] text-muted-foreground">ส่งยอดแจ้งเตือนผ่านกลุ่ม LINE เมื่อมีการชำระเงิน</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" className="w-full sm:w-auto rounded-lg font-bold border-[#06C755]/30 text-[#06C755] hover:bg-[#06C755]/10">เชื่อมต่อ</Button>
+              </div>
+            </div>
+          </section>
+
+          {/* Display Settings */}
+          <section id="display" className="scroll-mt-24 space-y-4 pt-4 border-t border-border/50">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
+                {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+              </div>
+              <h3 className="font-black text-lg">การแสดงผล</h3>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <span className="text-sm font-bold">โหมดมืด (Dark Mode)</span>
+                  <p className="text-[11px] text-muted-foreground max-w-[280px]">ปรับเปลี่ยนสีของเว็บไซต์ให้เหมาะสมกับสภาพแสงเพื่อถนอมสายตา</p>
+                </div>
+                <Switch checked={theme === "dark"} onCheckedChange={toggle} />
+              </div>
+            </div>
+          </section>
+
+          {/* Backup & System */}
+          <section id="system" className="scroll-mt-24 space-y-4 pt-4 border-t border-border/50">
+             <div className="flex items-center gap-2 mb-2">
+              <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
+                <Database className="h-4 w-4" />
+              </div>
+              <h3 className="font-black text-lg">ระบบและการสำรองข้อมูล</h3>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm">
+               <div className="flex flex-wrap gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleExportExcel}
+                    disabled={busy === "export"}
+                    className="rounded-xl font-bold h-10 px-6"
+                  >
+                    {busy === "export" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    ส่งออกข้อมูลเป็น Excel
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleBackup}
+                    disabled={busy === "backup"}
+                    className="rounded-xl font-bold h-10 px-6"
+                  >
+                    {busy === "backup" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    สำรองข้อมูล (Backup)
+                  </Button>
+               </div>
+               <p className="text-[10px] text-muted-foreground mt-4 italic">* แนะนำให้สำรองข้อมูลอย่างสม่ำเสมอเพื่อความปลอดภัยของข้อมูล</p>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  );
+}

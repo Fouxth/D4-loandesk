@@ -1,0 +1,85 @@
+{
+  "app_name": "LoanDesk",
+  "dashboard": {
+    "title": "System Overview",
+    "description": "Summary of your lending business data",
+    "stats": {
+      "total_customers": "Total Customers",
+      "active_loans": "Active Loans",
+      "due_today": "Due Today",
+      "overdue": "Overdue Loans",
+      "outstanding": "Total Outstanding",
+      "today_collections": "Today's Collections",
+      "monthly_profit": "Monthly Profit"
+    },
+    "charts": {
+      "monthly_collections": "Monthly Collections",
+      "status_breakdown": "Loan Status Breakdown",
+      "payment_trend": "Payment Trend (Last 14 Days)"
+    },
+    "loading": "Loading dashboard data..."
+  },
+  "menu": {
+    "dashboard": "Dashboard",
+    "customers": "Customers",
+    "loans": "Loans",
+    "payments": "Payments",
+    "expenses": "Expenses",
+    "reports": "Reports",
+    "settings": "Settings",
+    "calendar": "Calendar",
+    "activity": "Activity",
+    "main": "Main Menu",
+    "finance": "Finance & System"
+  },
+  "customers": {
+    "title": "Customer List",
+    "add_new": "Add New Customer",
+    "edit": "Edit Customer Information",
+    "search_placeholder": "Search by name, phone, ID...",
+    "table": {
+      "name": "Full Name",
+      "phone": "Phone",
+      "id_card": "ID Card",
+      "risk": "Risk",
+      "created_at": "Created At",
+      "actions": "Actions"
+    },
+    "risk": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    }
+  },
+  "loans": {
+    "title": "Loan Agreements",
+    "create_new": "Create Loan",
+    "search_placeholder": "Search by loan number or name...",
+    "status": {
+      "all": "All Status",
+      "active": "Active",
+      "overdue": "Overdue",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    }
+  },
+  "auth": {
+    "admin": "Admin",
+    "staff": "Staff"
+  },
+  "common": {
+    "save": "Save Changes",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm_delete": "Are you sure you want to delete this item?",
+    "save_success": "Saved successfully",
+    "delete_success": "Deleted successfully",
+    "total": "Total",
+    "items": "Items"
+  },
+  "actions": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save"
+  }
+}
