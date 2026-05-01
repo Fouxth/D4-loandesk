@@ -20,7 +20,7 @@
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
+    // "baseUrl": ".", // removed because deprecated in TS 7+
     "paths": {
       "@/*": ["./src/*"]
     }
