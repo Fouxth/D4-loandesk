@@ -37,7 +37,7 @@ import {
 
 import { useTranslation } from "react-i18next";
 import { useSettings } from "@/contexts/SettingsContext";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 
 export const Route = createFileRoute("/settings")({
   component: () => (<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>),
@@ -56,6 +56,14 @@ function Settings() {
   const [business, setBusiness] = useState({ nameTH: "", nameEN: "", phone: "", address: "" });
   const [lending, setLending] = useState({ defaultInterestRate: 2, lateFeePerDay: 50, deductInterestUpfront: true });
   const [limits, setLimits] = useState<any[]>([]);
+  const [lineToken, setLineToken] = useState("");
+  const [lineEnabled, setLineEnabled] = useState(false);
+  const [lineEvents, setLineEvents] = useState({
+    payment: true,
+    loan: true,
+    expense: true,
+    fraud: true
+  });
 
   useEffect(() => {
     (async () => {
@@ -80,6 +88,14 @@ function Settings() {
             { id: 'good', label: 'เครดิตดี', min: 5000, max: 50000 },
             { id: 'blocked', label: 'เครดิตไม่ผ่าน', min: 0, max: 0 }
           ]);
+        }
+        
+        if (data.line_notify) {
+          setLineToken(data.line_notify.token || "");
+          setLineEnabled(!!data.line_notify.enabled);
+          if (data.line_notify.events) {
+            setLineEvents(data.line_notify.events);
+          }
         }
       } catch (e) {
         toast.error("ไม่สามารถโหลดข้อมูลการตั้งค่าได้");
@@ -126,6 +142,18 @@ function Settings() {
     }
   };
 
+  const handleSaveLineNotify = async () => {
+    setBusy("line");
+    try {
+      await updateSetting("line_notify", { token: lineToken, enabled: lineEnabled, events: lineEvents });
+      toast.success("บันทึกการตั้งค่า LINE Notify เรียบร้อยแล้ว");
+    } catch (e) {
+      toast.error("บันทึกข้อมูลล้มเหลว");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const handleExportExcel = async () => {
     setBusy("export");
     try {
@@ -137,47 +165,118 @@ function Settings() {
       ]);
 
       const wb = utils.book_new();
-      
-      const loansData = loans.map((l: any) => {
+
+      // 1. Process all loans with calculated data
+      const processedLoans = loans.map((l: any) => {
         const loanPayments = payments.filter((p: any) => (p.loanId || p.loan_id) === l.id);
         const totalPaid = loanPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
-        const remaining = (Number(l.totalPayable) || 0) - totalPaid;
+        const remaining = (Number(l.totalPayable || l.total_payable) || 0) - totalPaid;
 
         let typeStr = "";
         const period = l.installmentsCount || l.installments_count || 0;
-        if (l.paymentType === 'daily' || l.payment_type === 'daily') typeStr = `รายวัน (${period} วัน)`;
-        else if (l.paymentType === 'weekly' || l.payment_type === 'weekly') typeStr = `รายสัปดาห์ (${period} งวด)`;
-        else if (l.paymentType === 'monthly' || l.payment_type === 'monthly') typeStr = `รายเดือน (${period} งวด)`;
-        else typeStr = `${l.paymentType} (${period})`;
+        const pType = (l.paymentType || l.payment_type || '').toLowerCase();
+        
+        if (pType === 'daily') {
+          if (period === 30) typeStr = "ราย 1 เดือน";
+          else typeStr = `ราย ${period} วัน`;
+        } else if (pType === 'weekly') {
+          typeStr = `รายสัปดาห์ (${period} งวด)`;
+        } else if (pType === 'monthly') {
+          typeStr = `รายเดือน (${period} งวด)`;
+        } else {
+          typeStr = `${l.paymentType} (${period})`;
+        }
+
+        const formatD = (d: string) => {
+          if (!d) return "";
+          const date = new Date(d);
+          if (isNaN(date.getTime())) return d;
+          return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+        };
 
         return {
           "เลขที่สัญญา": l.loanNumber || l.loan_number,
           "ชื่อลูกค้า": l.customerName || l.customer_name,
-          "ประเภทการส่ง": typeStr,
-          "เงินต้น": Number(l.principal),
-          "ยอดที่ต้องชำระ": Number(l.totalPayable || l.total_payable),
-          "ยอดที่ส่งแล้ว": totalPaid,
+          "ประเภท": typeStr,
+          "ยอดต้น": Number(l.principal),
+          "ยอดกู้รวม": Number(l.totalPayable || l.total_payable),
+          "ยอดที่ส่ง": totalPaid,
           "ยอดคงเหลือ": remaining > 0 ? remaining : 0,
-          "สถานะ": l.status === 'active' ? 'ปกติ' : l.status === 'overdue' ? 'เกินกำหนด' : l.status === 'completed' ? 'เสร็จสิ้น' : l.status === 'refinanced' ? 'ต่อยอด/รีไฟแนนซ์' : 'ยกเลิก',
-          "วันที่เริ่ม": l.startDate || l.start_date,
-          "วันที่สิ้นสุด": l.dueDate || l.due_date
+          "สถานะ": l.status === 'active' ? '🟢 ปกติ' : l.status === 'overdue' ? '🔴 เกินกำหนด' : l.status === 'completed' ? '🔵 เสร็จสิ้น' : l.status === 'refinanced' ? '🟡 ต่อยอด/รีไฟแนนซ์' : '⚪️ ยกเลิก',
+          "วันที่เริ่ม": formatD(l.startDate || l.start_date),
+          "วันที่สิ้นสุด": formatD(l.dueDate || l.due_date),
+          _rawType: typeStr // for grouping
         };
       });
-      
-      loansData.sort((a, b) => a["ประเภทการส่ง"].localeCompare(b["ประเภทการส่ง"]));
-      utils.book_append_sheet(wb, utils.json_to_sheet(loansData), "Loans Summary");
 
-      const custData = customers.map((c: any) => ({
-        "ชื่อ-นามสกุล": c.fullName || c.full_name,
-        "เบอร์โทร": c.phone,
-        "เลขบัตร": c.idCard || c.id_card,
-        "ความเสี่ยง": c.riskLevel || c.risk_level,
-        "ที่อยู่": c.address
-      }));
-      utils.book_append_sheet(wb, utils.json_to_sheet(custData), "Customers");
+      // 2. Create Summary Sheet (All Loans)
+      const allLoansData = processedLoans.map(({ _rawType, ...rest }) => rest);
+      allLoansData.sort((a, b) => a["ประเภท"].localeCompare(b["ประเภท"]));
+      utils.book_append_sheet(wb, utils.json_to_sheet(allLoansData), "รวมทุกสัญญา");
 
-      writeFile(wb, `Debt_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
-      toast.success("ส่งออกรายงานละเอียดเรียบร้อยแล้ว");
+      // 3. Create Separate Sheets for each Type
+      const groups = processedLoans.reduce((acc: any, loan: any) => {
+        const type = loan._rawType;
+        if (!acc[type]) acc[type] = [];
+        acc[type].push(loan);
+        return acc;
+      }, {});
+
+      Object.keys(groups).forEach(type => {
+        const groupData = groups[type].map(({ _rawType, ...rest }: any) => rest);
+        
+        // Add Total Row
+        const totalPrincipal = groupData.reduce((sum: number, r: any) => sum + r["ยอดต้น"], 0);
+        const totalPayable = groupData.reduce((sum: number, r: any) => sum + r["ยอดกู้รวม"], 0);
+        const totalPaid = groupData.reduce((sum: number, r: any) => sum + r["ยอดที่ส่ง"], 0);
+        const totalRemaining = groupData.reduce((sum: number, r: any) => sum + r["ยอดคงเหลือ"], 0);
+
+        groupData.push({
+          "เลขที่สัญญา": "รวมทั้งหมด",
+          "ชื่อลูกค้า": `${groupData.length} สัญญา`,
+          "ประเภท": "",
+          "ยอดต้น": totalPrincipal,
+          "ยอดกู้รวม": totalPayable,
+          "ยอดที่ส่ง": totalPaid,
+          "ยอดคงเหลือ": totalRemaining,
+          "สถานะ": "",
+          "วันที่เริ่ม": "",
+          "วันที่สิ้นสุด": ""
+        });
+
+        const ws = utils.json_to_sheet(groupData);
+        
+        // Basic column width
+        ws['!cols'] = [
+          { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, 
+          { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }
+        ];
+
+        utils.book_append_sheet(wb, ws, type.substring(0, 31)); // Excel sheet name limit is 31 chars
+      });
+
+      // 4. Customers Sheet
+      const custData = customers.map((c: any) => {
+        let riskText = "";
+        const risk = (c.riskLevel || c.risk_level || '').toLowerCase();
+        if (risk === 'high') riskText = "🔴 สูง";
+        else if (risk === 'medium') riskText = "🟡 ปานกลาง";
+        else if (risk === 'low') riskText = "🟢 ต่ำ";
+        else riskText = risk || "—";
+
+        return {
+          "ชื่อ-นามสกุล": c.fullName || c.full_name,
+          "เบอร์โทร": c.phone,
+          "เลขบัตร": c.idCard || c.id_card,
+          "ความเสี่ยง": riskText,
+          "ที่อยู่": c.address
+        };
+      });
+      utils.book_append_sheet(wb, utils.json_to_sheet(custData), "รายชื่อลูกค้า");
+
+      const fileName = `${business.nameEN || "DebtTracker"}_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+      writeFile(wb, fileName);
+      toast.success("ส่งออกรายงานแยกประเภทเรียบร้อยแล้ว");
     } catch (e) {
       console.error(e);
       toast.error("ไม่สามารถส่งออกข้อมูลได้");
@@ -210,7 +309,7 @@ function Settings() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Full_Backup_${new Date().toISOString()}.json`;
+      a.download = `${business.nameEN || "DebtTracker"}_Backup_${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       toast.success("สำรองข้อมูลเรียบร้อยแล้ว");
     } catch (e) {
@@ -494,8 +593,73 @@ function Settings() {
                     <p className="text-[10px] text-muted-foreground">ส่งยอดแจ้งเตือนผ่านกลุ่ม LINE เมื่อมีการชำระเงิน</p>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="w-full sm:w-auto rounded-lg font-bold border-[#06C755]/30 text-[#06C755] hover:bg-[#06C755]/10">เชื่อมต่อ</Button>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-muted-foreground">{lineEnabled ? 'เปิดใช้งาน' : 'ปิด'}</span>
+                  <Switch checked={lineEnabled} onCheckedChange={setLineEnabled} />
+                </div>
               </div>
+              
+              <div className="space-y-4 pt-2">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">LINE Notify Token</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      type="password" 
+                      placeholder="ใส่ Token ที่ได้จาก LINE Notify" 
+                      value={lineToken}
+                      onChange={(e) => setLineToken(e.target.value)}
+                      className="bg-muted/20 font-mono flex-1"
+                    />
+                    <Button 
+                      onClick={handleSaveLineNotify} 
+                      disabled={busy === "line"}
+                      className="bg-[#06C755] hover:bg-[#06C755]/90 text-white font-bold px-6"
+                    >
+                      {busy === "line" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      บันทึก
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    สามารถขอ Token ได้ที่ <a href="https://notify-bot.line.me/" target="_blank" rel="noreferrer" className="text-[#06C755] hover:underline">notify-bot.line.me</a>
+                  </p>
+                </div>
+              </div>
+              
+              {lineEnabled && (
+                <div className="space-y-4 pt-4 border-t border-border/50 animate-in fade-in slide-in-from-top-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">เลือกเหตุการณ์ที่ต้องการแจ้งเตือน</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/10">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-bold cursor-pointer" onClick={() => setLineEvents(p => ({...p, payment: !p.payment}))}>รับชำระเงิน (Payment)</Label>
+                        <p className="text-[10px] text-muted-foreground">แจ้งเตือนเมื่อบันทึกรับเงิน</p>
+                      </div>
+                      <Switch checked={lineEvents.payment} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, payment: v }))} />
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/10">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-bold cursor-pointer" onClick={() => setLineEvents(p => ({...p, loan: !p.loan}))}>ปล่อยกู้ใหม่ (New Loan)</Label>
+                        <p className="text-[10px] text-muted-foreground">แจ้งเตือนเมื่อสร้างสัญญาใหม่</p>
+                      </div>
+                      <Switch checked={lineEvents.loan} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, loan: v }))} />
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/10">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-bold cursor-pointer" onClick={() => setLineEvents(p => ({...p, expense: !p.expense}))}>บันทึกรายจ่าย (Expense)</Label>
+                        <p className="text-[10px] text-muted-foreground">แจ้งเตือนเมื่อมีการบันทึกรายจ่าย</p>
+                      </div>
+                      <Switch checked={lineEvents.expense} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, expense: v }))} />
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-xl border border-destructive/20 bg-destructive/5">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-bold text-destructive cursor-pointer" onClick={() => setLineEvents(p => ({...p, fraud: !p.fraud}))}>ยกเลิก/ลบ (Fraud Alert)</Label>
+                        <p className="text-[10px] text-destructive/80">แจ้งเตือนเมื่อลบประวัติหรือยกเลิกสัญญา</p>
+                      </div>
+                      <Switch checked={lineEvents.fraud} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, fraud: v }))} />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 

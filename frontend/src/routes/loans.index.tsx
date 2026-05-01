@@ -21,6 +21,22 @@ export const Route = createFileRoute("/loans/")({
   component: () => (<ProtectedRoute><AppLayout><Loans /></AppLayout></ProtectedRoute>),
 });
 
+function getLogicalDateStr(d: Date = new Date()): string {
+  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+  const thaiTime = new Date(utc + (3600000 * 7));
+  thaiTime.setHours(thaiTime.getHours() - 5);
+  return `${thaiTime.getFullYear()}-${String(thaiTime.getMonth() + 1).padStart(2, '0')}-${String(thaiTime.getDate()).padStart(2, '0')}`;
+}
+
+function getEffectiveStatus(l: any): string {
+  if (l.status === 'completed' || l.status === 'cancelled') return l.status;
+  const todayStr = getLogicalDateStr();
+  const dueStr = l.dueDate ? l.dueDate.substring(0, 10) : '';
+  if (dueStr < todayStr) return 'overdue';
+  if (dueStr === todayStr) return 'due_today';
+  return 'active';
+}
+
 function Loans() {
   const { t } = useTranslation();
   const [rows, setRows] = useState<any[]>([]);
@@ -92,7 +108,7 @@ function Loans() {
       <div className="hidden md:block rounded-2xl border border-border bg-card shadow-[var(--shadow-elevated)] overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-primary/5 hover:bg-primary/5 border-b border-border/50">
+            <TableRow className="bg-muted/50 hover:bg-muted/50 border-b border-border">
               <TableHead className="font-bold">เลขที่สัญญา</TableHead>
               <TableHead className="font-bold">ชื่อลูกค้า</TableHead>
               <TableHead className="font-bold">เงินต้น</TableHead>
@@ -114,8 +130,8 @@ function Loans() {
                 <TableCell className="font-bold">{formatTHB(l.totalPayable)}</TableCell>
                 <TableCell className="text-muted-foreground text-xs">{formatDate(l.dueDate)}</TableCell>
                 <TableCell className="text-center">
-                  <StatusBadge tone={loanStatusTone(l.status)}>
-                    {t(`loans.status.${l.status}`)}
+                  <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
+                    {t(`loans.status.${getEffectiveStatus(l)}`)}
                   </StatusBadge>
                 </TableCell>
               </TableRow>
@@ -142,8 +158,8 @@ function Loans() {
                   <User className="h-4 w-4 text-primary" /> {l.customerName}
                 </h4>
               </div>
-              <StatusBadge tone={loanStatusTone(l.status)}>
-                {t(`loans.status.${l.status}`)}
+              <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
+                {t(`loans.status.${getEffectiveStatus(l)}`)}
               </StatusBadge>
             </div>
             
@@ -279,7 +295,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
           </div>
         </div>
 
-        <div className="rounded-xl bg-primary/5 border border-primary/10 p-4 shadow-sm">
+        <div className="rounded-xl bg-primary/10 border border-primary/20 p-4 shadow-sm">
           <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary mb-3">สรุปยอดเบื้องต้น</h4>
           <div className="grid grid-cols-3 gap-4">
             <div>

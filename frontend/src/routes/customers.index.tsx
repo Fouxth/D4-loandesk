@@ -134,7 +134,7 @@ function Customers() {
       <div className="hidden md:block rounded-2xl border border-border bg-card shadow-[var(--shadow-elevated)] overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-primary/5 hover:bg-primary/5 border-b border-border/50">
+            <TableRow className="bg-muted/50 hover:bg-muted/50 border-b border-border">
               <TableHead className="font-bold">{t('customers.table.name')}</TableHead>
               <TableHead className="font-bold">{t('customers.table.phone')}</TableHead>
                <TableHead className="font-bold">{t('customers.table.id_card')}</TableHead>
@@ -271,9 +271,46 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const rawIdCard = form.idCard.replace(/\D/g, '');
+    if (rawIdCard.length > 0 && rawIdCard.length < 13) {
+      toast.error("รหัสบัตรประชาชนต้องมี 13 หลัก");
+      return;
+    }
     setBusy(true);
     await onSubmit(form);
     setBusy(false);
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, '');
+    if (val.length > 10) val = val.slice(0, 10);
+    
+    let formatted = val;
+    if (val.length > 6) {
+      formatted = `${val.slice(0, 3)}-${val.slice(3, 6)}-${val.slice(6)}`;
+    } else if (val.length > 3) {
+      formatted = `${val.slice(0, 3)}-${val.slice(3)}`;
+    }
+    
+    setForm({ ...form, phone: formatted });
+  };
+
+  const handleIdCardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, '');
+    if (val.length > 13) val = val.slice(0, 13);
+    
+    let formatted = val;
+    if (val.length > 12) {
+      formatted = `${val.slice(0, 1)}-${val.slice(1, 5)}-${val.slice(5, 10)}-${val.slice(10, 12)}-${val.slice(12)}`;
+    } else if (val.length > 10) {
+      formatted = `${val.slice(0, 1)}-${val.slice(1, 5)}-${val.slice(5, 10)}-${val.slice(10)}`;
+    } else if (val.length > 5) {
+      formatted = `${val.slice(0, 1)}-${val.slice(1, 5)}-${val.slice(5)}`;
+    } else if (val.length > 1) {
+      formatted = `${val.slice(0, 1)}-${val.slice(1)}`;
+    }
+    
+    setForm({ ...form, idCard: formatted });
   };
 
   return (
@@ -289,11 +326,11 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t('customers.table.phone')}</Label>
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="bg-muted/20" />
+            <Input value={form.phone} onChange={handlePhoneChange} placeholder="081-234-5678" className="bg-muted/20" />
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t('customers.table.id_card')}</Label>
-            <Input value={form.idCard} onChange={(e) => setForm({ ...form, idCard: e.target.value })} className="bg-muted/20" />
+            <Input value={form.idCard} onChange={handleIdCardChange} placeholder="1-2345-67890-12-3" className="bg-muted/20 font-mono text-xs" />
           </div>
         </div>
          <div className="grid grid-cols-2 gap-4">

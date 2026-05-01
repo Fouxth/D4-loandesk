@@ -8,11 +8,11 @@ interface StatusBadgeProps {
 
 const TONE_CLASSES = {
   primary: "bg-primary/10 text-primary border-primary/20",
-  warning: "bg-warning/10 text-warning-foreground border-warning/20",
+  warning: "bg-warning/10 text-warning border-warning/20",
   destructive: "bg-destructive/10 text-destructive border-destructive/20",
   success: "bg-success/10 text-success border-success/20",
   muted: "bg-muted text-muted-foreground border-transparent",
-  info: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  info: "bg-info/10 text-info border-info/20",
 };
 
 export function StatusBadge({ children, tone = "muted", className }: StatusBadgeProps) {

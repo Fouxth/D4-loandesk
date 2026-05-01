@@ -183,44 +183,44 @@ function Payments() {
 
       {/* Breakdown Summary Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+        <div className="p-4 bg-primary/10 rounded-2xl border border-primary/20 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary">
             <TrendingUp className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-primary/60 uppercase tracking-widest leading-none mb-1">
+            <span className="text-[10px] font-bold text-primary/80 uppercase tracking-widest leading-none mb-1">
               ยอด{viewMode === "day" ? "รายวัน" : "รายเดือน"}
             </span>
             <span className="text-lg font-black text-primary">{formatTHB(totalAmount)}</span>
           </div>
         </div>
 
-        <div className="p-4 bg-success/5 rounded-2xl border border-success/10 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-success/10 flex items-center justify-center text-success text-xs font-bold">
+        <div className="p-4 bg-success/10 rounded-2xl border border-success/20 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-success/15 flex items-center justify-center text-success text-xs font-bold">
             <Banknote className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-success/60 uppercase tracking-widest leading-none mb-1">ยอดเงินสด</span>
+            <span className="text-[10px] font-bold text-success/80 uppercase tracking-widest leading-none mb-1">ยอดเงินสด</span>
             <span className="text-lg font-black text-success">{formatTHB(cashTotal)}</span>
           </div>
         </div>
 
-        <div className="p-4 bg-info/5 rounded-2xl border border-info/10 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-info/10 flex items-center justify-center text-info">
+        <div className="p-4 bg-info/10 rounded-2xl border border-info/20 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-info/15 flex items-center justify-center text-info">
             <Landmark className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-info/60 uppercase tracking-widest leading-none mb-1">ยอดโอนเงิน</span>
+            <span className="text-[10px] font-bold text-info/80 uppercase tracking-widest leading-none mb-1">ยอดโอนเงิน</span>
             <span className="text-lg font-black text-info">{formatTHB(bankTotal)}</span>
           </div>
         </div>
 
-        <div className="p-4 bg-warning/5 rounded-2xl border border-warning/10 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-warning/10 flex items-center justify-center text-warning">
+        <div className="p-4 bg-warning/10 rounded-2xl border border-warning/20 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-warning/15 flex items-center justify-center text-warning">
             <Smartphone className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-warning/60 uppercase tracking-widest leading-none mb-1">ยอดแอปฯ</span>
+            <span className="text-[10px] font-bold text-warning/80 uppercase tracking-widest leading-none mb-1">ยอดแอปฯ</span>
             <span className="text-lg font-black text-warning">{formatTHB(mobileTotal)}</span>
           </div>
         </div>
@@ -230,7 +230,7 @@ function Payments() {
         <div className="hidden md:block">
           <Table>
             <TableHeader>
-              <TableRow className="bg-primary/5 hover:bg-primary/5 border-b border-border/50">
+              <TableRow className="bg-muted/50 hover:bg-muted/50 border-b border-border">
                 <TableHead className="font-bold pl-6">วันที่ชำระ</TableHead>
                 <TableHead className="font-bold">เลขที่สัญญา</TableHead>
                 <TableHead className="font-bold">ชื่อลูกค้า</TableHead>

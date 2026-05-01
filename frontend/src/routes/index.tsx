@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/AppLayout";
@@ -27,6 +27,7 @@ export const Route = createFileRoute("/")({
 
 interface Summary {
   customers: number;
+  totalLoans: number;
   activeLoans: number;
   dueToday: number;
   overdue: number;
@@ -79,32 +80,40 @@ function Dashboard() {
 
       {/* Main Stats Row */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="ลูกค้าทั้งหมด" value={summary.customers} icon={Users} tone="primary" />
-        <StatCard label="สัญญาเงินกู้" value={summary.activeLoans} icon={Wallet} tone="primary" />
-        <StatCard label="ครบกำหนดวันนี้" value={summary.dueToday} icon={CalIcon} tone="warning" />
-        <StatCard label="เกินกำหนดชำระ" value={summary.overdue} icon={AlertTriangle} tone="destructive" />
+        <Link to="/customers" className="block outline-none rounded-2xl focus-visible:ring-2 focus-visible:ring-primary/50 transition-transform hover:-translate-y-1">
+          <StatCard label="ลูกค้าทั้งหมด" value={`${summary.customers.toLocaleString()} คน`} icon={Users} tone="primary" />
+        </Link>
+        <Link to="/loans" className="block outline-none rounded-2xl focus-visible:ring-2 focus-visible:ring-primary/50 transition-transform hover:-translate-y-1">
+          <StatCard label="สัญญาเงินกู้" value={`${summary.totalLoans.toLocaleString()} สัญญา`} icon={Wallet} tone="primary" />
+        </Link>
+        <Link to="/loans" className="block outline-none rounded-2xl focus-visible:ring-2 focus-visible:ring-warning/50 transition-transform hover:-translate-y-1">
+          <StatCard label="ครบกำหนดวันนี้" value={`${summary.dueToday.toLocaleString()} สัญญา`} icon={CalIcon} tone="warning" />
+        </Link>
+        <Link to="/loans" className="block outline-none rounded-2xl focus-visible:ring-2 focus-visible:ring-destructive/50 transition-transform hover:-translate-y-1">
+          <StatCard label="เกินกำหนดชำระ" value={`${summary.overdue.toLocaleString()} สัญญา`} icon={AlertTriangle} tone="destructive" />
+        </Link>
       </div>
 
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         {/* Financial Highlights */}
         <div className="lg:col-span-2 space-y-6">
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-            <div className="bg-primary/5 border border-primary/10 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+            <div className="bg-primary/10 border border-primary/20 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
               <div>
-                <p className="text-xs font-bold text-primary/60 uppercase tracking-widest mb-1">ยอดเงินคงค้างรวม</p>
+                <p className="text-xs font-bold text-primary/80 uppercase tracking-widest mb-1">ยอดเงินคงค้างรวม</p>
                 <h4 className="text-3xl font-black text-primary tracking-tight">{formatTHB(summary.outstanding)}</h4>
               </div>
-              <div className="mt-4 flex items-center gap-2 text-[10px] text-primary/40 font-medium">
+              <div className="mt-4 flex items-center gap-2 text-[10px] text-primary/60 font-medium">
                 <Activity className="h-3 w-3" /> ยอดเงินต้นและดอกเบี้ยที่ยังไม่ได้รับชำระ
               </div>
             </div>
             
-            <div className="bg-success/5 border border-success/10 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+            <div className="bg-success/10 border border-success/20 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
               <div>
-                <p className="text-xs font-bold text-success/60 uppercase tracking-widest mb-1">ยอดเก็บเงินวันนี้</p>
+                <p className="text-xs font-bold text-success/80 uppercase tracking-widest mb-1">ยอดเก็บเงินวันนี้</p>
                 <h4 className="text-3xl font-black text-success tracking-tight">{formatTHB(summary.todayCollections)}</h4>
               </div>
-              <div className="mt-4 flex items-center gap-2 text-[10px] text-success/40 font-medium">
+              <div className="mt-4 flex items-center gap-2 text-[10px] text-success/60 font-medium">
                 <TrendingUp className="h-3 w-3" /> ยอดเงินที่จัดเก็บได้จริงในวันนี้
               </div>
             </div>
@@ -123,16 +132,17 @@ function Dashboard() {
                 <BarChart data={monthly}>
                   <defs>
                     <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={1} />
-                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.6} />
+                      <stop offset="0%" stopColor="var(--chart-primary)" stopOpacity={1} />
+                      <stop offset="100%" stopColor="var(--chart-primary)" stopOpacity={0.5} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.5} />
-                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} axisLine={false} tickLine={false} dy={10} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                  <XAxis dataKey="month" stroke="var(--chart-text)" fontSize={11} axisLine={false} tickLine={false} dy={10} />
+                  <YAxis stroke="var(--chart-text)" fontSize={11} axisLine={false} tickLine={false} />
                   <Tooltip
-                    cursor={{ fill: 'hsl(var(--muted))', opacity: 0.1 }}
-                    contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, boxShadow: 'var(--shadow-elevated)' }}
+                    cursor={{ fill: 'var(--chart-primary)', opacity: 0.08 }}
+                    contentStyle={{ background: "var(--chart-card-bg)", border: "1px solid var(--chart-border)", borderRadius: 12, boxShadow: 'var(--shadow-elevated)', color: 'var(--foreground)' }}
+                    labelStyle={{ color: 'var(--chart-text)' }}
                     formatter={(v: number) => [formatTHB(v), "เก็บได้"]}
                   />
                   <Bar dataKey="collected" fill="url(#barGradient)" radius={[6, 6, 0, 0]} barSize={40} />
@@ -152,10 +162,10 @@ function Dashboard() {
                   <Pie data={statusBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={5}>
                     {statusBreakdown.map((entry, index) => {
                       const key = Object.keys(STATUS_COLORS).find(k => t(`loans.status.${k}`) === entry.name) || 'active';
-                      return <Cell key={index} fill={STATUS_COLORS[key] ?? "hsl(var(--muted))"} stroke="none" />;
+                      return <Cell key={index} fill={STATUS_COLORS[key] ?? "var(--chart-muted)"} stroke="none" />;
                     })}
                   </Pie>
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12 }} />
+                  <Tooltip contentStyle={{ background: "var(--chart-card-bg)", border: "1px solid var(--chart-border)", borderRadius: 12, color: 'var(--foreground)' }} labelStyle={{ color: 'var(--chart-text)' }} />
                   <Legend 
                     verticalAlign="bottom" 
                     iconType="circle" 
@@ -201,18 +211,19 @@ function Dashboard() {
               <AreaChart data={trend}>
                 <defs>
                   <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
-                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    <stop offset="0%" stopColor="var(--chart-primary)" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="var(--chart-primary)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.3} />
-                <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={10} axisLine={false} tickLine={false} dy={10} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                <XAxis dataKey="day" stroke="var(--chart-text)" fontSize={10} axisLine={false} tickLine={false} dy={10} />
                 <YAxis hide />
                 <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12 }}
+                  contentStyle={{ background: "var(--chart-card-bg)", border: "1px solid var(--chart-border)", borderRadius: 12, color: 'var(--foreground)' }}
+                  labelStyle={{ color: 'var(--chart-text)' }}
                   formatter={(v: number) => [formatTHB(v), "ยอดชำระ"]}
                 />
-                <Area type="monotone" dataKey="amount" stroke="hsl(var(--primary))" strokeWidth={3} fill="url(#trendGradient)" />
+                <Area type="monotone" dataKey="amount" stroke="var(--chart-primary)" strokeWidth={3} fill="url(#trendGradient)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

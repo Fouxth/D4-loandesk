@@ -1,4 +1,5 @@
 import sql from '../db';
+import { sendLineNotify } from './line.service';
 
 export async function getAllLoans() {
   return await sql`
@@ -20,14 +21,34 @@ export async function getLoanById(id: string) {
 }
 
 export async function dbCreateLoan(data: any, loanNumber: string, userId: string) {
-  return await sql`
+  const result = await sql`
     INSERT INTO loans ${sql({ ...data, loanNumber, createdBy: userId })}
     RETURNING *
   `;
+  
+  if (result.length > 0) {
+    const loan = result[0];
+    const customers = await sql`SELECT full_name FROM customers WHERE id = ${loan.customer_id}`;
+    if (customers.length > 0) {
+      const customer = customers[0];
+      const formattedPrincipal = Number(loan.principal).toLocaleString('en-US', {minimumFractionDigits: 2});
+      const message = `📝 แจ้งเตือนเปิดสัญญาใหม่\n━━━━━━━━━━━━━━━━\n👤 ลูกค้า: ${customer.full_name}\n🏷 สัญญา: ${loan.loan_number}\n💸 ยอดจัด: ${formattedPrincipal} บาท\n━━━━━━━━━━━━━━━━\n✅ อนุมัติและบันทึกเข้าระบบแล้ว`;
+      sendLineNotify(message, 'loan');
+    }
+  }
+  
+  return result;
+}
+
+function getLogicalDateStr(d: Date): string {
+  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+  const thaiTime = new Date(utc + (3600000 * 7));
+  thaiTime.setHours(thaiTime.getHours() - 5);
+  return `${thaiTime.getFullYear()}-${String(thaiTime.getMonth() + 1).padStart(2, '0')}-${String(thaiTime.getDate()).padStart(2, '0')}`;
 }
 
 export async function getOverdueNotifications() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLogicalDateStr(new Date());
   return await sql`
     SELECT l.id, l.loan_number, l.due_date, l.total_payable, l.status, c.full_name as customer_name
     FROM loans l

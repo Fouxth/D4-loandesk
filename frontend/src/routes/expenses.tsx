@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
 import { formatTHB, formatDate } from "@/utils/format";
 import { getExpenses, createExpense, deleteExpense } from "@/lib/services";
@@ -73,7 +73,7 @@ function Expenses() {
         <div className="hidden md:block">
           <Table>
             <TableHeader>
-              <TableRow className="bg-primary/5 hover:bg-primary/5 border-b border-border/50">
+              <TableRow className="bg-muted/50 hover:bg-muted/50 border-b border-border">
                 <TableHead className="font-bold whitespace-nowrap">วันที่</TableHead>
                 <TableHead className="font-bold whitespace-nowrap">หมวดหมู่</TableHead>
                 <TableHead className="font-bold whitespace-nowrap">รายละเอียด</TableHead>

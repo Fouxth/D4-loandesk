@@ -5,16 +5,24 @@ function getDefaultMonthStart(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
+function getLogicalDateStr(d: Date): string {
+  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+  const thaiTime = new Date(utc + (3600000 * 7));
+  thaiTime.setHours(thaiTime.getHours() - 5);
+  return `${thaiTime.getFullYear()}-${String(thaiTime.getMonth() + 1).padStart(2, '0')}-${String(thaiTime.getDate()).padStart(2, '0')}`;
+}
+
 /** Convert Date object or string to YYYY-MM-DD */
 function toDateStr(d: any): string {
   if (!d) return '';
-  if (d instanceof Date) return d.toISOString().split('T')[0];
-  return String(d);
+  if (d instanceof Date) return getLogicalDateStr(d);
+  if (typeof d === 'string' && d.includes('T')) return getLogicalDateStr(new Date(d));
+  return String(d).split('T')[0];
 }
 
 export async function fetchDashboardRawData(monthStartStr?: string) {
   const monthStart = monthStartStr || getDefaultMonthStart();
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLogicalDateStr(new Date());
 
   const [custCountRes, loans, payments, expenses] = await Promise.all([
     sql`SELECT count(*) as count FROM customers`,
@@ -26,7 +34,7 @@ export async function fetchDashboardRawData(monthStartStr?: string) {
   const custCount = parseInt(custCountRes[0].count);
   const activeLoans = loans.filter((l: any) => l.status === 'active' || l.status === 'overdue');
   const dueToday = loans.filter((l: any) => toDateStr(l.dueDate) === today && (l.status === 'active' || l.status === 'overdue'));
-  const overdue = loans.filter((l: any) => l.status === 'overdue');
+  const overdue = loans.filter((l: any) => toDateStr(l.dueDate) < today && (l.status === 'active' || l.status === 'overdue'));
 
   const outstanding = activeLoans.reduce((sum: number, l: any) => {
     const paid = payments
@@ -61,7 +69,7 @@ export async function fetchDashboardRawData(monthStartStr?: string) {
   for (let i = 13; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const day = d.toISOString().split('T')[0];
+    const day = getLogicalDateStr(d);
     const amount = payments
       .filter((p: any) => toDateStr(p.paymentDate) === day)
       .reduce((a: number, p: any) => a + Number(p.amount), 0);
@@ -71,13 +79,21 @@ export async function fetchDashboardRawData(monthStartStr?: string) {
   // Status breakdown
   const statusMap: Record<string, number> = {};
   loans.forEach((l: any) => {
-    statusMap[l.status] = (statusMap[l.status] || 0) + 1;
+    let effectiveStatus = l.status;
+    if (l.status === 'active' || l.status === 'overdue') {
+      const dueStr = toDateStr(l.dueDate);
+      if (dueStr < today) effectiveStatus = 'overdue';
+      else if (dueStr === today) effectiveStatus = 'due_today';
+      else effectiveStatus = 'active';
+    }
+    statusMap[effectiveStatus] = (statusMap[effectiveStatus] || 0) + 1;
   });
   const statusBreakdown = Object.entries(statusMap).map(([name, value]) => ({ name, value }));
 
   return {
     summary: {
       customers: custCount,
+      totalLoans: loans.length,
       activeLoans: activeLoans.length,
       dueToday: dueToday.length,
       overdue: overdue.length,
@@ -93,7 +109,7 @@ export async function fetchDashboardRawData(monthStartStr?: string) {
 
 export async function fetchReportRawData(ms?: string) {
   const monthStart = ms || getDefaultMonthStart();
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLogicalDateStr(new Date());
 
   const [allPayments, allExpenses, allLoans, allCustomers] = await Promise.all([
     sql`SELECT p.loan_id, p.amount, p.payment_date, c.full_name as customer_name
@@ -127,7 +143,7 @@ export async function fetchReportRawData(ms?: string) {
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const day = d.toISOString().split('T')[0];
+    const day = getLogicalDateStr(d);
     const total = allPayments
       .filter((p: any) => toDateStr(p.paymentDate) === day)
       .reduce((a: number, p: any) => a + Number(p.amount), 0);
