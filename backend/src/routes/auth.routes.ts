@@ -7,6 +7,11 @@ import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
+const isProd = process.env.NODE_ENV === 'production';
+const crossSiteCookies = process.env.CROSS_SITE_COOKIES === 'true';
+const cookieSameSite: 'lax' | 'none' = crossSiteCookies ? 'none' : 'lax';
+const cookieSecure = isProd;
+
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -18,8 +23,8 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
     res.cookie('session', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: cookieSecure,
+      sameSite: cookieSameSite,
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
@@ -38,8 +43,8 @@ router.post('/signup', async (req, res) => {
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
     res.cookie('session', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: cookieSecure,
+      sameSite: cookieSameSite,
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
@@ -50,7 +55,10 @@ router.post('/signup', async (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
-  res.clearCookie('session');
+  res.clearCookie('session', {
+    sameSite: cookieSameSite,
+    secure: cookieSecure,
+  });
   res.json({ success: true });
 });
 
