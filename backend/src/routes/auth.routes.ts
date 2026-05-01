@@ -10,7 +10,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const isProd = process.env.NODE_ENV === 'production';
 const crossSiteCookies = process.env.CROSS_SITE_COOKIES === 'true';
 const cookieSameSite: 'lax' | 'none' = crossSiteCookies ? 'none' : 'lax';
-const cookieSecure = isProd;
+const cookieSecure = isProd || crossSiteCookies;
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;

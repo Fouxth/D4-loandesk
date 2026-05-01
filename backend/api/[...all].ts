@@ -4,8 +4,14 @@ export default function handler(req: any, res: any) {
   try {
     const app = createApp();
 
+    // Log the request for debugging on Vercel
+    if (process.env.DEBUG_API === 'true') {
+      console.log(`[API Request] ${req.method} ${req.url}`);
+    }
+
     // This function is mounted under /api/* on Vercel.
     // Our Express app expects routes to include /api prefix.
+    // However, Vercel might pass the URL without the /api prefix depending on rewrites.
     if (typeof req.url === "string" && !req.url.startsWith("/api")) {
       req.url = `/api${req.url}`;
     }
@@ -21,6 +27,5 @@ export default function handler(req: any, res: any) {
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(JSON.stringify(body));
-    return;
   }
 }

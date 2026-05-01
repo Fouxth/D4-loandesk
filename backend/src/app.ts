@@ -20,42 +20,49 @@ export function createApp() {
   const app = express();
 
   const normalizeOrigin = (value: string) => {
-    const trimmed = value.trim();
-    const unquoted = trimmed.replace(/^['"]|['"]$/g, '');
-    return unquoted.replace(/\/+$/, '');
+    return value.trim().replace(/^['"]|['"]$/g, '').replace(/\/+$/, '');
   };
 
-  const allowedOrigins = new Set(
-    [
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'http://localhost:5175',
-      process.env.FRONTEND_ORIGIN,
-      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
-    ]
-      .filter(Boolean)
-      .map((o) => normalizeOrigin(String(o))) as string[],
-  );
+  const allowedOriginsList = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    ...(process.env.FRONTEND_ORIGIN ? process.env.FRONTEND_ORIGIN.split(',') : []),
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+  ]
+    .filter(Boolean)
+    .map((o) => normalizeOrigin(String(o)));
+
+  const allowedOrigins = new Set(allowedOriginsList);
 
   // Middleware
   app.use(
     cors({
       origin: (origin, cb) => {
+        // Allow requests with no origin (like mobile apps or curl)
         if (!origin) return cb(null, true);
 
         const normalizedOrigin = normalizeOrigin(origin);
+        
         if (process.env.ALLOW_ANY_ORIGIN === 'true') {
-          return cb(null, normalizedOrigin);
+          return cb(null, true);
         }
+
         if (allowedOrigins.has(normalizedOrigin)) {
-          // Echo the allowed origin (required when credentials=true)
-          return cb(null, normalizedOrigin);
+          return cb(null, true);
+        }
+
+        // For Vercel preview deployments, allow any .vercel.app origin if configured
+        if (process.env.ALLOW_VERCEL_PREVIEW === 'true' && normalizedOrigin.endsWith('.vercel.app')) {
+          return cb(null, true);
         }
 
         console.warn('CORS blocked origin:', origin);
-        return cb(null, false);
+        return cb(new Error('Not allowed by CORS'));
       },
       credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
     }),
   );
   app.use(express.json());
