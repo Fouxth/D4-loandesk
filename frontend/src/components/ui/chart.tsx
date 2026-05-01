@@ -92,16 +92,24 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
 
+type ChartTooltipContentProps = React.ComponentProps<"div"> & {
+  active?: boolean;
+  payload?: unknown;
+  label?: unknown;
+  labelFormatter?: (label: unknown, payload: any[]) => React.ReactNode;
+  labelClassName?: string;
+  formatter?: (...args: any[]) => any;
+  color?: string;
+  hideLabel?: boolean;
+  hideIndicator?: boolean;
+  indicator?: "line" | "dot" | "dashed";
+  nameKey?: string;
+  labelKey?: string;
+};
+
 const ChartTooltipContent = React.forwardRef<
   HTMLDivElement,
-  React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-    React.ComponentProps<"div"> & {
-      hideLabel?: boolean;
-      hideIndicator?: boolean;
-      indicator?: "line" | "dot" | "dashed";
-      nameKey?: string;
-      labelKey?: string;
-    }
+  ChartTooltipContentProps
 >(
   (
     {
@@ -124,7 +132,7 @@ const ChartTooltipContent = React.forwardRef<
     const { config } = useChart();
 
     // Type assertion for payload
-    const safePayload = Array.isArray(payload) ? payload as Array<any> : [];
+    const safePayload = Array.isArray(payload) ? (payload as Array<any>) : [];
 
     const tooltipLabel = React.useMemo(() => {
       if (hideLabel || !safePayload.length) {
@@ -243,17 +251,22 @@ ChartTooltipContent.displayName = "ChartTooltip";
 
 const ChartLegend = RechartsPrimitive.Legend;
 
+type ChartLegendContentProps = React.ComponentProps<"div"> & {
+  payload?: unknown;
+  verticalAlign?: "top" | "bottom";
+  hideIcon?: boolean;
+  nameKey?: string;
+};
+
 const ChartLegendContent = React.forwardRef<
   HTMLDivElement,
-  React.ComponentProps<"div"> &
-    Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
-      hideIcon?: boolean;
-      nameKey?: string;
-    }
+  ChartLegendContentProps
 >(({ className, hideIcon = false, payload, verticalAlign = "bottom", nameKey }, ref) => {
   const { config } = useChart();
 
-  if (!payload?.length) {
+  const safePayload = Array.isArray(payload) ? (payload as Array<any>) : [];
+
+  if (!safePayload.length) {
     return null;
   }
 
@@ -266,9 +279,9 @@ const ChartLegendContent = React.forwardRef<
         className,
       )}
     >
-      {payload
+      {safePayload
         .filter((item) => item.type !== "none")
-        .map((item) => {
+        .map((item: any) => {
           const key = `${nameKey || item.dataKey || "value"}`;
           const itemConfig = getPayloadConfigFromPayload(config, item, key);
 

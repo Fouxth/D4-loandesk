@@ -6,7 +6,6 @@ import {
   TrendingDown,
   FileBarChart,
   Settings,
-  Bell,
   Calendar,
   History,
   Languages,

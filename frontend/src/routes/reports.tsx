@@ -246,6 +246,7 @@ function StatCard({
 
   return (
     <div
+      data-highlight={highlight ? "1" : "0"}
       className={`rounded-2xl border p-6 shadow-[var(--shadow-elevated)] transition-all hover:scale-[1.02] ${tones[tone]}`}
     >
       <div className="flex items-center justify-between">
@@ -253,7 +254,7 @@ function StatCard({
           {label}
         </p>
         <div className={`p-2 rounded-lg bg-current/10`}>
-          <Icon className={`h-4 w-4`} />
+          <Icon className={`h-4 w-4 ${iconClass ?? ""}`} />
         </div>
       </div>
       <p className="mt-4 text-2xl font-black tracking-tight text-foreground">{value}</p>

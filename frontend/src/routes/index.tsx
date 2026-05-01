@@ -8,7 +8,7 @@ import { StatCard } from "@/components/StatCard";
 import { formatTHB } from "@/utils/format";
 import { getDashboardData } from "@/lib/services";
 import {
-  Users, Wallet, Calendar as CalIcon, AlertTriangle, TrendingUp, DollarSign, Activity,
+  Users, Wallet, Calendar as CalIcon, AlertTriangle, TrendingUp, Activity,
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -143,7 +143,7 @@ function Dashboard() {
                     cursor={{ fill: 'var(--chart-primary)', opacity: 0.08 }}
                     contentStyle={{ background: "var(--chart-card-bg)", border: "1px solid var(--chart-border)", borderRadius: 12, boxShadow: 'var(--shadow-elevated)', color: 'var(--foreground)' }}
                     labelStyle={{ color: 'var(--chart-text)' }}
-                    formatter={(v: number) => [formatTHB(v), "เก็บได้"]}
+                    formatter={(value) => [formatTHB(Number(value ?? 0)), "เก็บได้"] as any}
                   />
                   <Bar dataKey="collected" fill="url(#barGradient)" radius={[6, 6, 0, 0]} barSize={40} />
                 </BarChart>
@@ -221,7 +221,7 @@ function Dashboard() {
                 <Tooltip
                   contentStyle={{ background: "var(--chart-card-bg)", border: "1px solid var(--chart-border)", borderRadius: 12, color: 'var(--foreground)' }}
                   labelStyle={{ color: 'var(--chart-text)' }}
-                  formatter={(v: number) => [formatTHB(v), "ยอดชำระ"]}
+                  formatter={(value) => [formatTHB(Number(value ?? 0)), "ยอดชำระ"] as any}
                 />
                 <Area type="monotone" dataKey="amount" stroke="var(--chart-primary)" strokeWidth={3} fill="url(#trendGradient)" />
               </AreaChart>

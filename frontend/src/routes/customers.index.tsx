@@ -277,8 +277,12 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
       return;
     }
     setBusy(true);
-    await onSubmit(form);
-    setBusy(false);
+    try {
+      await onSubmit(form);
+      onDone();
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {

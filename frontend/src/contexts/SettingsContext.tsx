@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getSettings } from '@/lib/services';
-import { useTranslation } from 'react-i18next';
 
 interface SettingsContextType {
   business: {
@@ -21,7 +20,6 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [business, setBusiness] = useState({
     nameTH: 'มั่งมี การเงิน',

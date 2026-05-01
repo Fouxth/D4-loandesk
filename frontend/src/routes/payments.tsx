@@ -8,7 +8,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { 
   Search, 
   Banknote, 
-  Calendar, 
   CreditCard, 
   Filter, 
   History, 
@@ -53,7 +52,7 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/utils/utils";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Wallet, Landmark } from "lucide-react";
+import { Calendar as CalendarIcon, Landmark } from "lucide-react";
 
 function Payments() {
   const [rows, setRows] = useState<any[]>([]);

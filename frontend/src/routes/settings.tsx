@@ -34,8 +34,6 @@ import {
   Loader2,
   CheckCircle2
 } from "lucide-react";
-
-import { useTranslation } from "react-i18next";
 import { useSettings } from "@/contexts/SettingsContext";
 import { cn } from "@/utils/utils";
 
@@ -44,10 +42,9 @@ export const Route = createFileRoute("/settings")({
 });
 
 function Settings() {
-  const { t, i18n } = useTranslation();
   const { user, roles, signOut } = useAuth();
   const { theme, toggle } = useTheme();
-  const { business: globalBusiness, refreshSettings } = useSettings();
+  const { refreshSettings } = useSettings();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState("profile");
@@ -210,8 +207,8 @@ function Settings() {
       });
 
       // 2. Create Summary Sheet (All Loans)
-      const allLoansData = processedLoans.map(({ _rawType, ...rest }) => rest);
-      allLoansData.sort((a, b) => a["ประเภท"].localeCompare(b["ประเภท"]));
+      const allLoansData = processedLoans.map(({ _rawType, ...rest }: any) => rest);
+      allLoansData.sort((a: any, b: any) => a["ประเภท"].localeCompare(b["ประเภท"]));
       utils.book_append_sheet(wb, utils.json_to_sheet(allLoansData), "รวมทุกสัญญา");
 
       // 3. Create Separate Sheets for each Type

@@ -1,5 +1,4 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { formatTHB } from "@/utils/format";
 import type { LucideIcon } from "lucide-react";
 
 interface StatCardProps {
