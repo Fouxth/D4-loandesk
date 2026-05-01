@@ -44,6 +44,9 @@ export function createApp() {
         if (!origin) return cb(null, true);
 
         const normalizedOrigin = normalizeOrigin(origin);
+        if (process.env.ALLOW_ANY_ORIGIN === 'true') {
+          return cb(null, normalizedOrigin);
+        }
         if (allowedOrigins.has(normalizedOrigin)) {
           // Echo the allowed origin (required when credentials=true)
           return cb(null, normalizedOrigin);
