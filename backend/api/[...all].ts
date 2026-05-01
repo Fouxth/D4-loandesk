@@ -1,22 +1,24 @@
 import { createApp } from "../src/app";
 
+let cachedApp: any;
+
 export default function handler(req: any, res: any) {
   try {
-    const app = createApp();
+    if (!cachedApp) {
+      cachedApp = createApp();
+    }
 
     // Log the request for debugging on Vercel
     if (process.env.DEBUG_API === 'true') {
       console.log(`[API Request] ${req.method} ${req.url}`);
     }
 
-    // This function is mounted under /api/* on Vercel.
-    // Our Express app expects routes to include /api prefix.
-    // However, Vercel might pass the URL without the /api prefix depending on rewrites.
+    // Ensure the URL is correctly handled for Express
     if (typeof req.url === "string" && !req.url.startsWith("/api")) {
       req.url = `/api${req.url}`;
     }
 
-    return app(req, res);
+    return cachedApp(req, res);
   } catch (err) {
     console.error('API handler crash', err);
 

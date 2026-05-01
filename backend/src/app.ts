@@ -4,8 +4,12 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load environment variables from root .env (local dev). On Vercel, env vars are provided by the platform.
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+// Load environment variables from root .env only in local development. 
+// On Vercel, env vars are provided by the platform.
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  dotenv.config({ path: path.join(process.cwd(), '.env') });
+  dotenv.config({ path: path.join(process.cwd(), '../.env') });
+}
 
 // Routes
 import authRoutes from './routes/auth.routes';
@@ -77,9 +81,22 @@ export function createApp() {
   app.use('/api/activity', activityRoutes);
   app.use('/api/settings', settingsRoutes);
 
-  // Health check
+  // Health checks
   app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', source: 'express', timestamp: new Date().toISOString() });
+  });
+  
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok', source: 'express-api', timestamp: new Date().toISOString() });
+  });
+
+  // Root route
+  app.get('/', (_req, res) => {
+    res.json({ 
+      message: 'Loan Management API is running',
+      environment: process.env.NODE_ENV,
+      version: '1.0.0'
+    });
   });
 
   return app;

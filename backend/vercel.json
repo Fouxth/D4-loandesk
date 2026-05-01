@@ -1,7 +1,7 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/[...all].ts" },
-    { "source": "/", "destination": "/api/health" },
+    { "source": "/", "destination": "/api/[...all].ts" },
     { "source": "/health", "destination": "/api/health" }
   ]
 }
