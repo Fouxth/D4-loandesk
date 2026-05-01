@@ -13,9 +13,14 @@ export default function handler(req: any, res: any) {
     return app(req, res);
   } catch (err) {
     console.error('API handler crash', err);
-    return res.status(500).json({
+
+    const body = {
       error: 'Server error',
       message: err instanceof Error ? err.message : String(err),
-    });
+    };
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify(body));
+    return;
   }
 }
