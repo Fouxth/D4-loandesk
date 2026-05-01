@@ -19,6 +19,12 @@ import settingsRoutes from './routes/settings.routes';
 export function createApp() {
   const app = express();
 
+  const normalizeOrigin = (value: string) => {
+    const trimmed = value.trim();
+    const unquoted = trimmed.replace(/^['"]|['"]$/g, '');
+    return unquoted.replace(/\/+$/, '');
+  };
+
   const allowedOrigins = new Set(
     [
       'http://localhost:5173',
@@ -26,7 +32,9 @@ export function createApp() {
       'http://localhost:5175',
       process.env.FRONTEND_ORIGIN,
       process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
-    ].filter(Boolean) as string[],
+    ]
+      .filter(Boolean)
+      .map((o) => normalizeOrigin(String(o))) as string[],
   );
 
   // Middleware
@@ -34,7 +42,14 @@ export function createApp() {
     cors({
       origin: (origin, cb) => {
         if (!origin) return cb(null, true);
-        if (allowedOrigins.has(origin)) return cb(null, true);
+
+        const normalizedOrigin = normalizeOrigin(origin);
+        if (allowedOrigins.has(normalizedOrigin)) {
+          // Echo the allowed origin (required when credentials=true)
+          return cb(null, normalizedOrigin);
+        }
+
+        console.warn('CORS blocked origin:', origin);
         return cb(null, false);
       },
       credentials: true,
