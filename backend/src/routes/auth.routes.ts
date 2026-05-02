@@ -37,7 +37,14 @@ router.post('/login', async (req: any, res) => {
       path: '/',
     });
 
-    res.json({ success: true });
+    res.json({ 
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        username: user.username
+      }
+    });
   } catch (e: any) {
     console.error('Login Error:', e);
     res.status(500).json({ error: e.message || 'Internal Server Error' });
@@ -64,7 +71,14 @@ router.post('/signup', async (req, res) => {
       path: '/',
     });
 
-    res.json({ success: true });
+    res.json({ 
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        username: user.username
+      }
+    });
   } catch (e: any) {
     console.error('Signup Error:', e);
     res.status(500).json({ error: e.message || 'Internal Server Error' });
