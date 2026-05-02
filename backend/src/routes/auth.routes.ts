@@ -25,9 +25,9 @@ router.post('/login', async (req: any, res) => {
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
     
     // Auto-detect if we should use Secure/SameSite=None
-    // If explicitly set to crossSiteCookies OR if we're in prod on https
+    // In production/HTTPS, we MUST use SameSite=None to support mobile and cross-site access
     const useSecure = isHttps || (process.env.NODE_ENV === 'production');
-    const sameSiteValue = crossSiteCookies ? 'none' : 'lax';
+    const sameSiteValue = useSecure ? 'none' : 'lax';
 
     res.cookie('session', token, {
       httpOnly: true,
@@ -53,9 +53,8 @@ router.post('/signup', async (req, res) => {
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
     
     const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
-    const crossSiteCookies = process.env.CROSS_SITE_COOKIES === 'true';
     const useSecure = isHttps || (process.env.NODE_ENV === 'production');
-    const sameSiteValue = crossSiteCookies ? 'none' : 'lax';
+    const sameSiteValue = useSecure ? 'none' : 'lax';
 
     res.cookie('session', token, {
       httpOnly: true,
@@ -74,9 +73,8 @@ router.post('/signup', async (req, res) => {
 
 router.post('/logout', (req, res) => {
   const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
-  const crossSiteCookies = process.env.CROSS_SITE_COOKIES === 'true';
   const useSecure = isHttps || (process.env.NODE_ENV === 'production');
-  const sameSiteValue = crossSiteCookies ? 'none' : 'lax';
+  const sameSiteValue = useSecure ? 'none' : 'lax';
 
   res.clearCookie('session', {
     httpOnly: true,
