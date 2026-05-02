@@ -99,5 +99,14 @@ export function createApp() {
     });
   });
 
+  // Global error handler
+  app.use((err: any, _req: any, res: any, _next: any) => {
+    console.error('Unhandled Error:', err);
+    res.status(500).json({ 
+      error: err.message || 'Internal Server Error',
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+  });
+
   return app;
 }
