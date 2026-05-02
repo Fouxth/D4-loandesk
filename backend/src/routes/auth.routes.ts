@@ -70,6 +70,9 @@ router.post('/logout', (req, res) => {
 router.get('/me', authenticate, async (req: AuthRequest, res) => {
   try {
     const user = await authService.getUserById(req.userId!);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     const roles = await authService.getUserRoles(req.userId!);
     res.json({
       user: {
