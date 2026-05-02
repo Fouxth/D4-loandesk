@@ -33,7 +33,8 @@ router.post('/login', async (req, res) => {
 
     res.json({ success: true });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error('Login Error:', e);
+    res.status(500).json({ error: e.message || 'Internal Server Error' });
   }
 });
 
@@ -53,7 +54,8 @@ router.post('/signup', async (req, res) => {
 
     res.json({ success: true });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error('Signup Error:', e);
+    res.status(500).json({ error: e.message || 'Internal Server Error' });
   }
 });
 
@@ -78,7 +80,8 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
       roles
     });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error('Auth Me Error:', e);
+    res.status(500).json({ error: e.message || 'Internal Server Error' });
   }
 });
 
