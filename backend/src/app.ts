@@ -71,6 +71,15 @@ export function createApp() {
   );
   app.use(express.json());
   app.use(cookieParser());
+  
+  // Request logger for debugging
+  app.use((req, _res, next) => {
+    if (req.method !== 'GET' || req.path.includes('/me')) {
+      console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+      console.log('Body:', JSON.stringify(req.body, null, 2));
+    }
+    next();
+  });
 
   // API Routes
   app.use('/api/auth', authRoutes);
