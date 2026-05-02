@@ -7,28 +7,34 @@ import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-const isProd = process.env.NODE_ENV === 'production';
-const crossSiteCookies = process.env.CROSS_SITE_COOKIES === 'true';
-const cookieSameSite: 'lax' | 'none' = crossSiteCookies ? 'none' : 'lax';
-const cookieSecure = isProd || crossSiteCookies;
-
-router.post('/login', async (req, res) => {
-  console.log('Login attempt:', req.body);
+router.post('/login', async (req: any, res) => {
   const { username, password } = req.body;
+  
+  // Debug info for mobile/cross-site issues
+  const origin = req.headers.origin;
+  const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  const crossSiteCookies = process.env.CROSS_SITE_COOKIES === 'true';
+
   try {
     const user = await authService.getUserByUsername(username);
-    console.log('User found:', user ? { id: user.id, username: user.username } : 'none');
     
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    
+    // Auto-detect if we should use Secure/SameSite=None
+    // If explicitly set to crossSiteCookies OR if we're in prod on https
+    const useSecure = isHttps || (process.env.NODE_ENV === 'production');
+    const sameSiteValue = crossSiteCookies ? 'none' : 'lax';
+
     res.cookie('session', token, {
       httpOnly: true,
-      secure: cookieSecure,
-      sameSite: cookieSameSite,
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      secure: useSecure,
+      sameSite: sameSiteValue,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
     });
 
     res.json({ success: true });
@@ -45,11 +51,18 @@ router.post('/signup', async (req, res) => {
     const user = await authService.createUser(username, passwordHash, fullName);
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    
+    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+    const crossSiteCookies = process.env.CROSS_SITE_COOKIES === 'true';
+    const useSecure = isHttps || (process.env.NODE_ENV === 'production');
+    const sameSiteValue = crossSiteCookies ? 'none' : 'lax';
+
     res.cookie('session', token, {
       httpOnly: true,
-      secure: cookieSecure,
-      sameSite: cookieSameSite,
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      secure: useSecure,
+      sameSite: sameSiteValue,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
     });
 
     res.json({ success: true });
@@ -60,9 +73,16 @@ router.post('/signup', async (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
+  const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  const crossSiteCookies = process.env.CROSS_SITE_COOKIES === 'true';
+  const useSecure = isHttps || (process.env.NODE_ENV === 'production');
+  const sameSiteValue = crossSiteCookies ? 'none' : 'lax';
+
   res.clearCookie('session', {
-    sameSite: cookieSameSite,
-    secure: cookieSecure,
+    httpOnly: true,
+    secure: useSecure,
+    sameSite: sameSiteValue,
+    path: '/',
   });
   res.json({ success: true });
 });
