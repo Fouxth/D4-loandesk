@@ -150,6 +150,13 @@ function Settings() {
     }
   };
 
+  const handleSaveLineNotify = async () => {
+    setBusy("line");
+    try {
+      await updateSetting("line_notify", { token: lineToken, enabled: lineEnabled, events: lineEvents });
+      toast.success("บันทึกการตั้งค่า LINE Notify เรียบร้อยแล้ว");
+    } catch (e) {
+      toast.error("บันทึกข้อมูลล้มเหลว");
     } finally {
       setBusy(null);
     }
