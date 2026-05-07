@@ -11,7 +11,7 @@ export async function getUserByUsername(username: string) {
 export async function getUserById(id: string) {
   if (!id) return null;
   const [user] = await sql`
-    SELECT u.id, u.username, p.full_name, p.avatar_url
+    SELECT u.id, u.username, u.password_hash, p.full_name, p.avatar_url
     FROM users u
     LEFT JOIN profiles p ON p.id = u.id
     WHERE u.id = ${id}
