@@ -20,8 +20,19 @@ export const getLoanById = (id: string) => api.get(`/loans/${id}`).then(r => r.d
 export const getLoansByCustomer = (customerId: string) => api.get(`/loans/customer/${customerId}`).then(r => r.data);
 export const createLoan = (data: any) => api.post('/loans', data).then(r => r.data);
 export const refinanceLoan = (id: string, data: any) => api.post(`/loans/${id}/refinance`, data).then(r => r.data);
+export const updateLoan = (id: string, data: any) => api.put(`/loans/${id}`, data).then(r => r.data);
 export const deleteLoan = (id: string) => api.delete(`/loans/${id}`).then(r => r.data);
 export const getNotifications = () => api.get('/loans/notifications').then(r => r.data);
+
+export const getLoanAttachments = (id: string) => api.get(`/loans/${id}/attachments`).then(r => r.data);
+export const uploadAttachment = (id: string, file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return api.post(`/loans/${id}/attachments`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }).then(r => r.data);
+};
+export const deleteAttachment = (id: string) => api.delete(`/loans/attachments/${id}`).then(r => r.data);
 
 // Finance
 export const getPayments = () => api.get('/finance/payments').then(r => r.data);

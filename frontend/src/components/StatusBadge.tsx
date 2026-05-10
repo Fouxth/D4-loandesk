@@ -32,6 +32,8 @@ export function loanStatusTone(status: string): any {
     case 'active': return 'primary';
     case 'overdue': return 'destructive';
     case 'completed': return 'success';
+    case 'forfeited': return 'destructive';
+    case 'refinanced': return 'info';
     case 'cancelled': return 'muted';
     default: return 'muted';
   }

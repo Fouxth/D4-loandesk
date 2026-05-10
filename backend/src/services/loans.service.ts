@@ -89,6 +89,11 @@ export async function dbRefinanceLoan(oldLoanId: string, newData: any, newLoanNu
         dueDate: newData.dueDate,
         notes: newData.notes,
         refinancedFrom: oldLoanId,
+        is_interest_only: newData.isInterestOnly ?? oldLoan.is_interest_only,
+        is_indefinite: newData.isIndefinite ?? oldLoan.is_indefinite,
+        is_pawn: newData.isPawn ?? oldLoan.is_pawn,
+        pawn_item: newData.pawnItem ?? oldLoan.pawn_item,
+        pawn_status: newData.pawnStatus ?? oldLoan.pawn_status,
         createdBy: userId
       })}
       RETURNING *
@@ -96,6 +101,13 @@ export async function dbRefinanceLoan(oldLoanId: string, newData: any, newLoanNu
 
     return newLoan;
   });
+}
+
+export async function dbUpdateLoan(id: string, data: any) {
+  return await sql`
+    UPDATE loans SET ${sql(data)} WHERE id = ${id}
+    RETURNING *
+  `;
 }
 
 export async function dbDeleteLoan(id: string) {

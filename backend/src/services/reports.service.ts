@@ -24,12 +24,16 @@ export async function fetchDashboardRawData(monthStartStr?: string) {
   const monthStart = monthStartStr || getDefaultMonthStart();
   const today = getLogicalDateStr(new Date());
 
-  const [custCountRes, loans, payments, expenses] = await Promise.all([
+  const [custCountRes, loans, payments, expenses, settingsRes] = await Promise.all([
     sql`SELECT count(*) as count FROM customers`,
-    sql`SELECT id, status, total_payable, due_date FROM loans`,
-    sql`SELECT loan_id, amount, payment_date FROM payments`,
-    sql`SELECT amount, expense_date FROM expenses WHERE expense_date >= ${monthStart}`
+    sql`SELECT id, status, total_payable, due_date, principal, is_interest_only, is_indefinite FROM loans`,
+    sql`SELECT loan_id, amount, payment_date, category FROM payments`,
+    sql`SELECT amount, expense_date FROM expenses WHERE expense_date >= ${monthStart}`,
+    sql`SELECT value FROM settings WHERE key = 'lending_config'`
   ]);
+
+  const lendingConfig = settingsRes[0]?.value || {};
+  const lateFeePerDay = Number(lendingConfig.lateFeePerDay) || 0;
 
   const custCount = parseInt(custCountRes[0].count);
   const activeLoans = loans.filter((l: any) => l.status === 'active' || l.status === 'overdue');
@@ -39,8 +43,26 @@ export async function fetchDashboardRawData(monthStartStr?: string) {
   const outstanding = activeLoans.reduce((sum: number, l: any) => {
     const paid = payments
       .filter((p: any) => p.loanId === l.id)
-      .reduce((a: number, p: any) => a + Number(p.amount), 0);
-    return sum + Math.max(Number(l.totalPayable) - paid, 0);
+      .reduce((a: number, p: any) => {
+        if (l.isInterestOnly) {
+          return p.category === 'principal' ? a + Number(p.amount) : a;
+        }
+        return a + Number(p.amount);
+      }, 0);
+    
+    let lateFeeTotal = 0;
+    const dueStr = toDateStr(l.dueDate);
+    if (!l.isIndefinite && (l.status === 'active' || l.status === 'overdue') && dueStr && dueStr < today) {
+      const dueDate = new Date(dueStr);
+      const todayDate = new Date(today);
+      const diffDays = Math.floor((todayDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays > 0) {
+        lateFeeTotal = diffDays * lateFeePerDay;
+      }
+    }
+
+    const baseAmount = l.isInterestOnly ? Number(l.principal) : Number(l.totalPayable);
+    return sum + Math.max(baseAmount + lateFeeTotal - paid, 0);
   }, 0);
 
   const todayPayments = payments.filter((p: any) => toDateStr(p.paymentDate) === today);
@@ -111,15 +133,19 @@ export async function fetchReportRawData(ms?: string) {
   const monthStart = ms || getDefaultMonthStart();
   const today = getLogicalDateStr(new Date());
 
-  const [allPayments, allExpenses, allLoans, allCustomers] = await Promise.all([
-    sql`SELECT p.loan_id, p.amount, p.payment_date, c.full_name as customer_name
+  const [allPayments, allExpenses, allLoans, allCustomers, settingsRes] = await Promise.all([
+    sql`SELECT p.loan_id, p.amount, p.payment_date, p.category, c.full_name as customer_name
         FROM payments p
         JOIN loans l ON p.loan_id = l.id
         JOIN customers c ON l.customer_id = c.id`,
     sql`SELECT amount, expense_date FROM expenses WHERE expense_date >= ${monthStart}`,
-    sql`SELECT id, customer_id, total_payable, status FROM loans`,
-    sql`SELECT id, full_name FROM customers`
+    sql`SELECT id, customer_id, total_payable, due_date, status, principal, is_interest_only, is_indefinite FROM loans`,
+    sql`SELECT id, full_name FROM customers`,
+    sql`SELECT value FROM settings WHERE key = 'lending_config'`
   ]);
+
+  const lendingConfig = settingsRes[0]?.value || {};
+  const lateFeePerDay = Number(lendingConfig.lateFeePerDay) || 0;
 
   // Monthly income (payments in this month)
   const monthlyIncome = allPayments
@@ -134,8 +160,26 @@ export async function fetchReportRawData(ms?: string) {
   const outstanding = activeLoans.reduce((sum: number, l: any) => {
     const paid = allPayments
       .filter((p: any) => p.loanId === l.id)
-      .reduce((a: number, p: any) => a + Number(p.amount), 0);
-    return sum + Math.max(Number(l.totalPayable) - paid, 0);
+      .reduce((a: number, p: any) => {
+        if (l.isInterestOnly) {
+          return p.category === 'principal' ? a + Number(p.amount) : a;
+        }
+        return a + Number(p.amount);
+      }, 0);
+
+    let lateFeeTotal = 0;
+    const dueStr = toDateStr(l.dueDate);
+    if (!l.isIndefinite && (l.status === 'active' || l.status === 'overdue') && dueStr && dueStr < today) {
+      const dueDate = new Date(dueStr);
+      const todayDate = new Date(today);
+      const diffDays = Math.floor((todayDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays > 0) {
+        lateFeeTotal = diffDays * lateFeePerDay;
+      }
+    }
+
+    const baseAmount = l.isInterestOnly ? Number(l.principal) : Number(l.totalPayable);
+    return sum + Math.max(baseAmount + lateFeeTotal - paid, 0);
   }, 0);
 
   // Daily collections (last 7 days)

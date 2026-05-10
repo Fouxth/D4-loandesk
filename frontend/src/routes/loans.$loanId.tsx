@@ -1,4 +1,4 @@
-import { logActivity, getLoanById, getPaymentsByLoan, createPayment, deletePayment, refinanceLoan, deleteLoan } from "@/lib/services";
+import { logActivity, getLoanById, getPaymentsByLoan, createPayment, deletePayment, refinanceLoan, deleteLoan, updateLoan, getLoanAttachments, uploadAttachment, deleteAttachment } from "@/lib/services";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
@@ -10,12 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { StatusBadge, loanStatusTone } from "@/components/StatusBadge";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Camera, Image as ImageIcon, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatTHB, formatDate } from "@/utils/format";
 import { calcLoan } from "@/utils/loanCalc";
 import { RefreshCw } from "lucide-react";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { useSettings } from "@/contexts/SettingsContext";
+import { daysBetween } from "@/utils/format";
 
 export const Route = createFileRoute("/loans/$loanId")({
   component: () => (<ProtectedRoute><AppLayout><LoanDetail /></AppLayout></ProtectedRoute>),
@@ -27,20 +29,32 @@ const METHOD_LABELS: Record<string, string> = {
   mobile: "โมบายแบงก์กิ้ง",
   other: "อื่นๆ",
 };
+const PAWN_STATUS_LABELS: Record<string, string> = {
+  in_storage: "อยู่ในคลัง",
+  redeemed: "ไถ่ถอนแล้ว",
+  forfeited: "หลุดจำนำ",
+};
 
 function LoanDetail() {
   const { loanId } = Route.useParams();
   const navigate = useNavigate();
   const [loan, setLoan] = useState<any>(null);
   const [payments, setPayments] = useState<any[]>([]);
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [open, setOpen] = useState(false);
+  const { lending } = useSettings();
 
   const load = async () => {
     try {
       const l = await getLoanById(loanId);
       setLoan(l);
-      const ps = await getPaymentsByLoan(loanId);
+      const [ps, atts] = await Promise.all([
+        getPaymentsByLoan(loanId),
+        getLoanAttachments(loanId)
+      ]);
       setPayments(ps ?? []);
+      setAttachments(atts ?? []);
     } catch (e) {
       console.error("Failed to load loan details", e);
     }
@@ -50,8 +64,19 @@ function LoanDetail() {
 
   if (!loan) return <div className="flex h-64 items-center justify-center text-muted-foreground animate-pulse">กำลังโหลดข้อมูลสัญญา...</div>;
   
-  const paid = payments.reduce((a, p) => a + Number(p.amount), 0);
-  const remaining = Math.max(Number(loan.totalPayable) - paid, 0);
+  const principalPaid = payments.filter(p => p.category === 'principal').reduce((a, p) => a + Number(p.amount), 0);
+  const interestPaid = payments.filter(p => p.category === 'interest').reduce((a, p) => a + Number(p.amount), 0);
+  const totalPaid = payments.reduce((a, p) => a + Number(p.amount), 0);
+  
+  // Late fee calculation
+  const today = new Date().toISOString().split('T')[0];
+  const diff = daysBetween(today, loan.dueDate);
+  const daysOverdue = (loan.status === 'active' || loan.status === 'overdue') && diff > 0 ? diff : 0;
+  const lateFeeTotal = daysOverdue * (lending.lateFeePerDay || 0);
+  
+  const remaining = loan.isInterestOnly 
+    ? Math.max(Number(loan.principal) + lateFeeTotal - principalPaid, 0)
+    : Math.max(Number(loan.totalPayable) + lateFeeTotal - totalPaid, 0);
 
   const removePayment = async (id: string) => {
     try {
@@ -62,6 +87,47 @@ function LoanDetail() {
         console.error("Activity log failed:", logError);
       }
       toast.success("ลบประวัติการชำระเงินเรียบร้อยแล้ว");
+      load();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const updatePawnStatus = async (status: string) => {
+    try {
+      const updateData: any = { pawn_status: status };
+      if (status === 'redeemed') {
+        updateData.status = 'completed';
+      } else if (status === 'forfeited') {
+        updateData.status = 'forfeited';
+      }
+      await updateLoan(loanId, updateData);
+      toast.success("อัปเดตสถานะเรียบร้อยแล้ว");
+      load();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      await uploadAttachment(loanId, file);
+      toast.success("อัปโหลดรูปภาพเรียบร้อยแล้ว");
+      load();
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeAttachment = async (id: string) => {
+    try {
+      await deleteAttachment(id);
+      toast.success("ลบรูปภาพเรียบร้อยแล้ว");
       load();
     } catch (error: any) {
       toast.error(error.message);
@@ -106,6 +172,7 @@ function LoanDetail() {
                 loanId={loanId} 
                 suggested={Number(loan.installmentAmount)} 
                 nextNum={payments.length + 1} 
+                isInterestOnly={loan.isInterestOnly}
                 onDone={() => { setOpen(false); load(); }} 
               />
             </Dialog>
@@ -137,8 +204,17 @@ function LoanDetail() {
               <dt className="text-muted-foreground">สถานะ</dt>
               <dd>
                 <StatusBadge tone={loanStatusTone(loan.status)}>
-                  {loan.status === 'active' ? 'ปกติ' : loan.status === 'overdue' ? 'เกินกำหนด' : loan.status === 'completed' ? 'เสร็จสิ้น' : 'ยกเลิก'}
+                  {loan.status === 'active' ? 'ปกติ' : 
+                   loan.status === 'overdue' ? 'เกินกำหนด' : 
+                   loan.status === 'completed' ? (loan.isPawn ? 'ไถ่ถอนแล้ว' : 'เสร็จสิ้น') : 
+                   loan.status === 'forfeited' ? 'หลุดจำนำ' : 
+                   loan.status === 'refinanced' ? 'ต่อดอกใหม่' : 'ยกเลิก'}
                 </StatusBadge>
+                {loan.isInterestOnly && (
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-primary/20 text-primary">
+                    ดอกลอย
+                  </span>
+                )}
               </dd>
             </div>
             <div className="flex justify-between items-center">
@@ -149,14 +225,32 @@ function LoanDetail() {
               <dt className="text-muted-foreground">ดอกเบี้ย ({loan.interestRate}%)</dt>
               <dd className="font-medium text-warning-foreground">{formatTHB(loan.interestAmount)}</dd>
             </div>
+            {lateFeeTotal > 0 && (
+              <div className="flex justify-between items-center">
+                <dt className="text-destructive font-medium">ค่าปรับล่าช้า ({daysOverdue} วัน)</dt>
+                <dd className="font-bold text-destructive">+{formatTHB(lateFeeTotal)}</dd>
+              </div>
+            )}
             <div className="flex justify-between items-center border-t border-border pt-2">
               <dt className="text-muted-foreground">ยอดรวมทั้งหมด</dt>
               <dd className="font-bold">{formatTHB(loan.totalPayable)}</dd>
             </div>
             <div className="flex justify-between items-center">
-              <dt className="text-muted-foreground">ชำระแล้ว</dt>
-              <dd className="font-bold text-success">{formatTHB(paid)}</dd>
+              <dt className="text-muted-foreground">ชำระแล้ว (รวมทั้งหมด)</dt>
+              <dd className="font-bold text-success">{formatTHB(totalPaid)}</dd>
             </div>
+            {loan.isInterestOnly && (
+              <div className="flex justify-between items-center text-xs">
+                <dt className="text-muted-foreground pl-4">└ ดอกเบี้ยที่จ่ายแล้ว</dt>
+                <dd className="font-medium">{formatTHB(interestPaid)}</dd>
+              </div>
+            )}
+            {loan.isInterestOnly && (
+              <div className="flex justify-between items-center text-xs border-b border-border/50 pb-2">
+                <dt className="text-muted-foreground pl-4">└ เงินต้นที่คืนแล้ว</dt>
+                <dd className="font-medium">{formatTHB(principalPaid)}</dd>
+              </div>
+            )}
             <div className="flex justify-between items-center border-t border-primary/20 bg-primary/5 -mx-6 px-6 py-3 mt-2">
               <dt className="text-primary font-bold">ยอดคงเหลือ</dt>
               <dd className="text-xl font-black text-primary">{formatTHB(remaining)}</dd>
@@ -167,9 +261,44 @@ function LoanDetail() {
             </div>
             <div className="flex justify-between items-center">
               <dt className="text-muted-foreground">ระยะเวลาสัญญา</dt>
-              <dd className="text-xs">{formatDate(loan.startDate)} → {formatDate(loan.dueDate)}</dd>
+              <dd className="text-xs">
+                {loan.isIndefinite ? (
+                  <span className="font-bold text-primary">ไม่มีกำหนด (เก็บไปเรื่อยๆ)</span>
+                ) : (
+                  <>{formatDate(loan.startDate)} → {formatDate(loan.dueDate)}</>
+                )}
+              </dd>
             </div>
           </dl>
+          
+          {loan.isPawn && (
+            <div className="mt-6 pt-6 border-t border-border">
+              <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary mb-3">ข้อมูลทรัพย์สินจำนำ</h4>
+              <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
+                <p className="text-sm font-bold text-foreground mb-2">{loan.pawnItem}</p>
+                <div className="flex items-center justify-between">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    loan.pawnStatus === 'redeemed' ? 'bg-success/20 text-success' : 
+                    loan.pawnStatus === 'forfeited' ? 'bg-destructive/20 text-destructive' : 
+                    'bg-warning/20 text-warning-foreground'
+                  }`}>
+                    {PAWN_STATUS_LABELS[loan.pawnStatus] || loan.pawnStatus}
+                  </span>
+                  
+                  <Select value={loan.pawnStatus} onValueChange={updatePawnStatus}>
+                    <SelectTrigger className="h-7 w-28 text-[10px] bg-background">
+                      <SelectValue placeholder="เปลี่ยนสถานะ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="in_storage">อยู่ในคลัง</SelectItem>
+                      <SelectItem value="redeemed">ไถ่ถอนแล้ว</SelectItem>
+                      <SelectItem value="forfeited">หลุดจำนำ</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] lg:col-span-2 overflow-hidden flex flex-col">
@@ -181,6 +310,8 @@ function LoanDetail() {
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-foreground">
                     งวดที่ #{p.installmentNumber ?? "—"} · <span className="text-success">{formatTHB(p.amount)}</span>
+                    {p.category === 'interest' && <span className="ml-2 text-[10px] font-bold text-primary uppercase bg-primary/10 px-1 rounded">ดอกเบี้ย</span>}
+                    {p.category === 'principal' && <span className="ml-2 text-[10px] font-bold text-success-foreground uppercase bg-success/10 px-1 rounded">เงินต้น</span>}
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     {formatDate(p.paymentDate)} · {METHOD_LABELS[p.method] || p.method}
@@ -200,16 +331,78 @@ function LoanDetail() {
           </div>
         </div>
       </div>
+
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] mb-10 overflow-hidden">
+        <div className="flex items-center justify-between mb-6 border-b border-border pb-2">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+            <ImageIcon className="h-4 w-4" /> รูปถ่ายหลักฐาน ({attachments.length})
+          </h3>
+          <div className="flex gap-2">
+            <Input 
+              type="file" 
+              id="photo-upload" 
+              className="hidden" 
+              accept="image/*" 
+              onChange={handleUpload}
+            />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              disabled={uploading}
+              onClick={() => document.getElementById('photo-upload')?.click()}
+              className="rounded-xl border-primary/20 text-primary hover:bg-primary/5 font-bold h-9 shadow-sm"
+            >
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Camera className="h-4 w-4 mr-2" />}
+              {uploading ? "กำลังอัปโหลด..." : "แนบรูปถ่าย / ถ่ายภาพ"}
+            </Button>
+          </div>
+        </div>
+
+        {attachments.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-border rounded-xl bg-muted/5">
+            <Camera className="h-12 w-12 text-muted-foreground/30 mb-2" />
+            <p className="text-sm text-muted-foreground">ยังไม่มีรูปถ่ายแนบในสัญญานี้</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {attachments.map((att) => (
+              <div key={att.id} className="relative group aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
+                <a 
+                  href={`${import.meta.env.VITE_API_URL || 'http://localhost:9876'}/${att.filePath}`} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="block w-full h-full"
+                >
+                  <img 
+                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:9876'}/${att.filePath}`} 
+                    alt={att.fileName} 
+                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                  />
+                </a>
+                <Button 
+                  variant="destructive" 
+                  size="icon" 
+                  onClick={() => removeAttachment(att.id)}
+                  className="absolute top-2 right-2 h-7 w-7 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function PaymentForm({ loanId, suggested, nextNum, onDone }: { loanId: string; suggested: number; nextNum: number; onDone: () => void }) {
+function PaymentForm({ loanId, suggested, nextNum, isInterestOnly, onDone }: { loanId: string; suggested: number; nextNum: number; isInterestOnly: boolean; onDone: () => void }) {
   const [form, setForm] = useState({
     amount: suggested, 
     paymentDate: new Date().toISOString().split("T")[0],
     installmentNumber: nextNum, 
     method: "cash" as "cash" | "bank_transfer" | "mobile" | "other", 
+    category: isInterestOnly ? "interest" : "principal" as "interest" | "principal",
     notes: "",
   });
   const [busy, setBusy] = useState(false);
@@ -264,6 +457,16 @@ function PaymentForm({ loanId, suggested, nextNum, onDone }: { loanId: string; s
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ประเภทการชำระ</Label>
+            <Select value={form.category} onValueChange={(v: any) => setForm({ ...form, category: v })}>
+              <SelectTrigger className="bg-muted/20"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="interest">ชำระดอกเบี้ย</SelectItem>
+                <SelectItem value="principal">ชำระเงินต้น / ปิดยอด</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="space-y-2">
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">หมายเหตุ</Label>
@@ -282,6 +485,7 @@ function PaymentForm({ loanId, suggested, nextNum, onDone }: { loanId: string; s
 function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: number; onDone: () => void }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const { lending } = useSettings();
   const [form, setForm] = useState({
     additionalPrincipal: 0,
     interestRate: Number(loan.interestRate),

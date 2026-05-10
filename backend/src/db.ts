@@ -16,10 +16,8 @@ const sql = postgres(DATABASE_URL, {
 export default sql;
 
 // Test connection and log table count
-if (process.env.NODE_ENV === 'production') {
-  sql`SELECT count(*) FROM users`.then(res => {
-    console.log('✅ DB Connected. User count:', res[0].count);
-  }).catch(err => {
-    console.error('❌ DB Connection Error:', err.message);
-  });
-}
+sql`SELECT count(*) FROM users`.then(res => {
+  console.log('✅ DB Connected. User count:', res[0].count);
+}).catch(err => {
+  console.error('❌ DB Connection Error:', err.message);
+});

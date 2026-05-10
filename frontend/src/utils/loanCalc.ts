@@ -3,11 +3,17 @@ export function calcLoan(
   interestRate: number,
   installmentsCount: number,
   paymentType: "daily" | "weekly" | "monthly",
-  startDate: Date
+  startDate: Date,
+  isInterestOnly: boolean = false,
+  isIndefinite: boolean = false
 ) {
   const interest = (principal * interestRate) / 100;
-  const total = principal + interest;
-  const installment = total / installmentsCount;
+  const total = isInterestOnly ? principal : principal + interest;
+  const installment = isInterestOnly ? interest : total / installmentsCount;
+
+  if (isIndefinite) {
+    return { interest, total, installment, due: null };
+  }
 
   const due = new Date(startDate);
   if (paymentType === "daily") {

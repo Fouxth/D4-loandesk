@@ -12,13 +12,20 @@ export function formatTHB(value: number | string | null | undefined) {
 }
 
 export function formatDate(d: string | Date | null | undefined) {
-  if (!d) return "—";
+  if (!d) return "ไม่มีกำหนด";
   const date = typeof d === "string" ? new Date(d) : d;
   return date.toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export function daysBetween(a: Date, b: Date) {
-  return Math.round((a.getTime() - b.getTime()) / (1000 * 60 * 60 * 24));
+export function daysBetween(a: string | Date, b: string | Date) {
+  const d1 = typeof a === "string" ? new Date(a.split("T")[0]) : a;
+  const d2 = typeof b === "string" ? new Date(b.split("T")[0]) : b;
+  
+  // Set both to midnight to ignore time part
+  d1.setHours(0, 0, 0, 0);
+  d2.setHours(0, 0, 0, 0);
+  
+  return Math.round((d1.getTime() - d2.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 export function dueStatus(dueDate: string, balance: number) {

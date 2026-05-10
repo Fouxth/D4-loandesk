@@ -29,7 +29,7 @@ function getLogicalDateStr(d: Date = new Date()): string {
 }
 
 function getEffectiveStatus(l: any): string {
-  if (l.status === 'completed' || l.status === 'cancelled') return l.status;
+  if (l.status === 'completed' || l.status === 'cancelled' || l.status === 'forfeited' || l.status === 'refinanced') return l.status;
   const todayStr = getLogicalDateStr();
   const dueStr = l.dueDate ? l.dueDate.substring(0, 10) : '';
   if (dueStr < todayStr) return 'overdue';
@@ -121,8 +121,9 @@ function Loans() {
             {filtered.map((l) => (
               <TableRow key={l.id} className="hover:bg-muted/20 transition-colors">
                 <TableCell>
-                  <Link to="/loans/$loanId" params={{ loanId: l.id }} className="font-bold text-primary hover:underline">
+                  <Link to="/loans/$loanId" params={{ loanId: l.id }} className="font-bold text-primary hover:underline flex items-center gap-2">
                     {l.loanNumber}
+                    {l.isPawn && <span className="bg-primary/20 text-primary text-[9px] px-1 rounded">จำนำ</span>}
                   </Link>
                 </TableCell>
                 <TableCell className="font-medium">{l.customerName}</TableCell>
@@ -131,7 +132,10 @@ function Loans() {
                 <TableCell className="text-muted-foreground text-xs">{formatDate(l.dueDate)}</TableCell>
                 <TableCell className="text-center">
                   <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
-                    {t(`loans.status.${getEffectiveStatus(l)}`)}
+                    {getEffectiveStatus(l) === 'completed' && l.isPawn ? 'ไถ่ถอนแล้ว' : 
+                     getEffectiveStatus(l) === 'forfeited' ? 'หลุดจำนำ' : 
+                     getEffectiveStatus(l) === 'refinanced' ? 'ต่อดอกใหม่' :
+                     t(`loans.status.${getEffectiveStatus(l)}`)}
                   </StatusBadge>
                 </TableCell>
               </TableRow>
@@ -151,15 +155,19 @@ function Loans() {
           >
             <div className="flex justify-between items-start mb-3">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-muted px-1.5 py-0.5 rounded mb-1 inline-block">
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-muted px-1.5 py-0.5 rounded mb-1 inline-flex items-center gap-1">
                   {l.loanNumber}
+                  {l.isPawn && <span className="bg-primary text-white text-[8px] px-1 rounded ml-1">จำนำ</span>}
                 </span>
                 <h4 className="font-bold text-foreground text-lg flex items-center gap-2">
                   <User className="h-4 w-4 text-primary" /> {l.customerName}
                 </h4>
               </div>
               <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
-                {t(`loans.status.${getEffectiveStatus(l)}`)}
+                {getEffectiveStatus(l) === 'completed' && l.isPawn ? 'ไถ่ถอนแล้ว' : 
+                 getEffectiveStatus(l) === 'forfeited' ? 'หลุดจำนำ' : 
+                 getEffectiveStatus(l) === 'refinanced' ? 'ต่อดอกใหม่' :
+                 t(`loans.status.${getEffectiveStatus(l)}`)}
               </StatusBadge>
             </div>
             
@@ -201,14 +209,18 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
     paymentType: "daily" as "daily" | "weekly" | "monthly",
     startDate: new Date().toISOString().split("T")[0], 
     notes: "",
+    isInterestOnly: false,
+    isIndefinite: false,
+    isPawn: false,
+    pawnItem: "",
   });
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { 
     getCustomers().then(data => setCustomers(data ?? []));
   }, []);
-
-  const calc = calcLoan(form.principal, form.interestRate, form.installmentsCount, form.paymentType, new Date(form.startDate));
+  
+  const calc = calcLoan(form.principal, form.interestRate, form.installmentsCount, form.paymentType, new Date(form.startDate), form.isInterestOnly, form.isIndefinite);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,8 +237,12 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
         installmentAmount: calc.installment, 
         paymentType: form.paymentType, 
         startDate: form.startDate,
-        dueDate: calc.due.toISOString().split("T")[0], 
+        dueDate: calc.due ? calc.due.toISOString().split("T")[0] : null, 
         notes: form.notes,
+        isInterestOnly: form.isInterestOnly,
+        isIndefinite: form.isIndefinite,
+        isPawn: form.isPawn,
+        pawnItem: form.isPawn ? form.pawnItem : null,
       });
       
       const loanId = (data as any)[0]?.id;
@@ -276,7 +292,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">จำนวนงวด</Label>
-            <Input type="number" min={1} value={form.installmentsCount} onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
+            <Input type="number" min={1} disabled={form.isIndefinite} value={form.isIndefinite ? "" : form.installmentsCount} onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ความถี่ในการชำระ</Label>
@@ -293,6 +309,48 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">วันที่เริ่มสัญญา</Label>
             <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className="bg-muted/20" />
           </div>
+          <div className="flex items-center space-x-2 pt-2">
+            <input 
+              type="checkbox" 
+              id="isInterestOnly" 
+              checked={form.isInterestOnly} 
+              onChange={(e) => setForm({ ...form, isInterestOnly: e.target.checked })}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <Label htmlFor="isInterestOnly" className="text-sm font-bold text-foreground cursor-pointer">เงินกู้แบบดอกลอย (เก็บแต่ดอกเบี้ย)</Label>
+          </div>
+          <div className="flex items-center space-x-2 pt-1">
+            <input 
+              type="checkbox" 
+              id="isIndefinite" 
+              checked={form.isIndefinite} 
+              onChange={(e) => setForm({ ...form, isIndefinite: e.target.checked })}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <Label htmlFor="isIndefinite" className="text-sm font-bold text-foreground cursor-pointer">ไม่มีกำหนด (เก็บไปเรื่อยๆ)</Label>
+          </div>
+          <div className="flex items-center space-x-2 pt-1">
+            <input 
+              type="checkbox" 
+              id="isPawn" 
+              checked={form.isPawn} 
+              onChange={(e) => setForm({ ...form, isPawn: e.target.checked })}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <Label htmlFor="isPawn" className="text-sm font-bold text-foreground cursor-pointer">จำนำสิ่งของ</Label>
+          </div>
+
+          {form.isPawn && (
+            <div className="space-y-2 mt-2 animate-in slide-in-from-top-2">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-primary">รายละเอียดสิ่งของที่จำนำ</Label>
+              <Input 
+                value={form.pawnItem} 
+                onChange={(e) => setForm({ ...form, pawnItem: e.target.value })} 
+                placeholder="เช่น ทองคำหนัก 1 บาท, iPhone 15 Pro Max..." 
+                className="bg-primary/5 border-primary/20 focus:border-primary"
+              />
+            </div>
+          )}
         </div>
 
         <div className="rounded-xl bg-primary/10 border border-primary/20 p-4 shadow-sm">
@@ -309,6 +367,10 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">ต่องวด</p>
               <p className="text-sm font-bold text-primary">{formatTHB(calc.installment)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">สิ้นสุดวันที่</p>
+              <p className="text-sm font-bold text-primary">{formatDate(calc.due)}</p>
             </div>
           </div>
         </div>
