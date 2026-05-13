@@ -60,6 +60,9 @@ export async function handleBotCommand(text: string, userId: string, replyToken:
     else if (lowerCmd === 'ค้างชำระ' || lowerCmd === 'overdue') {
       await handleOverdue(replyToken);
     }
+    else if (lowerCmd === 'เก็บวันนี้' || lowerCmd === 'today') {
+      await handleCollectToday(replyToken);
+    }
     else if (lowerCmd.startsWith('ยอด ')) {
       const searchName = cmd.substring(4).trim();
       if (searchName) {
@@ -299,12 +302,107 @@ async function handleOverdue(replyToken: string) {
 }
 
 /**
+ * Command: เก็บวันนี้
+ */
+async function handleCollectToday(replyToken: string) {
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Find active loans that haven't paid today
+  const pendingLoans = await sql`
+    SELECT l.*, c.full_name as customer_name
+    FROM loans l
+    JOIN customers c ON l.customer_id = c.id
+    WHERE l.status IN ('active', 'overdue')
+      AND NOT EXISTS (
+        SELECT 1 FROM payments p 
+        WHERE p.loan_id = l.id AND p.payment_date = ${today}
+      )
+    ORDER BY l.created_at ASC
+  `;
+
+  if (pendingLoans.length === 0) {
+    await replyLineMessage(replyToken, [{ type: 'text', text: '🎉 ยอดเยี่ยม! วันนี้เก็บเงินครบทุกรายการแล้วครับ' }]);
+    return;
+  }
+
+  const items = [];
+  
+  for (const loan of pendingLoans) {
+    // Calculate total paid to find remaining installments
+    const allPayments = await sql`SELECT amount FROM payments WHERE loan_id = ${loan.id}`;
+    const totalPaid = allPayments.reduce((acc: number, p: any) => acc + Number(p.amount), 0);
+    
+    let typeText = '';
+    let remainingText = '';
+    
+    if (loan.isIndefinite) {
+      typeText = 'ดอกลอย';
+      const remainingBalance = Math.max(Number(loan.principal) - totalPaid, 0);
+      remainingText = `ต้นคงเหลือ ${remainingBalance.toLocaleString('en-US', {minimumFractionDigits: 0})} ฿`;
+    } else {
+      typeText = `${loan.installmentsCount || '-'} วัน`;
+      const installmentAmt = Number(loan.installmentAmount) || 1;
+      const paidInstallments = Math.floor(totalPaid / installmentAmt);
+      const remainingInstallments = Math.max(Number(loan.installmentsCount) - paidInstallments, 0);
+      remainingText = `เหลือ ${remainingInstallments} งวด`;
+    }
+
+    items.push({
+      type: 'box',
+      layout: 'vertical',
+      margin: 'md',
+      contents: [
+        { type: 'text', text: `👤 ${loan.customerName}`, size: 'sm', color: '#333333', weight: 'bold' },
+        { 
+          type: 'box', layout: 'horizontal', margin: 'xs', 
+          contents: [
+            { type: 'text', text: `📌 ${typeText}`, size: 'xs', color: '#8c8c8c', flex: 1 },
+            { type: 'text', text: `🎯 ${remainingText}`, size: 'xs', color: '#0ea5e9', align: 'end', weight: 'bold', flex: 1 }
+          ]
+        }
+      ]
+    });
+    items.push({ type: 'separator', margin: 'md' });
+  }
+
+  // Remove the last separator
+  if (items.length > 0) items.pop();
+
+  const flexMessage = {
+    type: 'flex',
+    altText: '📋 รายการเก็บเงินวันนี้',
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#10b981',
+        contents: [
+          { type: 'text', text: `📋 ต้องเก็บวันนี้ (${pendingLoans.length} รายการ)`, weight: 'bold', color: '#ffffff', size: 'sm' }
+        ]
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: items
+      }
+    }
+  };
+
+  await replyLineMessage(replyToken, [flexMessage]);
+}
+
+
+/**
  * Command: วิธีใช้
  */
 async function handleHelp(replyToken: string) {
   const text = `🤖 คำสั่งที่บอทเข้าใจครับ:
 
 📊 "สรุป" - ดูข้อมูลรับ-จ่ายของวันนี้
+📋 "เก็บวันนี้" - ดูรายชื่อที่ต้องเก็บวันนี้
 🔍 "ยอด [ชื่อ]" - ดูยอดคงเหลือของลูกค้า (เช่น ยอด สมชาย)
 🚨 "ค้างชำระ" - ดูรายชื่อคนที่เลยกำหนด
 ❓ "วิธีใช้" - ดูข้อความนี้อีกครั้ง`;
