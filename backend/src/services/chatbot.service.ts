@@ -8,7 +8,7 @@ async function replyLineMessage(replyToken: string, messages: any[]) {
   if (!channelAccessToken) return;
 
   try {
-    await fetch('https://api.line.me/v2/bot/message/reply', {
+    const response = await fetch('https://api.line.me/v2/bot/message/reply', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -19,8 +19,13 @@ async function replyLineMessage(replyToken: string, messages: any[]) {
         messages
       })
     });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error(`[LINE] ❌ Reply API failed (${response.status}):`, errorData);
+    }
   } catch (error) {
-    console.error('Failed to reply message:', error);
+    console.error('[LINE] ❌ Failed to reply message:', error);
   }
 }
 
@@ -318,6 +323,7 @@ async function handleCollectToday(replyToken: string) {
         WHERE p.loan_id = l.id AND p.payment_date = ${today}
       )
     ORDER BY l.created_at ASC
+    LIMIT 20
   `;
 
   if (pendingLoans.length === 0) {
