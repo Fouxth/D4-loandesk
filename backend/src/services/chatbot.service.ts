@@ -353,12 +353,20 @@ async function handleCollectToday(replyToken: string) {
       remainingText = `เหลือ ${remainingInstallments} งวด`;
     }
 
+    const formattedInstallment = Number(loan.installmentAmount).toLocaleString('en-US', {minimumFractionDigits: 0});
+
     items.push({
       type: 'box',
       layout: 'vertical',
       margin: 'md',
       contents: [
-        { type: 'text', text: `👤 ${loan.customerName}`, size: 'sm', color: '#333333', weight: 'bold' },
+        { 
+          type: 'box', layout: 'horizontal', 
+          contents: [
+            { type: 'text', text: `👤 ${loan.customerName}`, size: 'sm', color: '#333333', weight: 'bold', flex: 2 },
+            { type: 'text', text: `${formattedInstallment} ฿`, size: 'sm', color: '#10b981', align: 'end', weight: 'bold', flex: 1 }
+          ]
+        },
         { 
           type: 'box', layout: 'horizontal', margin: 'xs', 
           contents: [
