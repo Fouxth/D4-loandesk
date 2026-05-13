@@ -20,6 +20,21 @@ backup_old
 .wrangler/
 .dev.vars
 
+# User Uploads & Media
+uploads/
+**/uploads/
+**/uploads/*
+
+# Scratch & Temporary
+scratch/
+**/scratch/
+scratch_*.ts
+test_*.ts
+test_*.js
+find_*.js
+inspect_*.js
+*.xlsx
+
 # Secrets and sensitive files
 .env
 .env.*
