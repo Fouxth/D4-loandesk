@@ -591,6 +591,7 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">ต่องวด</p>
                 <p className="text-sm font-bold text-primary">{formatTHB(calc.installment)}</p>
               </div>
+              <div>
                 <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">สิ้นสุดวันที่</p>
                 <p className="text-[10px] font-bold">{calc.due ? formatDate(calc.due.toISOString().split("T")[0]) : 'ไม่มีกำหนด'}</p>
               </div>
