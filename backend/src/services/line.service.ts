@@ -35,6 +35,8 @@ export async function sendLineNotify(
           ? createFlexPayload(config.userId, flexOptions)
           : { to: config.userId, messages: [{ type: 'text', text: message }] };
 
+        console.log(`[LINE] Sending ${eventType} notification to ${config.userId}...`);
+
         const response = await fetch('https://api.line.me/v2/bot/message/push', {
           method: 'POST',
           headers: {
@@ -44,13 +46,19 @@ export async function sendLineNotify(
           body: JSON.stringify(payload)
         });
 
-        if (response.ok) return;
+        if (response.ok) {
+          console.log(`[LINE] ✅ ${eventType} notification sent via Messaging API`);
+          return;
+        }
         
         const errorData = await response.json().catch(() => ({}));
-        console.error('Messaging API push failed:', response.status, errorData);
+        console.error(`[LINE] ❌ Messaging API failed (${response.status}):`, errorData);
       } catch (error) {
-        console.error('Failed to send via Messaging API:', error);
+        console.error('[LINE] ❌ Failed to send via Messaging API:', error);
       }
+    } else {
+      if (!channelAccessToken) console.warn('[LINE] ⚠️ Missing LINE_CHANNEL_ACCESS_TOKEN in .env');
+      if (!config.userId) console.warn('[LINE] ⚠️ Missing userId in DB settings');
     }
 
     // 3. Fallback to LINE Notify
