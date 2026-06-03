@@ -1,4 +1,4 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const { user, loading, signIn } = useAuth();
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,10 +26,15 @@ function LoginPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    const { error } = await signIn(username, password);
+    const { error, user: signedInUser } = await signIn(username, password);
     setBusy(false);
     if (error) return toast.error(error === 'Invalid username or password' ? 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' : error);
     toast.success("ยินดีต้อนรับกลับเข้าสู่ระบบ");
+    
+    if (signedInUser) {
+      const target = signedInUser.tenantId === 'system' ? '/super-admin' : '/';
+      navigate({ to: target });
+    }
   };
 
   return (

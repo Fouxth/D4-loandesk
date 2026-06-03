@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "@/lib/api";
 import { dispatchSuspended } from "@/components/SuspendedModal";
+import { toast } from "sonner";
 
 interface AuthContextType {
   user: any | null;
   roles: string[];
   loading: boolean;
-  signIn: (username: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (username: string, password: string) => Promise<{ error: string | null; user: any | null }>;
   signUp: (username: string, password: string, fullName: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -37,11 +38,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e: any) {
       setUser(null);
       setRoles([]);
+      const isAuthError = e.response && (e.response.status === 401 || e.response.status === 403);
       const errorMsg = e.response?.data?.error || '';
       if (errorMsg.includes('ระงับ')) {
         dispatchSuspended(); // removes token + shows modal (one-shot guard inside)
-      } else {
+      } else if (isAuthError) {
         localStorage.removeItem('auth_token');
+      } else {
+        console.error("Network or server error fetching user:", e.message);
+        toast.error(`ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ${e.message}`);
       }
     } finally {
       setLoading(false);
@@ -79,9 +84,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('auth_token', data.token);
       }
       await refreshUser();
-      return { error: null };
+      return { error: null, user: data.user };
     } catch (e: any) {
-      return { error: e.response?.data?.error || "Login failed" };
+      return { error: e.response?.data?.error || "Login failed", user: null };
     }
   };
 
