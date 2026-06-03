@@ -3,7 +3,9 @@ import sql from '../db';
 export async function getUserByUsername(username: string) {
   if (!username) return null;
   const [user] = await sql`
-    SELECT id, username, password_hash, tenant_id FROM users WHERE username = ${username}
+    SELECT id, username, password_hash, tenant_id 
+    FROM users 
+    WHERE LOWER(username) = LOWER(${username})
   `;
   return user;
 }
