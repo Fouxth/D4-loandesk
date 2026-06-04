@@ -6,7 +6,7 @@ import sql from '../db';
  */
 export async function sendLineNotify(
   message: string, 
-  eventType: 'payment' | 'loan' | 'expense' | 'fraud',
+  eventType: 'payment' | 'loan' | 'expense' | 'fraud' | 'refinance' | 'completed' | 'pawn_forfeited',
   flexOptions?: {
     title: string;
     items: { label: string; value: string; color?: string }[];

@@ -105,26 +105,97 @@ export async function dbRefinanceLoan(oldLoanId: string, newData: any, newLoanNu
         dueDate: newData.dueDate,
         notes: newData.notes,
         refinancedFrom: oldLoanId,
-        is_interest_only: newData.isInterestOnly ?? oldLoan.is_interest_only,
-        is_indefinite: newData.isIndefinite ?? oldLoan.is_indefinite,
-        is_pawn: newData.isPawn ?? oldLoan.is_pawn,
-        pawn_item: newData.pawnItem ?? oldLoan.pawn_item,
-        pawn_status: newData.pawnStatus ?? oldLoan.pawn_status,
+        is_interest_only: newData.isInterestOnly ?? oldLoan.isInterestOnly,
+        is_indefinite: newData.isIndefinite ?? oldLoan.isIndefinite,
+        is_pawn: newData.isPawn ?? oldLoan.isPawn,
+        pawn_item: newData.pawnItem ?? oldLoan.pawnItem,
+        pawn_status: newData.pawnStatus ?? oldLoan.pawnStatus,
         createdBy: userId,
         tenantId
       })}
       RETURNING *
     `;
 
+    // Notify LINE of Refinance
+    try {
+      const customers = await sql`SELECT full_name FROM customers WHERE id = ${oldLoan.customerId} AND tenant_id = ${tenantId}`;
+      const customerName = customers[0]?.fullName || "—";
+      const formattedOldPrincipal = Number(oldLoan.principal).toLocaleString('en-US', {minimumFractionDigits: 2});
+      const formattedNewPrincipal = Number(newLoan.principal).toLocaleString('en-US', {minimumFractionDigits: 2});
+      
+      const message = `🔄 แจ้งเตือนรียอดสัญญาใหม่ (Refinance)\n👤 ลูกค้า: ${customerName}\n📝 สัญญาเดิม: ${oldLoan.loanNumber} (ยอดเดิม: ${formattedOldPrincipal} ฿)\n🆕 สัญญาใหม่: ${newLoan.loanNumber} (ยอดใหม่: ${formattedNewPrincipal} ฿)`;
+      
+      sendLineNotify(message, 'refinance', {
+        title: '🔄 รียอดสัญญาใหม่ (Refinance)',
+        accentColor: '#8b5cf6',
+        items: [
+          { label: 'ลูกค้า', value: customerName },
+          { label: 'สัญญาเดิม', value: oldLoan.loanNumber },
+          { label: 'สัญญาใหม่', value: newLoan.loanNumber },
+          { label: 'ยอดใหม่รวม', value: `${formattedNewPrincipal} บาท`, color: '#8b5cf6' }
+        ],
+        footer: 'ทำรายการรียอดใหม่สำเร็จแล้ว'
+      }, tenantId);
+    } catch (err) {
+      console.error('Failed to send refinance notification:', err);
+    }
+
     return newLoan;
   });
 }
 
 export async function dbUpdateLoan(id: string, data: any, tenantId: string) {
-  return await sql`
+  const [oldLoan] = await sql`SELECT * FROM loans WHERE id = ${id} AND tenant_id = ${tenantId}`;
+
+  const result = await sql`
     UPDATE loans SET ${sql(data)} WHERE id = ${id} AND tenant_id = ${tenantId}
     RETURNING *
   `;
+
+  if (result.length > 0 && oldLoan) {
+    const newLoan = result[0];
+    
+    // Check if status changed
+    if (oldLoan.status !== newLoan.status) {
+      try {
+        const customers = await sql`SELECT full_name FROM customers WHERE id = ${newLoan.customerId} AND tenant_id = ${tenantId}`;
+        const customerName = customers[0]?.fullName || "—";
+        
+        if (newLoan.status === 'completed') {
+          const formattedPrincipal = Number(newLoan.principal).toLocaleString('en-US', {minimumFractionDigits: 2});
+          const message = `🎉 แจ้งเตือนปิดยอดสัญญา\n👤 ลูกค้า: ${customerName}\n📝 สัญญา: ${newLoan.loanNumber}\n💸 ยอดเงินต้น: ${formattedPrincipal} บาท`;
+          sendLineNotify(message, 'completed', {
+            title: '🎉 ปิดยอดสัญญาสำเร็จ',
+            accentColor: '#10b981',
+            items: [
+              { label: 'ลูกค้า', value: customerName },
+              { label: 'เลขที่สัญญา', value: newLoan.loanNumber },
+              { label: 'ประเภทสัญญา', value: newLoan.isPawn ? 'จำนำทรัพย์สิน' : 'เงินกู้ทั่วไป' },
+              { label: 'เงินต้น', value: `${formattedPrincipal} บาท` }
+            ],
+            footer: 'สัญญานี้ได้รับการปิดยอดเสร็จสิ้นแล้ว'
+          }, tenantId);
+        } else if (newLoan.status === 'forfeited') {
+          const message = `⚠️ แจ้งเตือนทรัพย์สินหลุดจำนำ\n👤 ลูกค้า: ${customerName}\n📝 สัญญา: ${newLoan.loanNumber}\n📦 ทรัพย์สิน: ${newLoan.pawnItem || '—'}`;
+          sendLineNotify(message, 'pawn_forfeited', {
+            title: '⚠️ ทรัพย์สินหลุดจำนำ',
+            accentColor: '#ef4444',
+            items: [
+              { label: 'ลูกค้า', value: customerName },
+              { label: 'เลขที่สัญญา', value: newLoan.loanNumber },
+              { label: 'ทรัพย์สินจำนำ', value: newLoan.pawnItem || '—' },
+              { label: 'สถานะ', value: 'หลุดจำนำ (ตัดสิทธิ์)' }
+            ],
+            footer: 'ทรัพย์สินหลุดเข้าคลังร้านโดยสมบูรณ์'
+          }, tenantId);
+        }
+      } catch (err) {
+        console.error('Failed to send status transition notification:', err);
+      }
+    }
+  }
+
+  return result;
 }
 
 export async function dbDeleteLoan(id: string, tenantId: string) {

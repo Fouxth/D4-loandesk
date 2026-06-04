@@ -30,7 +30,10 @@ router.get('/', async (req: AuthRequest, res) => {
               payment: true,
               loan: true,
               expense: true,
-              fraud: true
+              fraud: true,
+              refinance: true,
+              completed: true,
+              pawn_forfeited: true
             }
           };
         }

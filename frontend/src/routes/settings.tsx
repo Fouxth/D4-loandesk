@@ -68,7 +68,10 @@ function Settings() {
     payment: true,
     loan: true,
     expense: true,
-    fraud: true
+    fraud: true,
+    refinance: true,
+    completed: true,
+    pawn_forfeited: true
   });
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
@@ -102,7 +105,15 @@ function Settings() {
           setLineUserId(data.line_notify.userId || "");
           setLineEnabled(!!data.line_notify.enabled);
           if (data.line_notify.events) {
-            setLineEvents(data.line_notify.events);
+            setLineEvents({
+              payment: data.line_notify.events.payment !== false,
+              loan: data.line_notify.events.loan !== false,
+              expense: data.line_notify.events.expense !== false,
+              fraud: data.line_notify.events.fraud !== false,
+              refinance: data.line_notify.events.refinance !== false,
+              completed: data.line_notify.events.completed !== false,
+              pawn_forfeited: data.line_notify.events.pawn_forfeited !== false
+            });
           }
         }
       } catch (e) {
@@ -723,6 +734,27 @@ function Settings() {
                         <p className="text-[11px] text-muted-foreground">แจ้งเตือนเมื่อสร้างสัญญาใหม่</p>
                       </div>
                       <Switch checked={lineEvents.loan} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, loan: v }))} />
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/10">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-bold cursor-pointer" onClick={() => setLineEvents(p => ({...p, refinance: !p.refinance}))}>รียอดใหม่ (Refinance)</Label>
+                        <p className="text-[11px] text-muted-foreground">แจ้งเตือนเมื่อต่อยอดหรือรียอดสัญญาใหม่</p>
+                      </div>
+                      <Switch checked={lineEvents.refinance} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, refinance: v }))} />
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/10">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-bold cursor-pointer" onClick={() => setLineEvents(p => ({...p, completed: !p.completed}))}>ปิดยอดสัญญา (Completed)</Label>
+                        <p className="text-[11px] text-muted-foreground">แจ้งเตือนเมื่อปิดยอดกู้หรือไถ่ถอนสำเร็จ</p>
+                      </div>
+                      <Switch checked={lineEvents.completed} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, completed: v }))} />
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/10">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-bold cursor-pointer" onClick={() => setLineEvents(p => ({...p, pawn_forfeited: !p.pawn_forfeited}))}>ทรัพย์สินหลุดจำนำ (Pawn Forfeited)</Label>
+                        <p className="text-[11px] text-muted-foreground">แจ้งเตือนเมื่อทรัพย์สินหลุดจำนำเข้าร้าน</p>
+                      </div>
+                      <Switch checked={lineEvents.pawn_forfeited} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, pawn_forfeited: v }))} />
                     </div>
                     <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/10">
                       <div className="space-y-0.5">
