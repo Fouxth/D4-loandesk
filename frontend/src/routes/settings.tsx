@@ -124,6 +124,47 @@ function Settings() {
     })();
   }, []);
 
+  useEffect(() => {
+    const ids = ["profile", "account", "lending", "limits", "notifications", "display"];
+    
+    const handleScroll = () => {
+      // Check if we are at the bottom of the page
+      const isAtBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 50;
+      if (isAtBottom) {
+        setActiveSection("display");
+        return;
+      }
+
+      let currentSection = "profile";
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= 160) {
+            currentSection = id;
+          }
+        }
+      }
+      setActiveSection(currentSection);
+    };
+
+    let ticking = false;
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", onScroll);
+    handleScroll();
+
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   const handleSaveBusiness = async () => {
     setBusy("business");
     try {
