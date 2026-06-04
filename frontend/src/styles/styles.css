@@ -19,6 +19,7 @@
  */
 
 @theme inline {
+  --font-sans: "Inter", "Kanit", "Noto Sans Thai", sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -232,6 +233,24 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    letter-spacing: 0.01em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  @media (min-width: 768px) {
+    body {
+      font-size: 16.5px;
+    }
+  }
+
+  @media (min-width: 1200px) {
+    body {
+      font-size: 17px;
+    }
   }
 
   /* ---- Dark mode polish ---- */

@@ -187,7 +187,7 @@ function Payments() {
             <TrendingUp className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-primary/80 uppercase tracking-widest leading-none mb-1">
+            <span className="text-[11px] font-bold text-primary/80 uppercase tracking-widest leading-none mb-1">
               ยอด{viewMode === "day" ? "รายวัน" : "รายเดือน"}
             </span>
             <span className="text-lg font-black text-primary">{formatTHB(totalAmount)}</span>
@@ -199,7 +199,7 @@ function Payments() {
             <Banknote className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-success/80 uppercase tracking-widest leading-none mb-1">ยอดเงินสด</span>
+            <span className="text-[11px] font-bold text-success/80 uppercase tracking-widest leading-none mb-1">ยอดเงินสด</span>
             <span className="text-lg font-black text-success">{formatTHB(cashTotal)}</span>
           </div>
         </div>
@@ -209,7 +209,7 @@ function Payments() {
             <Landmark className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-info/80 uppercase tracking-widest leading-none mb-1">ยอดโอนเงิน</span>
+            <span className="text-[11px] font-bold text-info/80 uppercase tracking-widest leading-none mb-1">ยอดโอนเงิน</span>
             <span className="text-lg font-black text-info">{formatTHB(bankTotal)}</span>
           </div>
         </div>
@@ -219,7 +219,7 @@ function Payments() {
             <Smartphone className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-warning/80 uppercase tracking-widest leading-none mb-1">ยอดแอปฯ</span>
+            <span className="text-[11px] font-bold text-warning/80 uppercase tracking-widest leading-none mb-1">ยอดแอปฯ</span>
             <span className="text-lg font-black text-warning">{formatTHB(mobileTotal)}</span>
           </div>
         </div>
@@ -245,7 +245,7 @@ function Payments() {
                     <TableCell className="pl-6 py-3">
                       <div className="flex flex-col">
                         <span className="font-medium text-sm text-foreground">{formatDate(p.paymentDate)}</span>
-                        <span className="text-[10px] text-muted-foreground">งวดที่ #{p.installmentNumber ?? "-"}</span>
+                        <span className="text-[11px] text-muted-foreground">งวดที่ #{p.installmentNumber ?? "-"}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -283,18 +283,18 @@ function Payments() {
                   <div>
                     <div className="flex items-center gap-2">
                        <span className="font-bold text-sm">{p.customerName}</span>
-                       <span className="text-[10px] font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{p.loanNumber}</span>
+                       <span className="text-[11px] font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{p.loanNumber}</span>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                       <span className="text-[10px] font-medium text-muted-foreground">{formatDate(p.paymentDate)}</span>
+                       <span className="text-[11px] font-medium text-muted-foreground">{formatDate(p.paymentDate)}</span>
                        <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
-                       <span className="text-[10px] font-medium text-muted-foreground uppercase">{METHOD_LABELS[p.method] || p.method}</span>
+                       <span className="text-[11px] font-medium text-muted-foreground uppercase">{METHOD_LABELS[p.method] || p.method}</span>
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-success">{formatTHB(p.amount)}</p>
-                  <p className="text-[9px] font-bold text-muted-foreground uppercase">งวด #{p.installmentNumber}</p>
+                  <p className="text-[11px] font-bold text-muted-foreground uppercase">งวด #{p.installmentNumber}</p>
                 </div>
               </div>
             );

@@ -51,7 +51,7 @@ export function NotificationBell() {
         <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-full hover:bg-muted" aria-label="แจ้งเตือน">
           <Bell className="h-4.5 w-4.5" />
           {alerts.length > 0 && (
-            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground ring-2 ring-background">
+            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-bold text-destructive-foreground ring-2 ring-background">
               {alerts.length}
             </span>
           )}
@@ -60,7 +60,7 @@ export function NotificationBell() {
       <PopoverContent align="end" className="w-80 p-0 shadow-[var(--shadow-elevated)] border-border">
         <div className="border-b border-border bg-muted/30 px-4 py-3">
           <p className="text-sm font-bold">การแจ้งเตือน</p>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">ยอดค้างชำระ & ครบกำหนด</p>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">ยอดค้างชำระ & ครบกำหนด</p>
         </div>
         <div className="max-h-80 overflow-auto">
           {alerts.length === 0 ? (
@@ -81,10 +81,10 @@ export function NotificationBell() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-foreground">{a.customer}</p>
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase">{a.loan_number}</p>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase">{a.loan_number}</p>
                   </div>
                   <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter ${
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-black uppercase tracking-tighter ${
                       a.kind === "overdue"
                         ? "bg-destructive/15 text-destructive border border-destructive/20"
                         : "bg-warning/15 text-warning-foreground border border-warning/20"
@@ -100,7 +100,7 @@ export function NotificationBell() {
         </div>
         {alerts.length > 0 && (
           <div className="border-t border-border bg-muted/10 p-2 text-center">
-            <Button variant="ghost" size="sm" className="w-full text-[10px] font-bold uppercase tracking-widest text-muted-foreground" asChild>
+            <Button variant="ghost" size="sm" className="w-full text-[11px] font-bold uppercase tracking-widest text-muted-foreground" asChild>
               <Link to="/loans">ดูสัญญาทั้งหมด</Link>
             </Button>
           </div>

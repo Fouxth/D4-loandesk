@@ -304,11 +304,11 @@ function LoanDetail() {
           
           {loan.isPawn && (
             <div className="mt-6 pt-6 border-t border-border">
-              <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary mb-3">ข้อมูลทรัพย์สินจำนำ</h4>
+              <h4 className="text-[11px] font-bold uppercase tracking-widest text-primary mb-3">ข้อมูลทรัพย์สินจำนำ</h4>
               <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
                 <p className="text-sm font-bold text-foreground mb-2">{loan.pawnItem}</p>
                 <div className="flex items-center justify-between">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
                     loan.pawnStatus === 'redeemed' ? 'bg-success/20 text-success' : 
                     loan.pawnStatus === 'forfeited' ? 'bg-destructive/20 text-destructive' : 
                     'bg-warning/20 text-warning-foreground'
@@ -317,7 +317,7 @@ function LoanDetail() {
                   </span>
                   
                   <Select value={loan.pawnStatus} onValueChange={updatePawnStatus}>
-                    <SelectTrigger className="h-7 w-28 text-[10px] bg-background">
+                    <SelectTrigger className="h-7 w-28 text-[11px] bg-background">
                       <SelectValue placeholder="เปลี่ยนสถานะ" />
                     </SelectTrigger>
                     <SelectContent>
@@ -341,10 +341,10 @@ function LoanDetail() {
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-foreground">
                     งวดที่ #{p.installmentNumber ?? "—"} · <span className="text-success">{formatTHB(p.amount)}</span>
-                    {p.category === 'interest' && <span className="ml-2 text-[10px] font-bold text-primary uppercase bg-primary/10 px-1 rounded">ดอกเบี้ย</span>}
-                    {p.category === 'principal' && <span className="ml-2 text-[10px] font-bold text-success-foreground uppercase bg-success/10 px-1 rounded">เงินต้น</span>}
+                    {p.category === 'interest' && <span className="ml-2 text-[11px] font-bold text-primary uppercase bg-primary/10 px-1 rounded">ดอกเบี้ย</span>}
+                    {p.category === 'principal' && <span className="ml-2 text-[11px] font-bold text-success-foreground uppercase bg-success/10 px-1 rounded">เงินต้น</span>}
                   </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
                     {formatDate(p.paymentDate)} · {METHOD_LABELS[p.method] || p.method}
                   </p>
                 </div>
@@ -578,11 +578,11 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
         <form onSubmit={submit} className="space-y-4 pt-2">
           <div className="bg-muted/30 rounded-lg p-4 grid grid-cols-2 gap-4">
             <div>
-              <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">ยอดคงเหลือเดิม</p>
+              <p className="text-[11px] uppercase font-bold text-muted-foreground mb-1">ยอดคงเหลือเดิม</p>
               <p className="text-lg font-black">{formatTHB(remaining)}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">เงินต้นใหม่รวม</p>
+              <p className="text-[11px] uppercase font-bold text-muted-foreground mb-1">เงินต้นใหม่รวม</p>
               <p className="text-lg font-black text-primary">{formatTHB(totalPrincipal)}</p>
             </div>
           </div>
@@ -620,16 +620,16 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
           <div className="rounded-xl bg-primary/5 border border-primary/10 p-4 shadow-sm">
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">ยอดรวมใหม่</p>
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">ยอดรวมใหม่</p>
                 <p className="text-sm font-bold text-primary">{formatTHB(calc.total)}</p>
               </div>
               <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">ต่องวด</p>
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">ต่องวด</p>
                 <p className="text-sm font-bold text-primary">{formatTHB(calc.installment)}</p>
               </div>
               <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">สิ้นสุดวันที่</p>
-                <p className="text-[10px] font-bold">{calc.due ? formatDate(calc.due.toISOString().split("T")[0]) : 'ไม่มีกำหนด'}</p>
+                <p className="text-[11px] uppercase font-bold text-muted-foreground mb-1">สิ้นสุดวันที่</p>
+                <p className="text-[11px] font-bold">{calc.due ? formatDate(calc.due.toISOString().split("T")[0]) : 'ไม่มีกำหนด'}</p>
               </div>
             </div>
           </div>

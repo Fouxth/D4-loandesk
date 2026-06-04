@@ -128,7 +128,7 @@ function ActivityPage() {
                       <p className="font-semibold text-sm text-foreground">
                         {cfg.label}
                       </p>
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">
                         {formatRelative(log.createdAt)}
                       </span>
                     </div>
@@ -141,7 +141,7 @@ function ActivityPage() {
                         </span>
                       </span>
                       {log.entityType && (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium">
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium">
                           {ENTITY_LABEL[log.entityType] ?? log.entityType}
                         </span>
                       )}
@@ -153,7 +153,7 @@ function ActivityPage() {
                         {Object.entries(details).map(([k, v]) => (
                           <span
                             key={k}
-                            className="rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground"
+                            className="rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground"
                           >
                             <span className="font-semibold text-foreground/70">{k}:</span>{" "}
                             {String(v)}

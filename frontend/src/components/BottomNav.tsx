@@ -48,7 +48,7 @@ export function BottomNav() {
                 </div>
                 <span
                   className={cn(
-                    "text-[9px] font-black uppercase tracking-wider mt-0.5 pb-1",
+                    "text-[11px] font-black uppercase tracking-wider mt-0.5 pb-1",
                     active ? "text-primary" : "text-muted-foreground"
                   )}
                 >
@@ -88,7 +88,7 @@ export function BottomNav() {
               </div>
               <span
                 className={cn(
-                  "text-[9px] font-bold uppercase tracking-wide pb-1",
+                  "text-[11px] font-bold uppercase tracking-wide pb-1",
                   active ? "text-primary font-black" : "text-muted-foreground"
                 )}
               >

@@ -215,7 +215,7 @@ function Customers() {
               </div>
             </div>
             <div className="mt-4 pt-3 border-t border-border flex justify-between items-center">
-              <span className="text-[10px] text-muted-foreground">{formatDate(c.createdAt)}</span>
+              <span className="text-[11px] text-muted-foreground">{formatDate(c.createdAt)}</span>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => { setEditing(c); setOpen(true); }} className="h-8 px-3">
                   <Pencil className="mr-1 h-3.5 w-3.5" />{t('actions.edit', 'แก้ไข')}

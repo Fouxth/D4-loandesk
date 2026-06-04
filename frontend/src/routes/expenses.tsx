@@ -118,11 +118,11 @@ function Expenses() {
                 <div>
                   <p className="text-xs font-bold">{CATEGORY_LABELS[e.category] || e.category}</p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] text-muted-foreground">{formatDate(e.expenseDate)}</span>
+                    <span className="text-[11px] text-muted-foreground">{formatDate(e.expenseDate)}</span>
                     {e.description && (
                       <>
                         <span className="h-0.5 w-0.5 rounded-full bg-muted-foreground/30" />
-                        <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{e.description}</span>
+                        <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">{e.description}</span>
                       </>
                     )}
                   </div>

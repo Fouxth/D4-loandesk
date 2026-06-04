@@ -82,7 +82,7 @@ function Detail() {
           </dl>
           {c.notes && (
             <div className="mt-4 rounded-lg bg-muted/50 p-4">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">หมายเหตุ</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-1">หมายเหตุ</p>
               <p className="text-xs text-foreground leading-relaxed">{c.notes}</p>
             </div>
           )}
@@ -96,7 +96,7 @@ function Detail() {
               <Link key={l.id} to="/loans/$loanId" params={{ loanId: l.id }} className="flex items-center justify-between rounded-xl border border-border px-4 py-3.5 hover:bg-muted/50 transition-all hover:scale-[1.01] group">
                 <div className="min-w-0">
                   <p className="text-sm font-bold group-hover:text-primary transition-colors">{l.loanNumber}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(l.startDate)} → {formatDate(l.dueDate)}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{formatDate(l.startDate)} → {formatDate(l.dueDate)}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-black text-foreground">{formatTHB(l.totalPayable)}</p>
@@ -117,7 +117,7 @@ function Detail() {
               <div key={p.id} className="flex items-center justify-between border-b border-border/50 py-3 text-sm last:border-0 hover:bg-muted/20 px-2 rounded-lg transition-colors">
                 <div className="flex flex-col">
                   <span className="font-medium text-foreground">{formatDate(p.paymentDate)}</span>
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">งวดที่ #{p.installmentNumber ?? "—"}</span>
+                  <span className="text-[11px] text-muted-foreground uppercase tracking-wider">งวดที่ #{p.installmentNumber ?? "—"}</span>
                 </div>
                 <span className="font-bold text-success text-base">{formatTHB(p.amount)}</span>
               </div>

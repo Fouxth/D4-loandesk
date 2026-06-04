@@ -61,7 +61,7 @@ export function AppSidebar() {
           </div>
           <div className="min-w-0">
             <h1 className="text-sm font-black tracking-tight text-foreground leading-tight truncate">{businessName}</h1>
-            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mt-0.5 opacity-70 truncate">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mt-0.5 opacity-70 truncate">
               {subName}
             </p>
           </div>
@@ -72,7 +72,7 @@ export function AppSidebar() {
         {/* Super Admin Panel Group - Render dynamically */}
         {isSuperAdmin && (
           <SidebarGroup className="animate-in fade-in slide-in-from-top-2 duration-500">
-            <SidebarGroupLabel className="px-3 text-[10px] font-black uppercase tracking-[0.15em] text-red-500 mb-2 flex items-center gap-1.5">
+            <SidebarGroupLabel className="px-3 text-[11px] font-black uppercase tracking-[0.15em] text-red-500 mb-2 flex items-center gap-1.5">
               <ShieldAlert className="h-3 w-3" /> Super Admin
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -91,7 +91,7 @@ export function AppSidebar() {
         )}
 
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground mb-2">
+          <SidebarGroupLabel className="px-3 text-[11px] font-black uppercase tracking-[0.15em] text-muted-foreground mb-2">
             {t('menu.main')}
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -111,7 +111,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground mb-2">
+          <SidebarGroupLabel className="px-3 text-[11px] font-black uppercase tracking-[0.15em] text-muted-foreground mb-2">
             {t('menu.finance')}
           </SidebarGroupLabel>
           <SidebarGroupContent>

@@ -141,7 +141,7 @@ function CalendarView() {
               {THAI_DAYS_SHORT.map((d, i) => (
                 <div
                   key={d}
-                  className={`py-2 text-center text-[10px] font-bold uppercase tracking-widest ${
+                  className={`py-2 text-center text-[11px] font-bold uppercase tracking-widest ${
                     i === 0 ? "text-destructive" : "text-muted-foreground"
                   }`}
                 >
@@ -192,7 +192,7 @@ function CalendarView() {
                       {items.slice(0, 2).map((l) => (
                         <div
                           key={l.id}
-                          className={`truncate rounded px-1 py-0.5 text-[8px] sm:text-[9px] font-semibold border ${
+                          className={`truncate rounded px-1 py-0.5 text-[10px] sm:text-[11px] font-semibold border ${
                             STATUS_STYLE[l.status] ?? STATUS_STYLE.active
                           }`}
                         >
@@ -200,7 +200,7 @@ function CalendarView() {
                         </div>
                       ))}
                       {items.length > 2 && (
-                        <p className="text-[8px] text-muted-foreground text-center font-bold">
+                        <p className="text-[10px] text-muted-foreground text-center font-bold">
                           +{items.length - 2} รายการ
                         </p>
                       )}
@@ -249,7 +249,7 @@ function CalendarView() {
                         </p>
                       </div>
                       <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold border ${
                           STATUS_STYLE[l.status] ?? STATUS_STYLE.active
                         }`}
                       >
@@ -266,12 +266,12 @@ function CalendarView() {
 
             {/* Legend */}
             <div className="border-t border-border px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">สถานะ</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-2">สถานะ</p>
               <div className="space-y-1">
                 {Object.entries(STATUS_LABEL).map(([k, v]) => (
                   <div key={k} className="flex items-center gap-2">
                     <div className={`h-2 w-2 rounded-full border ${STATUS_STYLE[k]}`} />
-                    <span className="text-[10px] text-muted-foreground">{v}</span>
+                    <span className="text-[11px] text-muted-foreground">{v}</span>
                   </div>
                 ))}
               </div>

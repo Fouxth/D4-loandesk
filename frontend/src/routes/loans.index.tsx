@@ -123,7 +123,7 @@ function Loans() {
                 <TableCell>
                   <Link to="/loans/$loanId" params={{ loanId: l.id }} className="font-bold text-primary hover:underline flex items-center gap-2">
                     {l.loanNumber}
-                    {l.isPawn && <span className="bg-primary/20 text-primary text-[9px] px-1 rounded">จำนำ</span>}
+                    {l.isPawn && <span className="bg-primary/20 text-primary text-[11px] px-1 rounded">จำนำ</span>}
                   </Link>
                 </TableCell>
                 <TableCell className="font-medium">{l.customerName}</TableCell>
@@ -155,9 +155,9 @@ function Loans() {
           >
             <div className="flex justify-between items-start mb-3">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-muted px-1.5 py-0.5 rounded mb-1 inline-flex items-center gap-1">
+                <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground bg-muted px-1.5 py-0.5 rounded mb-1 inline-flex items-center gap-1">
                   {l.loanNumber}
-                  {l.isPawn && <span className="bg-primary text-white text-[8px] px-1 rounded ml-1">จำนำ</span>}
+                  {l.isPawn && <span className="bg-primary text-white text-[10px] px-1 rounded ml-1">จำนำ</span>}
                 </span>
                 <h4 className="font-bold text-foreground text-lg flex items-center gap-2">
                   <User className="h-4 w-4 text-primary" /> {l.customerName}
@@ -173,13 +173,13 @@ function Loans() {
             
             <div className="grid grid-cols-2 gap-4 mt-2">
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                   <DollarSign className="h-3 w-3" /> ยอดรวมทั้งหมด
                 </p>
                 <p className="font-black text-primary">{formatTHB(l.totalPayable)}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                   <Calendar className="h-3 w-3" /> ครบกำหนด
                 </p>
                 <p className="text-xs font-bold text-foreground">{formatDate(l.dueDate)}</p>
@@ -342,7 +342,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
 
           {form.isPawn && (
             <div className="space-y-2 mt-2 animate-in slide-in-from-top-2">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-primary">รายละเอียดสิ่งของที่จำนำ</Label>
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-primary">รายละเอียดสิ่งของที่จำนำ</Label>
               <Input 
                 value={form.pawnItem} 
                 onChange={(e) => setForm({ ...form, pawnItem: e.target.value })} 
@@ -354,22 +354,22 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
         </div>
 
         <div className="rounded-xl bg-primary/10 border border-primary/20 p-4 shadow-sm">
-          <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary mb-3">สรุปยอดเบื้องต้น</h4>
+          <h4 className="text-[11px] font-bold uppercase tracking-widest text-primary mb-3">สรุปยอดเบื้องต้น</h4>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">ดอกเบี้ย</p>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">ดอกเบี้ย</p>
               <p className="text-sm font-bold text-primary">{formatTHB(calc.interest)}</p>
             </div>
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">ยอดรวมทั้งหมด</p>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">ยอดรวมทั้งหมด</p>
               <p className="text-sm font-bold text-primary">{formatTHB(calc.total)}</p>
             </div>
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">ต่องวด</p>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">ต่องวด</p>
               <p className="text-sm font-bold text-primary">{formatTHB(calc.installment)}</p>
             </div>
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">สิ้นสุดวันที่</p>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">สิ้นสุดวันที่</p>
               <p className="text-sm font-bold text-primary">{formatDate(calc.due)}</p>
             </div>
           </div>

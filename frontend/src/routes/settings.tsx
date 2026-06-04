@@ -420,7 +420,7 @@ function Settings() {
             <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">ชื่อธุรกิจ (ภาษาไทย)</Label>
+                  <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ชื่อธุรกิจ (ภาษาไทย)</Label>
                   <Input 
                     value={business.nameTH} 
                     onChange={(e) => setBusiness({...business, nameTH: e.target.value})}
@@ -429,7 +429,7 @@ function Settings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Business Name (English)</Label>
+                  <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">Business Name (English)</Label>
                   <Input 
                     value={business.nameEN} 
                     onChange={(e) => setBusiness({...business, nameEN: e.target.value})}
@@ -440,7 +440,7 @@ function Settings() {
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">เบอร์โทรศัพท์ติดต่อ</Label>
+                  <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">เบอร์โทรศัพท์ติดต่อ</Label>
                   <Input 
                     value={business.phone} 
                     onChange={(e) => setBusiness({...business, phone: e.target.value})}
@@ -450,7 +450,7 @@ function Settings() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">ที่อยู่สำหรับออกใบเสร็จ / รายงาน</Label>
+                <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ที่อยู่สำหรับออกใบเสร็จ / รายงาน</Label>
                 <Textarea 
                   value={business.address} 
                   onChange={(e) => setBusiness({...business, address: e.target.value})}
@@ -518,7 +518,7 @@ function Settings() {
             <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-6">
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">อัตราดอกเบี้ยเริ่มต้น (%)</Label>
+                  <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">อัตราดอกเบี้ยเริ่มต้น (%)</Label>
                   <div className="relative">
                     <Input 
                       type="number" 
@@ -530,7 +530,7 @@ function Settings() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">ค่าปรับกรณีจ่ายล่าช้า (บาท/วัน)</Label>
+                  <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ค่าปรับกรณีจ่ายล่าช้า (บาท/วัน)</Label>
                   <div className="relative">
                     <Input 
                       type="number" 
@@ -545,7 +545,7 @@ function Settings() {
               <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50">
                 <div className="space-y-0.5">
                   <span className="text-sm font-bold">หักดอกเบี้ยล่วงหน้า</span>
-                  <p className="text-[10px] text-muted-foreground">หักดอกเบี้ยจากยอดเงินต้นทันทีเมื่อทำสัญญา</p>
+                  <p className="text-[11px] text-muted-foreground">หักดอกเบี้ยจากยอดเงินต้นทันทีเมื่อทำสัญญา</p>
                 </div>
                 <Switch 
                   checked={lending.deductInterestUpfront} 
@@ -573,9 +573,9 @@ function Settings() {
             </div>
             <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
               <div className="grid grid-cols-3 bg-muted/50 p-4 border-b border-border/50">
-                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">กลุ่มลูกค้า</div>
-                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">เริ่มต้น (Min)</div>
-                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">สูงสุด (Max)</div>
+                <div className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">กลุ่มลูกค้า</div>
+                <div className="text-[11px] font-black uppercase tracking-widest text-muted-foreground text-center">เริ่มต้น (Min)</div>
+                <div className="text-[11px] font-black uppercase tracking-widest text-muted-foreground text-center">สูงสุด (Max)</div>
               </div>
               <div className="divide-y divide-border/50">
                 {limits.map((group, idx) => (
@@ -633,7 +633,7 @@ function Settings() {
                   </div>
                   <div className="space-y-0.5">
                     <span className="text-sm font-bold text-[#06C755]">LINE Notify</span>
-                    <p className="text-[10px] text-muted-foreground">ส่งยอดแจ้งเตือนผ่านกลุ่ม LINE เมื่อมีการชำระเงิน</p>
+                    <p className="text-[11px] text-muted-foreground">ส่งยอดแจ้งเตือนผ่านกลุ่ม LINE เมื่อมีการชำระเงิน</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -651,7 +651,7 @@ function Settings() {
                       onChange={(e) => setLineUserId(e.target.value)}
                       className="bg-muted/20 font-mono h-11"
                     />
-                    <p className="text-[10px] text-muted-foreground italic">
+                    <p className="text-[11px] text-muted-foreground italic">
                       * พิมพ์คำว่า <strong>"token"</strong> ส่งหา Bot เพื่อรับรหัส User ID ของคุณ
                     </p>
                   </div>
@@ -675,28 +675,28 @@ function Settings() {
                     <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/10">
                       <div className="space-y-0.5">
                         <Label className="text-sm font-bold cursor-pointer" onClick={() => setLineEvents(p => ({...p, payment: !p.payment}))}>รับชำระเงิน (Payment)</Label>
-                        <p className="text-[10px] text-muted-foreground">แจ้งเตือนเมื่อบันทึกรับเงิน</p>
+                        <p className="text-[11px] text-muted-foreground">แจ้งเตือนเมื่อบันทึกรับเงิน</p>
                       </div>
                       <Switch checked={lineEvents.payment} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, payment: v }))} />
                     </div>
                     <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/10">
                       <div className="space-y-0.5">
                         <Label className="text-sm font-bold cursor-pointer" onClick={() => setLineEvents(p => ({...p, loan: !p.loan}))}>ปล่อยกู้ใหม่ (New Loan)</Label>
-                        <p className="text-[10px] text-muted-foreground">แจ้งเตือนเมื่อสร้างสัญญาใหม่</p>
+                        <p className="text-[11px] text-muted-foreground">แจ้งเตือนเมื่อสร้างสัญญาใหม่</p>
                       </div>
                       <Switch checked={lineEvents.loan} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, loan: v }))} />
                     </div>
                     <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/10">
                       <div className="space-y-0.5">
                         <Label className="text-sm font-bold cursor-pointer" onClick={() => setLineEvents(p => ({...p, expense: !p.expense}))}>บันทึกรายจ่าย (Expense)</Label>
-                        <p className="text-[10px] text-muted-foreground">แจ้งเตือนเมื่อมีการบันทึกรายจ่าย</p>
+                        <p className="text-[11px] text-muted-foreground">แจ้งเตือนเมื่อมีการบันทึกรายจ่าย</p>
                       </div>
                       <Switch checked={lineEvents.expense} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, expense: v }))} />
                     </div>
                     <div className="flex items-center justify-between p-3 rounded-xl border border-destructive/20 bg-destructive/5">
                       <div className="space-y-0.5">
                         <Label className="text-sm font-bold text-destructive cursor-pointer" onClick={() => setLineEvents(p => ({...p, fraud: !p.fraud}))}>ยกเลิก/ลบ (Fraud Alert)</Label>
-                        <p className="text-[10px] text-destructive/80">แจ้งเตือนเมื่อลบประวัติหรือยกเลิกสัญญา</p>
+                        <p className="text-[11px] text-destructive/80">แจ้งเตือนเมื่อลบประวัติหรือยกเลิกสัญญา</p>
                       </div>
                       <Switch checked={lineEvents.fraud} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, fraud: v }))} />
                     </div>
@@ -754,7 +754,7 @@ function Settings() {
                     สำรองข้อมูล (Backup)
                   </Button>
                </div>
-               <p className="text-[10px] text-muted-foreground mt-4 italic">* แนะนำให้สำรองข้อมูลอย่างสม่ำเสมอเพื่อความปลอดภัยของข้อมูล</p>
+               <p className="text-[11px] text-muted-foreground mt-4 italic">* แนะนำให้สำรองข้อมูลอย่างสม่ำเสมอเพื่อความปลอดภัยของข้อมูล</p>
             </div>
           </section>
 
@@ -772,7 +772,7 @@ function Settings() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest">รหัสผ่านปัจจุบัน</Label>
+              <Label className="text-[11px] font-black uppercase tracking-widest">รหัสผ่านปัจจุบัน</Label>
               <Input 
                 type="password" 
                 value={passwords.current}
@@ -782,7 +782,7 @@ function Settings() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest">รหัสผ่านใหม่</Label>
+              <Label className="text-[11px] font-black uppercase tracking-widest">รหัสผ่านใหม่</Label>
               <Input 
                 type="password" 
                 value={passwords.new}
@@ -792,7 +792,7 @@ function Settings() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest">ยืนยันรหัสผ่านใหม่</Label>
+              <Label className="text-[11px] font-black uppercase tracking-widest">ยืนยันรหัสผ่านใหม่</Label>
               <Input 
                 type="password" 
                 value={passwords.confirm}

@@ -125,32 +125,32 @@ function Dashboard() {
           className="flex-1 flex flex-col items-center justify-center gap-1.5 rounded-2xl bg-primary text-primary-foreground p-4 shadow-lg shadow-primary/25 active:scale-95 transition-transform"
         >
           <Plus className="h-5 w-5" strokeWidth={2.5} />
-          <span className="text-[10px] font-black uppercase tracking-widest">สัญญาใหม่</span>
+          <span className="text-[11px] font-black uppercase tracking-widest">สัญญาใหม่</span>
         </Link>
         <Link
           to="/payments"
           className="flex-1 flex flex-col items-center justify-center gap-1.5 rounded-2xl bg-success/10 border border-success/20 text-success p-4 active:scale-95 transition-transform"
         >
           <Receipt className="h-5 w-5" />
-          <span className="text-[10px] font-black uppercase tracking-widest">รับชำระ</span>
+          <span className="text-[11px] font-black uppercase tracking-widest">รับชำระ</span>
         </Link>
         <Link
           to="/calendar"
           className="flex-1 flex flex-col items-center justify-center gap-1.5 rounded-2xl bg-muted/50 border border-border p-4 active:scale-95 transition-transform"
         >
           <CalIcon className="h-5 w-5 text-muted-foreground" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">ปฏิทิน</span>
+          <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ปฏิทิน</span>
         </Link>
       </div>
 
       {/* ─── FINANCIAL HIGHLIGHTS (mobile — 2 big numbers) ────── */}
       <div className="grid gap-3 grid-cols-2 md:hidden">
         <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4 shadow-sm">
-          <p className="text-[9px] font-bold text-primary/70 uppercase tracking-widest mb-1">ยอดคงค้างรวม</p>
+          <p className="text-[11px] font-bold text-primary/70 uppercase tracking-widest mb-1">ยอดคงค้างรวม</p>
           <p className="text-xl font-black text-primary leading-tight">{formatTHB(summary.outstanding)}</p>
         </div>
         <div className="bg-success/10 border border-success/20 rounded-2xl p-4 shadow-sm">
-          <p className="text-[9px] font-bold text-success/70 uppercase tracking-widest mb-1">เก็บวันนี้</p>
+          <p className="text-[11px] font-bold text-success/70 uppercase tracking-widest mb-1">เก็บวันนี้</p>
           <p className="text-xl font-black text-success leading-tight">{formatTHB(summary.todayCollections)}</p>
         </div>
       </div>
@@ -176,7 +176,7 @@ function Dashboard() {
         <div className="md:hidden">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-black uppercase tracking-widest text-foreground">⚡ ต้องติดตามวันนี้</h3>
-            <Link to="/loans" className="text-[10px] font-bold text-primary flex items-center gap-0.5">
+            <Link to="/loans" className="text-[11px] font-bold text-primary flex items-center gap-0.5">
               ดูทั้งหมด <ChevronRight className="h-3 w-3" />
             </Link>
           </div>
@@ -191,9 +191,9 @@ function Dashboard() {
                   className="flex items-center justify-between rounded-xl border border-border bg-card p-3.5 shadow-sm active:scale-[0.98] transition-transform"
                 >
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-muted-foreground">{l.loanNumber}</p>
+                    <p className="text-[11px] font-bold text-muted-foreground">{l.loanNumber}</p>
                     <p className="font-bold text-sm text-foreground truncate">{l.customerName}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(l.dueDate)}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{formatDate(l.dueDate)}</p>
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0 ml-3">
                     <StatusBadge tone={loanStatusTone(status)}>
@@ -218,7 +218,7 @@ function Dashboard() {
                 <p className="text-xs font-bold text-primary/80 uppercase tracking-widest mb-1">ยอดเงินคงค้างรวม</p>
                 <h4 className="text-3xl font-black text-primary tracking-tight">{formatTHB(summary.outstanding)}</h4>
               </div>
-              <div className="mt-4 flex items-center gap-2 text-[10px] text-primary/60 font-medium">
+              <div className="mt-4 flex items-center gap-2 text-[11px] text-primary/60 font-medium">
                 <Activity className="h-3 w-3" /> ยอดเงินต้นและดอกเบี้ยที่ยังไม่ได้รับชำระ
               </div>
             </div>
@@ -228,7 +228,7 @@ function Dashboard() {
                 <p className="text-xs font-bold text-success/80 uppercase tracking-widest mb-1">ยอดเก็บเงินวันนี้</p>
                 <h4 className="text-3xl font-black text-success tracking-tight">{formatTHB(summary.todayCollections)}</h4>
               </div>
-              <div className="mt-4 flex items-center gap-2 text-[10px] text-success/60 font-medium">
+              <div className="mt-4 flex items-center gap-2 text-[11px] text-success/60 font-medium">
                 <TrendingUp className="h-3 w-3" /> ยอดเงินที่จัดเก็บได้จริงในวันนี้
               </div>
             </div>
@@ -289,7 +289,7 @@ function Dashboard() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-12">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">ทั้งหมด</p>
+                <p className="text-[11px] uppercase font-bold text-muted-foreground">ทั้งหมด</p>
                 <p className="text-2xl font-black">{summary.activeLoans + summary.overdue}</p>
               </div>
             </div>
@@ -301,7 +301,7 @@ function Dashboard() {
                     <Activity className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">กำไรเดือนนี้</p>
+                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">กำไรเดือนนี้</p>
                     <p className="text-sm font-black text-foreground">{formatTHB(summary.monthlyProfit)}</p>
                   </div>
                 </div>

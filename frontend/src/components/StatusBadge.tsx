@@ -18,7 +18,7 @@ const TONE_CLASSES = {
 export function StatusBadge({ children, tone = "muted", className }: StatusBadgeProps) {
   return (
     <span className={cn(
-      "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+      "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider",
       TONE_CLASSES[tone],
       className
     )}>

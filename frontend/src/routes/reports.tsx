@@ -250,7 +250,7 @@ function StatCard({
       className={`rounded-2xl border p-6 shadow-[var(--shadow-elevated)] transition-all hover:scale-[1.02] ${tones[tone]}`}
     >
       <div className="flex items-center justify-between">
-        <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">
+        <p className="text-[11px] font-bold uppercase tracking-widest opacity-70">
           {label}
         </p>
         <div className={`p-2 rounded-lg bg-current/10`}>
@@ -259,7 +259,7 @@ function StatCard({
       </div>
       <p className="mt-4 text-2xl font-black tracking-tight text-foreground">{value}</p>
       {trend && (
-        <p className={`mt-2 text-[10px] font-bold ${trendClass || "opacity-60"}`}>{trend}</p>
+        <p className={`mt-2 text-[11px] font-bold ${trendClass || "opacity-60"}`}>{trend}</p>
       )}
     </div>
   );
