@@ -652,8 +652,46 @@ function Settings() {
                       className="bg-muted/20 font-mono h-11"
                     />
                     <p className="text-[11px] text-muted-foreground italic">
-                      * พิมพ์คำว่า <strong>"token"</strong> ส่งหา Bot เพื่อรับรหัส User ID ของคุณ
+                      * พิมพ์คำว่า <strong>"token"</strong> ส่งหา Bot เพื่อรับรหัส User ID ของคุณ (ดูวิธีแอดไลน์บอทที่คำแนะนำด้านล่าง)
                     </p>
+
+                    <div className="mt-4 rounded-2xl border border-border/80 bg-muted/30 p-5 space-y-4 text-xs md:text-sm text-left">
+                      <div className="flex items-center gap-2 font-bold text-foreground">
+                        <Smartphone className="h-4 w-4 text-[#06C755]" />
+                        <span>วิธีการเชื่อมต่อและรับ LINE USER ID</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-[120px_1fr] gap-4 items-center">
+                        <div className="flex flex-col items-center gap-2 bg-card p-3 rounded-xl border border-border/50 shadow-sm shrink-0">
+                          <img 
+                            src={theme === "dark" 
+                              ? "https://qr-official.line.me/gs/M_176ftctj_BW.png" 
+                              : "https://qr-official.line.me/gs/M_176ftctj_GW.png"
+                            } 
+                            alt="LINE QR Code" 
+                            className="w-24 h-24 object-contain rounded"
+                          />
+                          <span className="text-[10px] font-black text-[#06C755]">สแกนเพื่อเพิ่มเพื่อน</span>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <ol className="list-decimal list-inside space-y-2 text-muted-foreground leading-relaxed">
+                            <li>
+                              เพิ่มเพื่อนกับ LINE Bot โดยการสแกน QR Code หรือเพิ่มเพื่อนด้วยไอดี <a href="https://line.me/R/ti/p/@176ftctj" target="_blank" rel="noreferrer" className="text-primary hover:underline font-bold">@176ftctj</a>
+                            </li>
+                            <li>
+                              เปิดห้องแชทและพิมพ์คำว่า <code className="bg-muted px-1.5 py-0.5 rounded font-mono font-bold text-foreground">token</code> ส่งหา Bot
+                            </li>
+                            <li>
+                              คัดลอกรหัส <code className="bg-muted px-1.5 py-0.5 rounded font-mono font-bold text-foreground">User ID</code> ที่ได้รับจาก Bot นำมาวางที่ช่องด้านบน
+                            </li>
+                            <li>
+                              กดปุ่ม <span className="font-bold text-foreground">"บันทึกการตั้งค่า LINE"</span> เพื่อเปิดระบบการแจ้งเตือน
+                            </li>
+                          </ol>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="pt-2">
