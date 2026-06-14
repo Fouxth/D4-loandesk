@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getSettings } from '@/lib/services';
 import { useAuth } from './AuthContext';
+import { DEFAULT_LENDING_CONFIG, normalizeLendingConfig, type LendingConfig } from '@/utils/lendingConfig';
 
 interface SettingsContextType {
   business: {
@@ -9,11 +10,7 @@ interface SettingsContextType {
     phone: string;
     address: string;
   };
-  lending: {
-    defaultInterestRate: number;
-    lateFeePerDay: number;
-    deductInterestUpfront: boolean;
-  };
+  lending: LendingConfig;
   refreshSettings: () => Promise<void>;
   loading: boolean;
 }
@@ -29,11 +26,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     phone: '',
     address: ''
   });
-  const [lending, setLending] = useState({
-    defaultInterestRate: 2,
-    lateFeePerDay: 50,
-    deductInterestUpfront: true
-  });
+  const [lending, setLending] = useState<LendingConfig>(DEFAULT_LENDING_CONFIG);
 
   const refreshSettings = async () => {
     try {
@@ -45,10 +38,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }));
       }
       if (data.lending_config) {
-        setLending(prev => ({
-          ...prev,
-          ...data.lending_config
-        }));
+        setLending(normalizeLendingConfig(data.lending_config));
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
@@ -60,6 +50,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     if (user?.tenantId) {
       refreshSettings();
+    } else {
+      setLoading(false);
     }
   }, [user?.tenantId]);
 

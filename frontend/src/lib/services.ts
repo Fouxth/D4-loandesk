@@ -24,6 +24,10 @@ export const getLoansByCustomer = (customerId: string) => api.get(`/loans/custom
 export const createLoan = (data: any) => api.post('/loans', data).then(r => r.data);
 export const refinanceLoan = (id: string, data: any) => api.post(`/loans/${id}/refinance`, data).then(r => r.data);
 export const updateLoan = (id: string, data: any) => api.put(`/loans/${id}`, data).then(r => r.data);
+export const updateLoanLateFee = (
+  id: string,
+  data: { mode: 'auto' | 'waive' | 'custom'; amount?: number; note?: string },
+) => api.patch(`/loans/${id}/late-fee`, data).then(r => r.data);
 export const deleteLoan = (id: string) => api.delete(`/loans/${id}`).then(r => r.data);
 export const getNotifications = () => api.get('/loans/notifications').then(r => r.data);
 

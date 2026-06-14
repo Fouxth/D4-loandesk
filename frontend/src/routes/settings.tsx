@@ -45,6 +45,13 @@ import {
 } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
 import { cn } from "@/utils/utils";
+import {
+  DEFAULT_LENDING_CONFIG,
+  LENDING_RATE_CATEGORIES,
+  normalizeLendingConfig,
+  type LendingConfig,
+  type LendingRateKey,
+} from "@/utils/lendingConfig";
 
 export const Route = createFileRoute("/settings")({
   component: () => (<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>),
@@ -60,7 +67,7 @@ function Settings() {
 
   // Form States
   const [business, setBusiness] = useState({ nameTH: "", nameEN: "", phone: "", address: "" });
-  const [lending, setLending] = useState({ defaultInterestRate: 2, lateFeePerDay: 50, deductInterestUpfront: true });
+  const [lending, setLending] = useState<LendingConfig>(DEFAULT_LENDING_CONFIG);
   const [limits, setLimits] = useState<any[]>([]);
   const [lineUserId, setLineUserId] = useState("");
   const [lineEnabled, setLineEnabled] = useState(false);
@@ -88,7 +95,7 @@ function Settings() {
             address: data.business_profile.address || ""
           });
         }
-        if (data.lending_config) setLending(data.lending_config);
+        if (data.lending_config) setLending(normalizeLendingConfig(data.lending_config));
         
         if (data.customer_limits && Array.isArray(data.customer_limits)) {
           setLimits(data.customer_limits);
@@ -182,6 +189,7 @@ function Settings() {
     setBusy("lending");
     try {
       await updateSetting("lending_config", lending);
+      await refreshSettings();
       toast.success("บันทึกการตั้งค่าเงินกู้เรียบร้อยแล้ว");
     } catch (e) {
       toast.error("บันทึกการตั้งค่าล้มเหลว");
@@ -568,29 +576,126 @@ function Settings() {
               <h3 className="font-black text-lg">ตั้งค่าเงินกู้</h3>
             </div>
             <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-6">
-              <div className="grid gap-6 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">อัตราดอกเบี้ยเริ่มต้น (%)</Label>
-                  <div className="relative">
-                    <Input 
-                      type="number" 
-                      value={lending.defaultInterestRate} 
-                      onChange={(e) => setLending({...lending, defaultInterestRate: Number(e.target.value)})}
-                      className="h-11 rounded-xl bg-muted/20 pr-10 font-bold" 
+              <div className="space-y-3">
+                <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                  อัตราดอกเบี้ยตามประเภทสัญญา (%)
+                </Label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {LENDING_RATE_CATEGORIES.map(({ key, label }) => (
+                    <div key={key} className="space-y-2">
+                      <Label className="text-xs font-bold text-foreground">{label}</Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={lending.categoryRates[key as LendingRateKey]}
+                          onChange={(e) =>
+                            setLending({
+                              ...lending,
+                              categoryRates: {
+                                ...lending.categoryRates,
+                                [key]: Number(e.target.value),
+                              },
+                            })
+                          }
+                          className="h-11 rounded-xl bg-muted/20 pr-10 font-bold"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  ใช้เป็นค่าเริ่มต้นเมื่อสร้างสัญญาแต่ละประเภท
+                </p>
+              </div>
+
+              <div className="space-y-4 border-t border-border/50 pt-6">
+                <div>
+                  <span className="text-sm font-bold">สูตร ท+ป ต่อครั้ง</span>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    ทบ + จ่าย + ปรับ = ยอดชำระ ท+ป (ใส่ 0 ที่ทบ/จ่าย = ใช้ยอดส่งรายวันของสัญญา)
+                  </p>
+                </div>
+                <div className="grid gap-6 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ทบ (บาท)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={lending.tpRollAmount}
+                      onChange={(e) => setLending({ ...lending, tpRollAmount: Number(e.target.value) })}
+                      className="h-11 rounded-xl bg-muted/20 font-bold"
                     />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">%</span>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">จ่าย (บาท)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={lending.tpPayAmount}
+                      onChange={(e) => setLending({ ...lending, tpPayAmount: Number(e.target.value) })}
+                      className="h-11 rounded-xl bg-muted/20 font-bold"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ปรับ (บาท)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={lending.tpPenaltyAmount}
+                      onChange={(e) => setLending({ ...lending, tpPenaltyAmount: Number(e.target.value) })}
+                      className="h-11 rounded-xl bg-muted/20 font-bold"
+                    />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ค่าปรับกรณีจ่ายล่าช้า (บาท/วัน)</Label>
-                  <div className="relative">
-                    <Input 
-                      type="number" 
-                      value={lending.lateFeePerDay} 
-                      onChange={(e) => setLending({...lending, lateFeePerDay: Number(e.target.value)})}
-                      className="h-11 rounded-xl bg-muted/20 pr-10 font-bold" 
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>
+                <p className="text-[11px] text-muted-foreground">
+                  ตัวอย่าง ส่งวันละ 200, ทบ 0 / จ่าย 0 / ปรับ 100 → ชำระ ท+ป = 500 บาท
+                </p>
+              </div>
+
+              <div className="space-y-4 border-t border-border/50 pt-6">
+                <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50">
+                  <div className="space-y-0.5">
+                    <span className="text-sm font-bold">คิดค่าปรับล่าช้า</span>
+                    <p className="text-[11px] text-muted-foreground">เปิดใช้กับทุกสัญญาในระบบ</p>
+                  </div>
+                  <Switch
+                    checked={lending.applyLateFee}
+                    onCheckedChange={(checked) => setLending({ ...lending, applyLateFee: checked })}
+                  />
+                </div>
+
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ค่าปรับจ่ายช้า (บาท/ชม.)</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min={0}
+                        disabled={!lending.applyLateFee}
+                        value={lending.lateFeePerHour}
+                        onChange={(e) => setLending({ ...lending, lateFeePerHour: Number(e.target.value) })}
+                        className="h-11 rounded-xl bg-muted/20 pr-10 font-bold disabled:opacity-50"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">จำกัดชั่วโมงคิดค่าปรับสูงสุด</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min={0}
+                        disabled={!lending.applyLateFee}
+                        value={lending.lateFeeMaxHours}
+                        onChange={(e) => setLending({ ...lending, lateFeeMaxHours: Number(e.target.value) })}
+                        className="h-11 rounded-xl bg-muted/20 pr-12 font-bold disabled:opacity-50"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">ชม.</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">ใส่ 0 = ไม่จำกัด</p>
                   </div>
                 </div>
               </div>

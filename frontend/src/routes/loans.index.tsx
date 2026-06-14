@@ -16,6 +16,7 @@ import { Plus, Search, Calendar, User, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { calcLoan } from "@/utils/loanCalc";
 import { formatTHB, formatDate } from "@/utils/format";
+import { getLoanCategory, LOAN_CATEGORY_OPTIONS } from "@/utils/loanType";
 
 export const Route = createFileRoute("/loans/")({
   component: () => (<ProtectedRoute><AppLayout><Loans /></AppLayout></ProtectedRoute>),
@@ -42,6 +43,7 @@ function Loans() {
   const [rows, setRows] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [open, setOpen] = useState(false);
 
   const load = async () => {
@@ -61,7 +63,8 @@ function Loans() {
                         r.loanNumber.toLowerCase().includes(q) || 
                         r.customerName.toLowerCase().includes(q);
     const matchStatus = filter === "all" || r.status === filter;
-    return matchSearch && matchStatus;
+    const matchType = typeFilter === "all" || getLoanCategory(r) === typeFilter;
+    return matchSearch && matchStatus && matchType;
   });
 
   return (
@@ -103,6 +106,17 @@ function Loans() {
             <SelectItem value="cancelled">{t('loans.status.cancelled')}</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-full sm:w-48 bg-card border-border/50 h-11 rounded-xl shadow-sm focus:ring-primary/20 font-medium">
+            <SelectValue placeholder="ทุกประเภท" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">ทุกประเภท</SelectItem>
+            {LOAN_CATEGORY_OPTIONS.map((cat) => (
+              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="hidden md:block rounded-2xl border border-border bg-card shadow-[var(--shadow-elevated)] overflow-hidden">
@@ -111,6 +125,7 @@ function Loans() {
             <TableRow className="bg-muted/50 hover:bg-muted/50 border-b border-border">
               <TableHead className="font-bold">เลขที่สัญญา</TableHead>
               <TableHead className="font-bold">ชื่อลูกค้า</TableHead>
+              <TableHead className="font-bold">ประเภท</TableHead>
               <TableHead className="font-bold">เงินต้น</TableHead>
               <TableHead className="font-bold">ยอดรวม</TableHead>
               <TableHead className="font-bold">ครบกำหนด</TableHead>
@@ -127,6 +142,9 @@ function Loans() {
                   </Link>
                 </TableCell>
                 <TableCell className="font-medium">{l.customerName}</TableCell>
+                <TableCell>
+                  <StatusBadge tone="info">{getLoanCategory(l)}</StatusBadge>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{formatTHB(l.principal)}</TableCell>
                 <TableCell className="font-bold">{formatTHB(l.totalPayable)}</TableCell>
                 <TableCell className="text-muted-foreground text-xs">{formatDate(l.dueDate)}</TableCell>
@@ -162,6 +180,7 @@ function Loans() {
                 <h4 className="font-bold text-foreground text-lg flex items-center gap-2">
                   <User className="h-4 w-4 text-primary" /> {l.customerName}
                 </h4>
+                <StatusBadge tone="info">{getLoanCategory(l)}</StatusBadge>
               </div>
               <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
                 {getEffectiveStatus(l) === 'completed' && l.isPawn ? 'ไถ่ถอนแล้ว' : 

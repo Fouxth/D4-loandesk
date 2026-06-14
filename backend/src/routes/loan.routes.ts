@@ -75,6 +75,21 @@ router.put('/:id', async (req: AuthRequest, res) => {
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+router.patch('/:id/late-fee', async (req: AuthRequest, res) => {
+  try {
+    const { mode, amount, note } = req.body;
+    const result = await loanService.dbUpdateLoanLateFee(
+      req.params.id as string,
+      { mode, amount, note },
+      req.userId!,
+      req.tenantId!,
+    );
+    res.json(result[0]);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 router.delete('/:id', async (req: AuthRequest, res) => {
   try {
     res.json(await loanService.dbDeleteLoan(req.params.id as string, req.tenantId!));

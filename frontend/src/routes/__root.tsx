@@ -1,7 +1,4 @@
 import { Outlet, Link, createRootRoute } from "@tanstack/react-router";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { ThemeProvider } from "@/contexts/ThemeContext";
-import { SettingsProvider } from "@/contexts/SettingsContext";
 import { Toaster } from "@/components/ui/sonner";
 import { SuspendedModal } from "@/components/SuspendedModal";
 
@@ -34,14 +31,10 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <SettingsProvider>
-          <Outlet />
-          <Toaster richColors position="top-right" />
-          <SuspendedModal />
-        </SettingsProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <>
+      <Outlet />
+      <Toaster richColors position="top-right" />
+      <SuspendedModal />
+    </>
   );
 }

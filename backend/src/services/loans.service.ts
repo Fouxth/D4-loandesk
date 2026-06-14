@@ -198,6 +198,39 @@ export async function dbUpdateLoan(id: string, data: any, tenantId: string) {
   return result;
 }
 
+export type LateFeeMode = 'auto' | 'waive' | 'custom';
+
+export async function dbUpdateLoanLateFee(
+  id: string,
+  data: { mode: LateFeeMode; amount?: number; note?: string | null },
+  userId: string,
+  tenantId: string,
+) {
+  const mode = data.mode;
+  if (!['auto', 'waive', 'custom'].includes(mode)) {
+    throw new Error('รูปแบบการตั้งค่าค่าปรับไม่ถูกต้อง');
+  }
+  if (mode === 'custom' && (data.amount == null || Number(data.amount) < 0)) {
+    throw new Error('กรุณาระบุจำนวนค่าปรับ');
+  }
+
+  const [loan] = await sql`SELECT id FROM loans WHERE id = ${id} AND tenant_id = ${tenantId}`;
+  if (!loan) throw new Error('ไม่พบสัญญา');
+
+  const result = await sql`
+    UPDATE loans SET
+      late_fee_mode = ${mode},
+      late_fee_amount = ${mode === 'custom' ? Number(data.amount) : null},
+      late_fee_note = ${data.note?.trim() || null},
+      late_fee_updated_at = ${new Date()},
+      late_fee_updated_by = ${userId}
+    WHERE id = ${id} AND tenant_id = ${tenantId}
+    RETURNING *
+  `;
+
+  return result;
+}
+
 export async function dbDeleteLoan(id: string, tenantId: string) {
   const loans = await sql`
     SELECT l.loan_number, c.full_name as customer_name, l.principal

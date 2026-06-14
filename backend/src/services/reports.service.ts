@@ -1,4 +1,12 @@
 import sql from '../db';
+import { resolveLateFee } from '../utils/lateFee';
+import {
+  calcLoanPaidTotal,
+  calcLoanTotalOwed,
+  isRollPenalty,
+  shouldSkipContractLateFee,
+  tpConfigFromSettings,
+} from '../utils/tpPayment';
 
 function getDefaultMonthStart(): string {
   const now = new Date();
@@ -26,42 +34,63 @@ export async function fetchDashboardRawData(tenantId: string, monthStartStr?: st
 
   const [custCountRes, loans, payments, expenses, settingsRes] = await Promise.all([
     sql`SELECT count(*) as count FROM customers WHERE tenant_id = ${tenantId}`,
-    sql`SELECT id, status, total_payable, due_date, principal, is_interest_only, is_indefinite FROM loans WHERE tenant_id = ${tenantId}`,
+    sql`SELECT id, status, total_payable, due_date, principal, installment_amount, payment_type, is_interest_only, is_indefinite, late_fee_mode, late_fee_amount FROM loans WHERE tenant_id = ${tenantId}`,
     sql`SELECT loan_id, amount, payment_date, category FROM payments WHERE tenant_id = ${tenantId}`,
     sql`SELECT amount, expense_date FROM expenses WHERE expense_date >= ${monthStart} AND tenant_id = ${tenantId}`,
     sql`SELECT value FROM settings WHERE key = 'lending_config' AND tenant_id = ${tenantId}`
   ]);
 
   const lendingConfig = settingsRes[0]?.value || {};
-  const lateFeePerDay = Number(lendingConfig.lateFeePerDay) || 0;
-
   const custCount = parseInt(custCountRes[0].count);
+
   const activeLoans = loans.filter((l: any) => l.status === 'active' || l.status === 'overdue');
   const dueToday = loans.filter((l: any) => toDateStr(l.dueDate) === today && (l.status === 'active' || l.status === 'overdue'));
   const overdue = loans.filter((l: any) => toDateStr(l.dueDate) < today && (l.status === 'active' || l.status === 'overdue'));
 
+  const tpConfig = tpConfigFromSettings(lendingConfig);
+
   const outstanding = activeLoans.reduce((sum: number, l: any) => {
-    const paid = payments
-      .filter((p: any) => p.loanId === l.id)
-      .reduce((a: number, p: any) => {
-        if (l.isInterestOnly) {
-          return p.category === 'principal' ? a + Number(p.amount) : a;
-        }
-        return a + Number(p.amount);
-      }, 0);
-    
+    const loanPayments = payments.filter((p: any) => p.loanId === l.id);
+    const tpCount = loanPayments.filter(isRollPenalty).length;
+    const inst = Number(l.installmentAmount) || 0;
+    const hasTp = tpCount > 0 && inst > 0;
+
+    let paid: number;
+    if (l.isInterestOnly) {
+      paid = loanPayments
+        .filter((p: any) => p.category === 'principal')
+        .reduce((a: number, p: any) => a + Number(p.amount), 0);
+    } else if (hasTp) {
+      paid = calcLoanPaidTotal(loanPayments, inst, tpConfig);
+    } else {
+      paid = loanPayments.reduce((a: number, p: any) => a + Number(p.amount), 0);
+    }
+
     let lateFeeTotal = 0;
     const dueStr = toDateStr(l.dueDate);
-    if (!l.isIndefinite && (l.status === 'active' || l.status === 'overdue') && dueStr && dueStr < today) {
+    if (
+      !shouldSkipContractLateFee(l) &&
+      !l.isIndefinite &&
+      (l.status === 'active' || l.status === 'overdue') &&
+      dueStr &&
+      dueStr < today
+    ) {
       const dueDate = new Date(dueStr);
       const todayDate = new Date(today);
       const diffDays = Math.floor((todayDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
       if (diffDays > 0) {
-        lateFeeTotal = diffDays * lateFeePerDay;
+        lateFeeTotal = resolveLateFee(lendingConfig, l, diffDays, dueStr).effectiveFee;
       }
     }
 
-    const baseAmount = l.isInterestOnly ? Number(l.principal) : Number(l.totalPayable);
+    let baseAmount: number;
+    if (l.isInterestOnly) {
+      baseAmount = Number(l.principal);
+    } else if (hasTp) {
+      baseAmount = calcLoanTotalOwed(Number(l.totalPayable), tpCount, inst, tpConfig);
+    } else {
+      baseAmount = Number(l.totalPayable);
+    }
     return sum + Math.max(baseAmount + lateFeeTotal - paid, 0);
   }, 0);
 
@@ -140,13 +169,13 @@ export async function fetchReportRawData(tenantId: string, ms?: string) {
         JOIN customers c ON l.customer_id = c.id
         WHERE p.tenant_id = ${tenantId}`,
     sql`SELECT amount, expense_date FROM expenses WHERE expense_date >= ${monthStart} AND tenant_id = ${tenantId}`,
-    sql`SELECT id, customer_id, total_payable, due_date, status, principal, is_interest_only, is_indefinite FROM loans WHERE tenant_id = ${tenantId}`,
+    sql`SELECT id, customer_id, total_payable, due_date, status, principal, installment_amount, payment_type, is_interest_only, is_indefinite, late_fee_mode, late_fee_amount FROM loans WHERE tenant_id = ${tenantId}`,
     sql`SELECT id, full_name FROM customers WHERE tenant_id = ${tenantId}`,
     sql`SELECT value FROM settings WHERE key = 'lending_config' AND tenant_id = ${tenantId}`
   ]);
 
   const lendingConfig = settingsRes[0]?.value || {};
-  const lateFeePerDay = Number(lendingConfig.lateFeePerDay) || 0;
+  const tpConfig = tpConfigFromSettings(lendingConfig);
 
   // Monthly income (payments in this month)
   const monthlyIncome = allPayments
@@ -159,27 +188,47 @@ export async function fetchReportRawData(tenantId: string, ms?: string) {
   // Outstanding balance (active/overdue loans)
   const activeLoans = allLoans.filter((l: any) => l.status === 'active' || l.status === 'overdue');
   const outstanding = activeLoans.reduce((sum: number, l: any) => {
-    const paid = allPayments
-      .filter((p: any) => p.loanId === l.id)
-      .reduce((a: number, p: any) => {
-        if (l.isInterestOnly) {
-          return p.category === 'principal' ? a + Number(p.amount) : a;
-        }
-        return a + Number(p.amount);
-      }, 0);
+    const loanPayments = allPayments.filter((p: any) => p.loanId === l.id);
+    const tpCount = loanPayments.filter(isRollPenalty).length;
+    const inst = Number(l.installmentAmount) || 0;
+    const hasTp = tpCount > 0 && inst > 0;
+
+    let paid: number;
+    if (l.isInterestOnly) {
+      paid = loanPayments
+        .filter((p: any) => p.category === 'principal')
+        .reduce((a: number, p: any) => a + Number(p.amount), 0);
+    } else if (hasTp) {
+      paid = calcLoanPaidTotal(loanPayments, inst, tpConfig);
+    } else {
+      paid = loanPayments.reduce((a: number, p: any) => a + Number(p.amount), 0);
+    }
 
     let lateFeeTotal = 0;
     const dueStr = toDateStr(l.dueDate);
-    if (!l.isIndefinite && (l.status === 'active' || l.status === 'overdue') && dueStr && dueStr < today) {
+    if (
+      !shouldSkipContractLateFee(l) &&
+      !l.isIndefinite &&
+      (l.status === 'active' || l.status === 'overdue') &&
+      dueStr &&
+      dueStr < today
+    ) {
       const dueDate = new Date(dueStr);
       const todayDate = new Date(today);
       const diffDays = Math.floor((todayDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
       if (diffDays > 0) {
-        lateFeeTotal = diffDays * lateFeePerDay;
+        lateFeeTotal = resolveLateFee(lendingConfig, l, diffDays, dueStr).effectiveFee;
       }
     }
 
-    const baseAmount = l.isInterestOnly ? Number(l.principal) : Number(l.totalPayable);
+    let baseAmount: number;
+    if (l.isInterestOnly) {
+      baseAmount = Number(l.principal);
+    } else if (hasTp) {
+      baseAmount = calcLoanTotalOwed(Number(l.totalPayable), tpCount, inst, tpConfig);
+    } else {
+      baseAmount = Number(l.totalPayable);
+    }
     return sum + Math.max(baseAmount + lateFeeTotal - paid, 0);
   }, 0);
 

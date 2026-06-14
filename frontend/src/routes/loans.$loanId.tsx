@@ -12,12 +12,20 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { StatusBadge, loanStatusTone } from "@/components/StatusBadge";
 import { ArrowLeft, Plus, Trash2, Camera, Image as ImageIcon, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { formatTHB, formatDate } from "@/utils/format";
+import { formatTHB, formatDate, daysBetween } from "@/utils/format";
 import { calcLoan } from "@/utils/loanCalc";
 import { RefreshCw } from "lucide-react";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { useSettings } from "@/contexts/SettingsContext";
-import { daysBetween } from "@/utils/format";
+import { resolveLateFee } from "@/utils/lateFee";
+import { LateFeeEditor } from "@/components/LateFeeEditor";
+import { getLoanCategory } from "@/utils/loanType";
+import {
+  calcLoanPaidTotal,
+  calcLoanTotalOwed,
+  calcTpSettlementAmount,
+  shouldSkipContractLateFee,
+} from "@/utils/tpPayment";
 
 export const Route = createFileRoute("/loans/$loanId")({
   component: () => (<ProtectedRoute><AppLayout><LoanDetail /></AppLayout></ProtectedRoute>),
@@ -64,20 +72,54 @@ function LoanDetail() {
   useEffect(() => { load(); }, [loanId]);
 
   if (!loan) return <div className="flex h-64 items-center justify-center text-muted-foreground animate-pulse">กำลังโหลดข้อมูลสัญญา...</div>;
+
+  const pawnStatus = loan.pawnStatus || 'in_storage';
   
+  const installmentAmount = Number(loan.installmentAmount ?? 0);
+  const tpConfig = {
+    tpRollAmount: lending.tpRollAmount,
+    tpPayAmount: lending.tpPayAmount,
+    tpPenaltyAmount: lending.tpPenaltyAmount,
+  };
+  const rollPenalties = payments.filter((p) => p.category === 'roll_penalty');
+  const tpCount = rollPenalties.length;
+
   const principalPaid = payments.filter(p => p.category === 'principal').reduce((a, p) => a + Number(p.amount), 0);
   const interestPaid = payments.filter(p => p.category === 'interest').reduce((a, p) => a + Number(p.amount), 0);
-  const totalPaid = payments.reduce((a, p) => a + Number(p.amount), 0);
-  
-  // Late fee calculation
+
+  const hasTpAccounting = tpCount > 0 && installmentAmount > 0;
+  const totalPaid = hasTpAccounting
+    ? calcLoanPaidTotal(payments, installmentAmount, tpConfig)
+    : payments.reduce((a, p) => a + Number(p.amount), 0);
+
+  const paidInstallments = payments.filter((p) => p.category !== 'roll_penalty').length + tpCount;
+
   const today = new Date().toISOString().split('T')[0];
-  const diff = daysBetween(today, loan.dueDate);
-  const daysOverdue = (loan.status === 'active' || loan.status === 'overdue') && diff > 0 ? diff : 0;
-  const lateFeeTotal = daysOverdue * (lending.lateFeePerDay || 0);
-  
-  const remaining = loan.isInterestOnly 
-    ? Math.max(Number(loan.principal) + lateFeeTotal - principalPaid, 0)
-    : Math.max(Number(loan.totalPayable) + lateFeeTotal - totalPaid, 0);
+  const diff = loan.dueDate ? daysBetween(today, loan.dueDate) : 0;
+  const skipContractLateFee = shouldSkipContractLateFee(loan);
+  const rawDaysOverdue =
+    !skipContractLateFee && loan.dueDate && (loan.status === 'active' || loan.status === 'overdue') && diff > 0
+      ? diff
+      : 0;
+  const { autoFee, effectiveFee, daysOverdue, hoursOverdue, mode: lateFeeMode } = resolveLateFee(
+    lending,
+    loan,
+    rawDaysOverdue,
+    loan.dueDate,
+  );
+  const lateFeeUnit = lending.lateFeePerHour > 0 ? `${hoursOverdue} ชม.` : `${daysOverdue} วัน`;
+
+  const totalOwed = hasTpAccounting
+    ? calcLoanTotalOwed(Number(loan.totalPayable), tpCount, installmentAmount, tpConfig)
+    : Number(loan.isInterestOnly ? loan.principal : loan.totalPayable);
+
+  const contractRemaining = loan.isInterestOnly
+    ? Math.max(Number(loan.principal) - principalPaid, 0)
+    : Math.max(totalOwed - totalPaid, 0);
+
+  const remaining = contractRemaining + (skipContractLateFee ? 0 : effectiveFee);
+  const loanCategory = getLoanCategory(loan);
+  const totalInstallments = Number(loan.installmentsCount ?? 0);
 
   const removePayment = async (id: string) => {
     try {
@@ -249,6 +291,41 @@ function LoanDetail() {
               </dd>
             </div>
             <div className="flex justify-between items-center">
+              <dt className="text-muted-foreground">ประเภท / ระยะสัญญา</dt>
+              <dd className="text-right text-xs font-bold">
+                {loanCategory}
+                {!loan.isIndefinite && totalInstallments > 0 && (
+                  <span className="block text-muted-foreground font-medium">
+                    {totalInstallments} งวด (
+                    {loan.paymentType === "daily"
+                      ? "รายวัน"
+                      : loan.paymentType === "weekly"
+                        ? "รายสัปดาห์"
+                        : "รายเดือน"}
+                    )
+                  </span>
+                )}
+              </dd>
+            </div>
+            {!loan.isIndefinite && totalInstallments > 0 && (
+              <div className="flex justify-between items-center">
+                <dt className="text-muted-foreground">ความคืบหน้าการชำระ</dt>
+                <dd className="font-bold">
+                  <span className={paidInstallments >= totalInstallments ? "text-success" : "text-foreground"}>
+                    {paidInstallments} / {totalInstallments} งวด
+                  </span>
+                  <span className="text-muted-foreground font-normal text-xs ml-1">
+                    ({formatTHB(totalPaid)} / {formatTHB(hasTpAccounting ? totalOwed : loan.totalPayable)})
+                  </span>
+                  {rollPenalties.length > 0 && (
+                    <span className="block text-[11px] text-warning font-bold mt-0.5">
+                      ท+ป {rollPenalties.length} ครั้ง
+                    </span>
+                  )}
+                </dd>
+              </div>
+            )}
+            <div className="flex justify-between items-center">
               <dt className="text-muted-foreground">เงินต้น</dt>
               <dd className="font-medium">{formatTHB(loan.principal)}</dd>
             </div>
@@ -256,15 +333,45 @@ function LoanDetail() {
               <dt className="text-muted-foreground">ดอกเบี้ย ({loan.interestRate}%)</dt>
               <dd className="font-medium text-warning-foreground">{formatTHB(loan.interestAmount)}</dd>
             </div>
-            {lateFeeTotal > 0 && (
-              <div className="flex justify-between items-center">
-                <dt className="text-destructive font-medium">ค่าปรับล่าช้า ({daysOverdue} วัน)</dt>
-                <dd className="font-bold text-destructive">+{formatTHB(lateFeeTotal)}</dd>
+            {(rawDaysOverdue > 0 || lateFeeMode !== 'auto') && !skipContractLateFee && (
+              <div className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <dt className="text-destructive font-medium flex items-center gap-1 flex-wrap">
+                    ค่าปรับล่าช้า ({lateFeeUnit})
+                    <LateFeeEditor
+                      loanId={loanId}
+                      loan={loan}
+                      lending={lending}
+                      rawDaysOverdue={rawDaysOverdue}
+                      dueDate={loan.dueDate}
+                      contractRemaining={contractRemaining}
+                      onSaved={load}
+                    />
+                  </dt>
+                  <dd className="font-bold text-destructive">+{formatTHB(effectiveFee)}</dd>
+                </div>
+                {autoFee !== effectiveFee && (
+                  <p className="text-[11px] text-muted-foreground pl-0">
+                    ตามระบบ {formatTHB(autoFee)} → ใช้จริง {formatTHB(effectiveFee)}
+                    {lateFeeMode === 'waive' && ' (ยกเว้นแล้ว)'}
+                  </p>
+                )}
+                {(loan.lateFeeNote || loan.late_fee_note) && (
+                  <p className="text-[11px] text-muted-foreground italic">
+                    {loan.lateFeeNote || loan.late_fee_note}
+                  </p>
+                )}
+              </div>
+            )}
+            {hasTpAccounting && tpCount > 0 && (
+              <div className="flex justify-between items-center text-xs">
+                <dt className="text-muted-foreground pl-4">└ รวม ท+ป ({tpCount} ครั้ง)</dt>
+                <dd className="font-medium text-warning">{formatTHB(tpCount * calcTpSettlementAmount(installmentAmount, tpConfig))}</dd>
               </div>
             )}
             <div className="flex justify-between items-center border-t border-border pt-2">
               <dt className="text-muted-foreground">ยอดรวมทั้งหมด</dt>
-              <dd className="font-bold">{formatTHB(loan.totalPayable)}</dd>
+              <dd className="font-bold">{formatTHB(hasTpAccounting ? totalOwed : loan.totalPayable)}</dd>
             </div>
             <div className="flex justify-between items-center">
               <dt className="text-muted-foreground">ชำระแล้ว (รวมทั้งหมด)</dt>
@@ -309,14 +416,14 @@ function LoanDetail() {
                 <p className="text-sm font-bold text-foreground mb-2">{loan.pawnItem}</p>
                 <div className="flex items-center justify-between">
                   <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                    loan.pawnStatus === 'redeemed' ? 'bg-success/20 text-success' : 
-                    loan.pawnStatus === 'forfeited' ? 'bg-destructive/20 text-destructive' : 
+                    pawnStatus === 'redeemed' ? 'bg-success/20 text-success' : 
+                    pawnStatus === 'forfeited' ? 'bg-destructive/20 text-destructive' : 
                     'bg-warning/20 text-warning-foreground'
                   }`}>
-                    {PAWN_STATUS_LABELS[loan.pawnStatus] || loan.pawnStatus}
+                    {PAWN_STATUS_LABELS[pawnStatus] || pawnStatus}
                   </span>
                   
-                  <Select value={loan.pawnStatus} onValueChange={updatePawnStatus}>
+                  <Select value={pawnStatus} onValueChange={updatePawnStatus}>
                     <SelectTrigger className="h-7 w-28 text-[11px] bg-background">
                       <SelectValue placeholder="เปลี่ยนสถานะ" />
                     </SelectTrigger>
@@ -336,16 +443,30 @@ function LoanDetail() {
           <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-2">ประวัติการชำระเงิน ({payments.length})</h3>
           <div className="max-h-[500px] space-y-2 overflow-y-auto pr-1">
             {payments.length === 0 && <p className="text-sm text-muted-foreground py-12 text-center">ยังไม่มีประวัติการชำระเงิน</p>}
-            {payments.map((p) => (
+            {payments.map((p) => {
+              const tpAmount = p.category === 'roll_penalty'
+                ? calcTpSettlementAmount(installmentAmount, tpConfig)
+                : Number(p.amount);
+              return (
               <div key={p.id} className="flex items-center justify-between border border-border/50 rounded-xl px-4 py-3 hover:bg-muted/30 transition-colors group">
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-foreground">
-                    งวดที่ #{p.installmentNumber ?? "—"} · <span className="text-success">{formatTHB(p.amount)}</span>
+                    งวดที่ #{p.installmentNumber ?? "—"}
+                    {p.category === 'roll_penalty' ? (
+                      <>
+                        {" · "}
+                        <span className="text-success">{formatTHB(tpAmount)}</span>
+                        <span className="ml-2 text-[11px] font-bold text-warning uppercase bg-warning/10 px-1 rounded">ท+ป</span>
+                      </>
+                    ) : (
+                      <> · <span className="text-success">{formatTHB(p.amount)}</span></>
+                    )}
                     {p.category === 'interest' && <span className="ml-2 text-[11px] font-bold text-primary uppercase bg-primary/10 px-1 rounded">ดอกเบี้ย</span>}
                     {p.category === 'principal' && <span className="ml-2 text-[11px] font-bold text-success-foreground uppercase bg-success/10 px-1 rounded">เงินต้น</span>}
                   </p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     {formatDate(p.paymentDate)} · {METHOD_LABELS[p.method] || p.method}
+                    {p.notes && <span className="block mt-0.5 text-foreground/80">{p.notes}</span>}
                   </p>
                 </div>
                 <ConfirmDelete
@@ -358,7 +479,8 @@ function LoanDetail() {
                   </Button>
                 </ConfirmDelete>
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       </div>

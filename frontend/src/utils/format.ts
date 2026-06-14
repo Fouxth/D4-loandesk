@@ -17,14 +17,16 @@ export function formatDate(d: string | Date | null | undefined) {
   return date.toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export function daysBetween(a: string | Date, b: string | Date) {
+export function daysBetween(a: string | Date | null | undefined, b: string | Date | null | undefined) {
+  if (!a || !b) return 0;
   const d1 = typeof a === "string" ? new Date(a.split("T")[0]) : a;
   const d2 = typeof b === "string" ? new Date(b.split("T")[0]) : b;
-  
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return 0;
+
   // Set both to midnight to ignore time part
   d1.setHours(0, 0, 0, 0);
   d2.setHours(0, 0, 0, 0);
-  
+
   return Math.round((d1.getTime() - d2.getTime()) / (1000 * 60 * 60 * 24));
 }
 

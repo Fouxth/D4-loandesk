@@ -156,7 +156,7 @@ function Customers() {
                  <TableCell className="text-muted-foreground font-mono text-xs">{c.idCard || "—"}</TableCell>
                 <TableCell>
                   <StatusBadge tone={c.category === "blocked" ? "destructive" : c.category === "good" ? "success" : c.category === "regular" ? "info" : "muted"}>
-                    {t(`customers.category.${c.category}`)}
+                    {t(`customers.category.${c.category ?? "new"}`)}
                   </StatusBadge>
                 </TableCell>
                 <TableCell>
@@ -197,7 +197,7 @@ function Customers() {
               </Link>
                <div className="flex flex-col items-end gap-1">
                 <StatusBadge tone={c.category === "blocked" ? "destructive" : c.category === "good" ? "success" : c.category === "regular" ? "info" : "muted"}>
-                  {t(`customers.category.${c.category}`)}
+                  {t(`customers.category.${c.category ?? "new"}`)}
                 </StatusBadge>
                 <StatusBadge tone={c.riskLevel === "high" ? "destructive" : c.riskLevel === "medium" ? "warning" : "success"}>
                   {t(`customers.risk.${c.riskLevel}`)}
