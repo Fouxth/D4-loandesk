@@ -110,11 +110,12 @@ function isTokenRequest(lowerCmd: string): boolean {
 }
 
 function findTenantForUser(userId: string) {
+  const jsonArr = JSON.stringify([userId]);
   return sql`
     SELECT tenant_id, value FROM settings 
     WHERE key = 'line_notify' AND (
       (value->>'userId') = ${userId}
-      OR COALESCE(value->'userIds', '[]'::jsonb) @> jsonb_build_array(${userId})
+      OR COALESCE(value->'userIds', '[]'::jsonb) @> ${jsonArr}::jsonb
     )
     LIMIT 1
   `;
