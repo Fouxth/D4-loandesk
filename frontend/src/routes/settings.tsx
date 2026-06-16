@@ -890,24 +890,7 @@ function Settings() {
                         </div>
                       </div>
 
-                      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
-                        <p className="text-xs font-bold text-amber-800 dark:text-amber-200">⚠️ Bot ไม่ตอบ &quot;token&quot;?</p>
-                        <p className="text-[11px] text-muted-foreground leading-relaxed">
-                          LINE ต้องส่งข้อความมาที่ <strong>Webhook URL สาธารณะ (HTTPS)</strong> — localhost ใช้ไม่ได้
-                        </p>
-                        <p className="text-[11px] font-mono bg-muted/50 px-2 py-1.5 rounded break-all">
-                          {(import.meta as any).env?.VITE_PUBLIC_API_URL
-                            ? `${String((import.meta as any).env.VITE_PUBLIC_API_URL).replace(/\/+$/, '')}/api/webhook`
-                            : 'https://api.dexterball.com/api/webhook'}
-                        </p>
-                        <ol className="list-decimal list-inside text-[11px] text-muted-foreground space-y-1">
-                          <li>LINE Developers → Messaging API → Webhook URL ใส่ URL ด้านบน</li>
-                          <li>เปิด <strong>Use webhook</strong> → กด Verify (ต้องได้ Success)</li>
-                          <li><strong className="text-destructive">สำคัญ:</strong> LINE Official Account Manager → ตั้งค่า → การตอบกลับ → เลือก <strong>Webhook</strong> (ไม่ใช่ &quot;แชท&quot;)</li>
-                          <li>ปิด Auto-reply / ข้อความทักทายใน OA Manager</li>
-                          <li>Backend + ngrok ต้องรันค้างไว้ตลอด</li>
-                        </ol>
-                      </div>
+
                     </div>
                   </div>
                 </div>
