@@ -114,7 +114,7 @@ export function normalizeLendingConfig(raw?: Record<string, unknown> | null): Le
 
   return {
     categoryRates,
-    applyLateFee: raw?.applyLateFee ?? DEFAULT_LENDING_CONFIG.applyLateFee,
+    applyLateFee: typeof raw?.applyLateFee === 'boolean' ? raw.applyLateFee : DEFAULT_LENDING_CONFIG.applyLateFee,
     tpRollAmount: Number(raw?.tpRollAmount ?? DEFAULT_LENDING_CONFIG.tpRollAmount),
     tpPayAmount: Number(raw?.tpPayAmount ?? DEFAULT_LENDING_CONFIG.tpPayAmount),
     tpPenaltyAmount: Number(raw?.tpPenaltyAmount ?? DEFAULT_LENDING_CONFIG.tpPenaltyAmount),
@@ -122,7 +122,7 @@ export function normalizeLendingConfig(raw?: Record<string, unknown> | null): Le
     lateFeeMaxHours: Number(raw?.lateFeeMaxHours ?? DEFAULT_LENDING_CONFIG.lateFeeMaxHours),
     lateFeePerDay: Number(raw?.lateFeePerDay ?? DEFAULT_LENDING_CONFIG.lateFeePerDay),
     lateFeeMaxDays: Number(raw?.lateFeeMaxDays ?? DEFAULT_LENDING_CONFIG.lateFeeMaxDays),
-    deductInterestUpfront: raw?.deductInterestUpfront ?? DEFAULT_LENDING_CONFIG.deductInterestUpfront,
+    deductInterestUpfront: typeof raw?.deductInterestUpfront === 'boolean' ? raw.deductInterestUpfront : DEFAULT_LENDING_CONFIG.deductInterestUpfront,
   };
 }
 
