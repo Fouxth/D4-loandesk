@@ -62,3 +62,4 @@ export const getActivityLogs = () => api.get('/activity').then(r => r.data);
 // Settings
 export const getSettings = () => api.get('/settings').then(r => r.data);
 export const updateSetting = (key: string, value: any) => api.post(`/settings/${key}`, { value }).then(r => r.data);
+export const testLineNotify = () => api.post('/settings/line-notify/test').then(r => r.data);

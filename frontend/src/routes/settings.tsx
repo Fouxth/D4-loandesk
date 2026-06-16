@@ -18,7 +18,8 @@ import {
   getPayments, 
   getCustomers,
   getExpenses,
-  changePassword
+  changePassword,
+  testLineNotify
 } from "@/lib/services";
 import {
   Dialog,
@@ -69,7 +70,7 @@ function Settings() {
   const [business, setBusiness] = useState({ nameTH: "", nameEN: "", phone: "", address: "" });
   const [lending, setLending] = useState<LendingConfig>(DEFAULT_LENDING_CONFIG);
   const [limits, setLimits] = useState<any[]>([]);
-  const [lineUserId, setLineUserId] = useState("");
+  const [lineUserIds, setLineUserIds] = useState("");
   const [lineEnabled, setLineEnabled] = useState(false);
   const [lineEvents, setLineEvents] = useState({
     payment: true,
@@ -78,7 +79,10 @@ function Settings() {
     fraud: true,
     refinance: true,
     completed: true,
-    pawn_forfeited: true
+    pawn_forfeited: true,
+    morning_digest: true,
+    overdue_alert: true,
+    late_fee: true,
   });
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
@@ -109,7 +113,12 @@ function Settings() {
         }
         
         if (data.line_notify) {
-          setLineUserId(data.line_notify.userId || "");
+          const ids: string[] = Array.isArray(data.line_notify.userIds) && data.line_notify.userIds.length
+            ? data.line_notify.userIds
+            : data.line_notify.userId
+              ? [data.line_notify.userId]
+              : [];
+          setLineUserIds(ids.join("\n"));
           setLineEnabled(!!data.line_notify.enabled);
           if (data.line_notify.events) {
             setLineEvents({
@@ -119,7 +128,10 @@ function Settings() {
               fraud: data.line_notify.events.fraud !== false,
               refinance: data.line_notify.events.refinance !== false,
               completed: data.line_notify.events.completed !== false,
-              pawn_forfeited: data.line_notify.events.pawn_forfeited !== false
+              pawn_forfeited: data.line_notify.events.pawn_forfeited !== false,
+              morning_digest: data.line_notify.events.morning_digest !== false,
+              overdue_alert: data.line_notify.events.overdue_alert !== false,
+              late_fee: data.line_notify.events.late_fee !== false,
             });
           }
         }
@@ -213,8 +225,14 @@ function Settings() {
   const handleSaveLineNotify = async () => {
     setBusy("line");
     try {
+      const userIds = lineUserIds
+        .split(/[\n,]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
       await updateSetting("line_notify", { 
-        userId: lineUserId,
+        userIds,
+        userId: userIds[0] || "",
         enabled: lineEnabled, 
         events: lineEvents
       });
@@ -222,6 +240,29 @@ function Settings() {
       toast.success("บันทึกการตั้งค่า LINE Notify เรียบร้อยแล้ว");
     } catch (e) {
       toast.error("บันทึกข้อมูลล้มเหลว");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleTestLineNotify = async () => {
+    setBusy("line-test");
+    try {
+      const userIds = lineUserIds
+        .split(/[\n,]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      await updateSetting("line_notify", {
+        userIds,
+        userId: userIds[0] || "",
+        enabled: lineEnabled,
+        events: lineEvents,
+      });
+      await testLineNotify();
+      toast.success("ส่งข้อความทดสอบไปยัง LINE แล้ว");
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "ส่งข้อความทดสอบไม่สำเร็จ");
     } finally {
       setBusy(null);
     }
@@ -790,7 +831,7 @@ function Settings() {
                   </div>
                   <div className="space-y-0.5">
                     <span className="text-sm font-bold text-[#06C755]">LINE Notify</span>
-                    <p className="text-[11px] text-muted-foreground">ส่งยอดแจ้งเตือนผ่านกลุ่ม LINE เมื่อมีการชำระเงิน</p>
+                    <p className="text-[11px] text-muted-foreground">แจ้งเตือนอัตโนมัติ + สรุปเช้า/ค้างชำระ ผ่าน LINE Bot</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -801,15 +842,15 @@ function Settings() {
               
                 <div className="space-y-4 pt-2">
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">LINE User ID</Label>
-                    <Input 
-                      placeholder="U8189cf6745fc0d808977bdb0b9f22995..." 
-                      value={lineUserId}
-                      onChange={(e) => setLineUserId(e.target.value)}
-                      className="bg-muted/20 font-mono h-11"
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">LINE User ID (หลายคนได้ — บรรทัดละ 1 รหัส)</Label>
+                    <Textarea 
+                      placeholder={"U8189cf6745fc0d808977bdb0b9f22995\nUxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}
+                      value={lineUserIds}
+                      onChange={(e) => setLineUserIds(e.target.value)}
+                      className="bg-muted/20 font-mono min-h-[88px] text-xs"
                     />
                     <p className="text-[11px] text-muted-foreground italic">
-                      * พิมพ์คำว่า <strong>"token"</strong> ส่งหา Bot เพื่อรับรหัส User ID ของคุณ (ดูวิธีแอดไลน์บอทที่คำแนะนำด้านล่าง)
+                      * พิมพ์คำว่า <strong>"token"</strong> ส่งหา Bot เพื่อรับรหัส User ID (เจ้าของ + ภรรยา/ลูก ใส่ได้หลายบรรทัด)
                     </p>
 
                     <div className="mt-4 rounded-2xl border border-border/80 bg-muted/30 p-5 space-y-4 text-xs md:text-sm text-left">
@@ -822,8 +863,8 @@ function Settings() {
                         <div className="flex flex-col items-center gap-2 bg-card p-3 rounded-xl border border-border/50 shadow-sm shrink-0">
                           <img 
                             src={theme === "dark" 
-                              ? "https://qr-official.line.me/gs/M_176ftctj_BW.png" 
-                              : "https://qr-official.line.me/gs/M_176ftctj_GW.png"
+                              ? "https://qr-official.line.me/gs/M_792nhdet_BW.png?oat_content=qr" 
+                              : "https://qr-official.line.me/gs/M_792nhdet_GW.png?oat_content=qr"
                             } 
                             alt="LINE QR Code" 
                             className="w-24 h-24 object-contain rounded"
@@ -834,32 +875,40 @@ function Settings() {
                         <div className="space-y-3">
                           <ol className="list-decimal list-inside space-y-2 text-muted-foreground leading-relaxed">
                             <li>
-                              เพิ่มเพื่อนกับ LINE Bot โดยการสแกน QR Code หรือเพิ่มเพื่อนด้วยไอดี <a href="https://line.me/R/ti/p/@176ftctj" target="_blank" rel="noreferrer" className="text-primary hover:underline font-bold">@176ftctj</a>
+                              เพิ่มเพื่อนกับ LINE Bot โดยการสแกน QR Code หรือเพิ่มเพื่อนด้วยไอดี <a href="https://line.me/R/ti/p/@792nhdet" target="_blank" rel="noreferrer" className="text-primary hover:underline font-bold">@792nhdet</a>
                             </li>
                             <li>
                               เปิดห้องแชทและพิมพ์คำว่า <code className="bg-muted px-1.5 py-0.5 rounded font-mono font-bold text-foreground">token</code> ส่งหา Bot
                             </li>
                             <li>
-                              คัดลอกรหัส <code className="bg-muted px-1.5 py-0.5 rounded font-mono font-bold text-foreground">User ID</code> ที่ได้รับจาก Bot นำมาวางที่ช่องด้านบน
+                              คัดลอกรหัส <code className="bg-muted px-1.5 py-0.5 rounded font-mono font-bold text-foreground">User ID</code> ที่ได้รับจาก Bot นำมาวางที่ช่องด้านบน (ใส่ได้หลายคน)
                             </li>
                             <li>
-                              กดปุ่ม <span className="font-bold text-foreground">"บันทึกการตั้งค่า LINE"</span> เพื่อเปิดระบบการแจ้งเตือน
+                              เลือกเหตุการณ์ที่ต้องการ แล้วกด <span className="font-bold text-foreground">"บันทึกการตั้งค่า LINE"</span> หรือทดสอบส่งข้อความ
                             </li>
                           </ol>
                         </div>
                       </div>
-                    </div>
-                  </div>
 
-                  <div className="pt-2">
-                    <Button 
-                      onClick={handleSaveLineNotify} 
-                      disabled={busy === "line"}
-                      className="w-full bg-[#06C755] hover:bg-[#06C755]/90 text-white font-black h-11 rounded-xl"
-                    >
-                      {busy === "line" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      บันทึกการตั้งค่า LINE
-                    </Button>
+                      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
+                        <p className="text-xs font-bold text-amber-800 dark:text-amber-200">⚠️ Bot ไม่ตอบ &quot;token&quot;?</p>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                          LINE ต้องส่งข้อความมาที่ <strong>Webhook URL สาธารณะ (HTTPS)</strong> — localhost ใช้ไม่ได้
+                        </p>
+                        <p className="text-[11px] font-mono bg-muted/50 px-2 py-1.5 rounded break-all">
+                          {(import.meta as any).env?.VITE_PUBLIC_API_URL
+                            ? `${String((import.meta as any).env.VITE_PUBLIC_API_URL).replace(/\/+$/, '')}/api/webhook`
+                            : 'https://api.dexterball.com/api/webhook'}
+                        </p>
+                        <ol className="list-decimal list-inside text-[11px] text-muted-foreground space-y-1">
+                          <li>LINE Developers → Messaging API → Webhook URL ใส่ URL ด้านบน</li>
+                          <li>เปิด <strong>Use webhook</strong> → กด Verify (ต้องได้ Success)</li>
+                          <li><strong className="text-destructive">สำคัญ:</strong> LINE Official Account Manager → ตั้งค่า → การตอบกลับ → เลือก <strong>Webhook</strong> (ไม่ใช่ &quot;แชท&quot;)</li>
+                          <li>ปิด Auto-reply / ข้อความทักทายใน OA Manager</li>
+                          <li>Backend + ngrok ต้องรันค้างไว้ตลอด</li>
+                        </ol>
+                      </div>
+                    </div>
                   </div>
                 </div>
               
@@ -867,6 +916,20 @@ function Settings() {
                 <div className="space-y-4 pt-4 border-t border-border/50 animate-in fade-in slide-in-from-top-2">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">เลือกเหตุการณ์ที่ต้องการแจ้งเตือน</Label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-3 rounded-xl border bg-violet-500/5 border-violet-500/20 sm:col-span-2">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-bold cursor-pointer text-violet-700 dark:text-violet-300" onClick={() => setLineEvents(p => ({...p, morning_digest: !p.morning_digest}))}>สรุปเช้า (Morning Digest)</Label>
+                        <p className="text-[11px] text-muted-foreground">ส่งทุก 07:00 — รายการเก็บวันนี้ + ครบกำหนด + ค้างชำระ</p>
+                      </div>
+                      <Switch checked={lineEvents.morning_digest} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, morning_digest: v }))} />
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-xl border bg-destructive/5 border-destructive/20 sm:col-span-2">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-bold cursor-pointer text-destructive" onClick={() => setLineEvents(p => ({...p, overdue_alert: !p.overdue_alert}))}>แจ้งเตือนค้างชำระ (Overdue)</Label>
+                        <p className="text-[11px] text-destructive/80">ส่งซ้ำ 18:00 ถ้ายังมีลูกค้าค้างชำระ + เมื่อสัญญาเปลี่ยนสถานะ</p>
+                      </div>
+                      <Switch checked={lineEvents.overdue_alert} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, overdue_alert: v }))} />
+                    </div>
                     <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/10">
                       <div className="space-y-0.5">
                         <Label className="text-sm font-bold cursor-pointer" onClick={() => setLineEvents(p => ({...p, payment: !p.payment}))}>รับชำระเงิน (Payment)</Label>
@@ -909,14 +972,55 @@ function Settings() {
                       </div>
                       <Switch checked={lineEvents.expense} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, expense: v }))} />
                     </div>
+                    <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/10">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-bold cursor-pointer" onClick={() => setLineEvents(p => ({...p, late_fee: !p.late_fee}))}>ปรับค่าปรับ (Late Fee)</Label>
+                        <p className="text-[11px] text-muted-foreground">แจ้งเมื่อมีการปรับ/ยกเว้นค่าปรับ</p>
+                      </div>
+                      <Switch checked={lineEvents.late_fee} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, late_fee: v }))} />
+                    </div>
                     <div className="flex items-center justify-between p-3 rounded-xl border border-destructive/20 bg-destructive/5">
                       <div className="space-y-0.5">
                         <Label className="text-sm font-bold text-destructive cursor-pointer" onClick={() => setLineEvents(p => ({...p, fraud: !p.fraud}))}>ยกเลิก/ลบ (Fraud Alert)</Label>
-                        <p className="text-[11px] text-destructive/80">แจ้งเตือนเมื่อลบประวัติหรือยกเลิกสัญญา</p>
+                        <p className="text-[11px] text-destructive/80">แจ้งเมื่อลบประวัติชำระ/รายจ่าย/ยกเลิกสัญญา</p>
                       </div>
                       <Switch checked={lineEvents.fraud} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, fraud: v }))} />
                     </div>
                   </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                    <Button 
+                      onClick={handleSaveLineNotify} 
+                      disabled={busy === "line" || busy === "line-test"}
+                      className="flex-1 bg-[#06C755] hover:bg-[#06C755]/90 text-white font-black h-11 rounded-xl"
+                    >
+                      {busy === "line" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      บันทึกการตั้งค่า LINE
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleTestLineNotify}
+                      disabled={!lineEnabled || busy === "line" || busy === "line-test"}
+                      className="flex-1 font-bold h-11 rounded-xl border-[#06C755]/40 text-[#06C755] hover:bg-[#06C755]/10"
+                    >
+                      {busy === "line-test" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      ทดสอบส่งข้อความ
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!lineEnabled && (
+                <div className="pt-2">
+                  <Button 
+                    onClick={handleSaveLineNotify} 
+                    disabled={busy === "line"}
+                    className="w-full bg-[#06C755] hover:bg-[#06C755]/90 text-white font-black h-11 rounded-xl"
+                  >
+                    {busy === "line" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    บันทึกการตั้งค่า LINE
+                  </Button>
                 </div>
               )}
             </div>

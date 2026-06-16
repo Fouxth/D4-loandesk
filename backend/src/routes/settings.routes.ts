@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import sql from '../db';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
+import { handleRouteError } from '../utils/apiError';
+import { DEFAULT_LINE_EVENTS } from '../services/lineConfig';
+import { sendLineTestNotification } from '../services/lineDigest.service';
 
 const router = Router();
 
@@ -26,15 +29,8 @@ router.get('/', async (req: AuthRequest, res) => {
             enabled: false,
             token: '',
             userId: '',
-            events: {
-              payment: true,
-              loan: true,
-              expense: true,
-              fraud: true,
-              refinance: true,
-              completed: true,
-              pawn_forfeited: true
-            }
+            userIds: [],
+            events: { ...DEFAULT_LINE_EVENTS },
           };
         }
         await sql`
@@ -52,8 +48,17 @@ router.get('/', async (req: AuthRequest, res) => {
       return acc;
     }, {});
     res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
+  } catch (e) {
+    handleRouteError(e, res, 'GET /settings');
+  }
+});
+
+router.post('/line-notify/test', async (req: AuthRequest, res) => {
+  try {
+    await sendLineTestNotification(req.tenantId!);
+    res.json({ message: 'ส่งข้อความทดสอบแล้ว' });
+  } catch (e) {
+    handleRouteError(e, res, 'POST /settings/line-notify/test');
   }
 });
 
@@ -73,8 +78,8 @@ router.post('/:key', async (req: AuthRequest, res) => {
       UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
     `;
     res.json({ message: 'Setting updated successfully' });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
+  } catch (e) {
+    handleRouteError(e, res, 'POST /settings/:key');
   }
 });
 

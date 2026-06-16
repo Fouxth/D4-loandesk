@@ -18,15 +18,32 @@ const EN_MONTHS: Record<string, number> = {
   jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
 };
 
+/** ลบตัวคั่น (จุด/ขีด/ช่องว่าง) ออกจากชื่อเดือน เพื่อให้ทนรูปแบบเพี้ยน เช่น "เม-ย." -> "เมย" */
+function stripMonthSeparators(s: string): string {
+  return s.replace(/[.\s\-]/g, '');
+}
+
+// ตารางค้นหาเดือนแบบไม่มีตัวคั่น (สร้างจาก THAI_MONTHS) สำหรับ fallback
+const THAI_MONTHS_BARE: Record<string, number> = Object.fromEntries(
+  Object.entries(THAI_MONTHS).map(([key, value]) => [stripMonthSeparators(key), value]),
+);
+
+/** ค้นหาเลขเดือนจากคีย์ไทย รองรับทั้งแบบมีจุดมาตรฐานและแบบตัวคั่นเพี้ยน */
+function lookupThaiMonth(monthKey: string): number | undefined {
+  return THAI_MONTHS[monthKey] ?? THAI_MONTHS_BARE[stripMonthSeparators(monthKey)];
+}
+
 function padDate(y: number, m: number, d: number): string | null {
   if (m < 1 || m > 12 || d < 1 || d > 31) return null;
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
-function beShortToCe(beShort: number): number {
-  if (beShort >= 2400) return beShort - 543;
-  if (beShort >= 100) return beShort - 543;
-  return beShort + 2500 - 543;
+/** แปลงเลขปีให้เป็น ค.ศ. รองรับ พ.ศ.เต็ม/ย่อ และ ค.ศ.เต็ม */
+function beShortToCe(yearPart: number): number {
+  if (yearPart >= 2400) return yearPart - 543; // พ.ศ. เต็ม เช่น 2569 -> 2026
+  if (yearPart >= 1000) return yearPart;        // ค.ศ. เต็มอยู่แล้ว เช่น 2026
+  if (yearPart >= 100) return yearPart - 543;   // พ.ศ. 3 หลัก (พบยาก)
+  return yearPart + 1957;                        // พ.ศ. ย่อ 2 หลัก เช่น 69 -> 2026
 }
 
 /** Parse Thai / Excel-formatted dates e.g. 19-Oct-68, 12-ก.ค.-67, 9 พ.ค. 69 */
@@ -34,7 +51,8 @@ export function parseThaiDate(value: unknown): string | null {
   if (value == null || value === '') return null;
 
   if (value instanceof Date && !isNaN(value.getTime())) {
-    return value.toISOString().slice(0, 10);
+    // ใช้ส่วนประกอบ local ตรงๆ กันคลาดเคลื่อน 1 วันจาก timezone (toISOString แปลงเป็น UTC)
+    return padDate(value.getFullYear(), value.getMonth() + 1, value.getDate());
   }
 
   const raw = String(value).trim();
@@ -55,7 +73,7 @@ export function parseThaiDate(value: unknown): string | null {
   if (thDashMatch) {
     const day = parseInt(thDashMatch[1], 10);
     const monthKey = thDashMatch[2].trim();
-    const month = THAI_MONTHS[monthKey] ?? THAI_MONTHS[monthKey.replace(/\.$/, '') + '.'];
+    const month = lookupThaiMonth(monthKey);
     const yearPart = parseInt(thDashMatch[3], 10);
     const year = yearPart > 2400 ? yearPart - 543 : beShortToCe(yearPart);
     if (month) return padDate(year, month, day);
@@ -66,7 +84,7 @@ export function parseThaiDate(value: unknown): string | null {
   if (thSpaceMatch) {
     const day = parseInt(thSpaceMatch[1], 10);
     const monthKey = thSpaceMatch[2].trim();
-    const month = THAI_MONTHS[monthKey] ?? THAI_MONTHS[monthKey + '.'];
+    const month = lookupThaiMonth(monthKey);
     const yearPart = parseInt(thSpaceMatch[3], 10);
     const year = yearPart > 2400 ? yearPart - 543 : beShortToCe(yearPart);
     if (month) return padDate(year, month, day);
@@ -75,9 +93,9 @@ export function parseThaiDate(value: unknown): string | null {
   // Numeric Excel serial
   const num = Number(raw);
   if (!isNaN(num) && num > 30000 && num < 60000) {
-    const epoch = new Date(Date.UTC(1899, 11, 30));
-    const d = new Date(epoch.getTime() + num * 86400000);
-    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+    const epoch = Date.UTC(1899, 11, 30);
+    const d = new Date(epoch + num * 86400000);
+    if (!isNaN(d.getTime())) return padDate(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
   }
 
   return null;

@@ -17,8 +17,11 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
 
   try {
     const decoded = jwt.verify(token, getJwtSecret()) as { userId: string; tenantId: string };
+    if (!decoded.userId || !decoded.tenantId) {
+      return res.status(401).json({ error: 'Invalid token: missing claims' });
+    }
     req.userId = decoded.userId;
-    req.tenantId = decoded.tenantId || 'bkj';
+    req.tenantId = decoded.tenantId;
 
     // Check tenant is_active on every request (skip for system super-admin)
     if (req.tenantId !== 'system') {

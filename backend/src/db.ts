@@ -16,9 +16,7 @@ const sql = postgres(DATABASE_URL, {
 
 export default sql;
 
-// Test connection and log table count
-sql`SELECT count(*) FROM users`.then(res => {
+export async function testDbConnection(): Promise<void> {
+  const res = await sql`SELECT count(*) FROM users`;
   console.log('✅ DB Connected. User count:', res[0].count);
-}).catch(err => {
-  console.error('❌ DB Connection Error:', err.message);
-});
+}

@@ -21,6 +21,7 @@ import activityRoutes from './routes/activity.routes';
 import settingsRoutes from './routes/settings.routes';
 import webhookRoutes from './routes/webhook.routes';
 import tenantRoutes from './routes/tenant.routes';
+import cronRoutes from './routes/cron.routes';
 
 export function createApp() {
   const app = express();
@@ -95,6 +96,7 @@ export function createApp() {
   app.use('/api/settings', settingsRoutes);
   app.use('/api/webhook', webhookRoutes);
   app.use('/api/tenants', tenantRoutes);
+  app.use('/api/cron', cronRoutes);
 
   // Health checks
   app.get('/health', (_req, res) => {

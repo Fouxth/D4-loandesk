@@ -75,7 +75,14 @@ async function runImport(
   let customersCreated = 0;
   let loansCreated = 0;
   let paymentsCreated = 0;
-  let loanSeq = 1;
+
+  // เริ่มเลขสัญญาต่อจากเลข IMP สูงสุดเดิม กัน loan_number ชนตอน import เพิ่มภายหลัง
+  const [maxRow] = await sql<{ maxSeq: number | null }[]>`
+    SELECT MAX(CAST(SUBSTRING(loan_number FROM 4) AS INTEGER)) AS max_seq
+    FROM loans
+    WHERE tenant_id = ${tenantId} AND loan_number ~ '^IMP[0-9]+$'
+  `;
+  let loanSeq = (maxRow?.maxSeq ?? 0) + 1;
 
   const uniqueNames = new Map<string, string>();
   for (const loan of loans) {
@@ -111,15 +118,46 @@ async function runImport(
   }
 
   const BATCH_SIZE = 50;
+  let duplicatesSkipped = 0;
   console.log(`\n📝 Importing ${loans.length} loans in batches of ${BATCH_SIZE}...`);
 
   for (let i = 0; i < loans.length; i += BATCH_SIZE) {
     const batch = loans.slice(i, i + BATCH_SIZE);
-    const paymentRows: Record<string, unknown>[] = [];
 
     await sql.begin(async (tx) => {
+      const batchPaymentRows: Record<string, unknown>[] = [];
+
       for (const loan of batch) {
         const customerId = customerMap.get(normalizeName(loan.customerName))!;
+
+        // Idempotency: ตรวจสัญญาซ้ำตาม natural key
+        // สัญญาแบบไม่มีกำหนด (ดอกลอย/รายเดือน/รับจำนำ) startDate อิงวันที่ปัจจุบัน ไม่คงที่
+        // จึงตรวจซ้ำด้วย (ลูกค้า+ยอดต้น+ยอดต่องวด+ประเภท) แทน ไม่ใช้ start_date
+        const [existing] = loan.isIndefinite
+          ? await tx`
+              SELECT id FROM loans
+              WHERE tenant_id = ${tenantId}
+                AND customer_id = ${customerId}
+                AND principal = ${loan.principal}
+                AND installment_amount = ${loan.installmentAmount}
+                AND payment_type = ${loan.paymentType}
+                AND is_indefinite = true
+              LIMIT 1
+            `
+          : await tx`
+              SELECT id FROM loans
+              WHERE tenant_id = ${tenantId}
+                AND customer_id = ${customerId}
+                AND start_date = ${loan.startDate}
+                AND principal = ${loan.principal}
+                AND installment_amount = ${loan.installmentAmount}
+              LIMIT 1
+            `;
+        if (existing) {
+          duplicatesSkipped++;
+          continue;
+        }
+
         const loanId = crypto.randomUUID();
         const loanNumber = `IMP${String(loanSeq++).padStart(5, '0')}`;
 
@@ -151,7 +189,7 @@ async function runImport(
         loansCreated++;
 
         for (const payment of loan.payments) {
-          paymentRows.push({
+          batchPaymentRows.push({
             id: crypto.randomUUID(),
             loanId,
             amount: payment.amount,
@@ -165,16 +203,20 @@ async function runImport(
           });
         }
       }
-    });
 
-    if (paymentRows.length > 0) {
-      await sql`INSERT INTO payments ${sql(paymentRows)}`;
-      paymentsCreated += paymentRows.length;
-    }
+      if (batchPaymentRows.length > 0) {
+        await tx`INSERT INTO payments ${sql(batchPaymentRows)}`;
+        paymentsCreated += batchPaymentRows.length;
+      }
+    });
 
     if ((i + BATCH_SIZE) % 200 === 0 || i + BATCH_SIZE >= loans.length) {
       console.log(`  ... ${Math.min(i + BATCH_SIZE, loans.length)} / ${loans.length} loans`);
     }
+  }
+
+  if (duplicatesSkipped > 0) {
+    console.log(`  ⚠️  ข้าม ${duplicatesSkipped} สัญญาซ้ำ (idempotent)`);
   }
 
   console.log('\n🎉 Import complete!');

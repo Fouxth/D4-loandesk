@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as tenantService from '../services/tenant.service';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
+import { handleRouteError } from '../utils/apiError';
 
 const router = Router();
 
@@ -23,12 +24,8 @@ router.get('/', async (req: AuthRequest, res: any) => {
       success: true,
       data: tenants
     });
-  } catch (e: any) {
-    console.error('Fetch tenants error:', e);
-    res.status(500).json({
-      success: false,
-      error: e.message || 'เกิดข้อผิดพลาดในการดึงข้อมูลร้านค้า'
-    });
+  } catch (e) {
+    handleRouteError(e, res, 'GET /tenants');
   }
 });
 
@@ -50,12 +47,8 @@ router.post('/generate', async (req: AuthRequest, res: any) => {
       message: 'สร้างระบบเก็บกู้ร้านใหม่เรียบร้อยแล้ว!',
       data: result
     });
-  } catch (e: any) {
-    console.error('Tenant generation error:', e);
-    res.status(500).json({
-      success: false,
-      error: e.message || 'เกิดข้อผิดพลาดในการสร้างระบบร้านค้า'
-    });
+  } catch (e) {
+    handleRouteError(e, res, 'POST /tenants/generate');
   }
 });
 
@@ -78,12 +71,8 @@ router.put('/:id/status', async (req: AuthRequest, res: any) => {
       message: isActive ? 'เปิดใช้งานระบบเรียบร้อย!' : 'ระงับการใช้งานระบบเรียบร้อย!',
       data: result[0]
     });
-  } catch (e: any) {
-    console.error('Tenant status update error:', e);
-    res.status(500).json({
-      success: false,
-      error: e.message || 'เกิดข้อผิดพลาดในการปรับสถานะระบบ'
-    });
+  } catch (e) {
+    handleRouteError(e, res, 'PUT /tenants/:id/status');
   }
 });
 

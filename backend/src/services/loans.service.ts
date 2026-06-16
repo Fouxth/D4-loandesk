@@ -1,5 +1,28 @@
 import sql from '../db';
 import { sendLineNotify } from './line.service';
+import { ApiError } from '../utils/apiError';
+
+const LOAN_CREATE_ALLOWED = new Set([
+  'customerId', 'principal', 'interestRate', 'interestAmount', 'totalPayable',
+  'installmentsCount', 'installmentAmount', 'paymentType',
+  'startDate', 'dueDate', 'status', 'notes',
+  'isInterestOnly', 'isIndefinite', 'isPawn', 'pawnItem', 'pawnStatus',
+]);
+
+const LOAN_UPDATE_ALLOWED = new Set([
+  'principal', 'interestRate', 'interestAmount', 'totalPayable',
+  'installmentsCount', 'installmentAmount', 'paymentType',
+  'startDate', 'dueDate', 'status', 'notes',
+  'isInterestOnly', 'isIndefinite', 'isPawn', 'pawnItem', 'pawnStatus',
+]);
+
+function pickFields(data: any, allowed: Set<string>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const key of allowed) {
+    if (key in data) result[key] = data[key];
+  }
+  return result;
+}
 
 export async function getAllLoans(tenantId: string) {
   return await sql`
@@ -22,8 +45,16 @@ export async function getLoanById(id: string, tenantId: string) {
 }
 
 export async function dbCreateLoan(data: any, loanNumber: string, userId: string, tenantId: string) {
+  const safeData = pickFields(data, LOAN_CREATE_ALLOWED);
+
+  if (!safeData.customerId) throw new ApiError(400, 'กรุณาระบุลูกค้า');
+  const [customer] = await sql`
+    SELECT id FROM customers WHERE id = ${safeData.customerId as string} AND tenant_id = ${tenantId}
+  `;
+  if (!customer) throw new ApiError(400, 'ไม่พบลูกค้าในระบบ');
+
   const result = await sql`
-    INSERT INTO loans ${sql({ ...data, loanNumber, createdBy: userId, tenantId })}
+    INSERT INTO loans ${sql({ ...safeData, loanNumber, createdBy: userId, tenantId })}
     RETURNING *
   `;
   
@@ -146,9 +177,13 @@ export async function dbRefinanceLoan(oldLoanId: string, newData: any, newLoanNu
 
 export async function dbUpdateLoan(id: string, data: any, tenantId: string) {
   const [oldLoan] = await sql`SELECT * FROM loans WHERE id = ${id} AND tenant_id = ${tenantId}`;
+  if (!oldLoan) throw new ApiError(404, 'ไม่พบสัญญา');
+
+  const safeData = pickFields(data, LOAN_UPDATE_ALLOWED);
+  if (Object.keys(safeData).length === 0) throw new ApiError(400, 'ไม่มีข้อมูลที่อัปเดต');
 
   const result = await sql`
-    UPDATE loans SET ${sql(data)} WHERE id = ${id} AND tenant_id = ${tenantId}
+    UPDATE loans SET ${sql(safeData)} WHERE id = ${id} AND tenant_id = ${tenantId}
     RETURNING *
   `;
 
@@ -188,6 +223,24 @@ export async function dbUpdateLoan(id: string, data: any, tenantId: string) {
             ],
             footer: 'ทรัพย์สินหลุดเข้าคลังร้านโดยสมบูรณ์'
           }, tenantId);
+        } else if (newLoan.status === 'overdue' && oldLoan.status !== 'overdue') {
+          const formattedInstallment = Number(newLoan.installmentAmount).toLocaleString('en-US', { minimumFractionDigits: 2 });
+          sendLineNotify(
+            `🚨 สัญญาเปลี่ยนสถานะเป็นค้างชำระ\n👤 ${customerName}\n📝 ${newLoan.loanNumber}`,
+            'overdue_alert',
+            {
+              title: '🚨 สัญญาค้างชำระ',
+              accentColor: '#ef4444',
+              items: [
+                { label: 'ลูกค้า', value: customerName },
+                { label: 'เลขที่สัญญา', value: newLoan.loanNumber },
+                { label: 'ยอด/งวด', value: `${formattedInstallment} บาท` },
+                { label: 'ครบกำหนด', value: String(newLoan.dueDate ?? '—'), color: '#ef4444' },
+              ],
+              footer: 'ตรวจสอบและติดตามลูกค้าได้ทันที',
+            },
+            tenantId,
+          );
         }
       } catch (err) {
         console.error('Failed to send status transition notification:', err);
@@ -214,7 +267,12 @@ export async function dbUpdateLoanLateFee(
     throw new Error('กรุณาระบุจำนวนค่าปรับ');
   }
 
-  const [loan] = await sql`SELECT id FROM loans WHERE id = ${id} AND tenant_id = ${tenantId}`;
+  const [loan] = await sql`
+    SELECT l.*, c.full_name as customer_name
+    FROM loans l
+    JOIN customers c ON l.customer_id = c.id
+    WHERE l.id = ${id} AND l.tenant_id = ${tenantId}
+  `;
   if (!loan) throw new Error('ไม่พบสัญญา');
 
   const result = await sql`
@@ -227,6 +285,38 @@ export async function dbUpdateLoanLateFee(
     WHERE id = ${id} AND tenant_id = ${tenantId}
     RETURNING *
   `;
+
+  if (result.length > 0) {
+    const modeLabels: Record<LateFeeMode, string> = {
+      auto: 'คำนวณอัตโนมัติ',
+      waive: 'ยกเว้นค่าปรับ',
+      custom: 'กำหนดเอง',
+    };
+    const amountText =
+      mode === 'custom' && data.amount != null
+        ? `${Number(data.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })} บาท`
+        : mode === 'waive'
+          ? '0 บาท'
+          : 'ตามระบบ';
+
+    sendLineNotify(
+      `⚖️ ปรับค่าปรับสัญญา ${loan.loanNumber}`,
+      'late_fee',
+      {
+        title: '⚖️ ปรับค่าปรับล่าช้า',
+        accentColor: '#f59e0b',
+        items: [
+          { label: 'ลูกค้า', value: loan.customerName },
+          { label: 'เลขที่สัญญา', value: loan.loanNumber },
+          { label: 'โหมด', value: modeLabels[mode] },
+          { label: 'จำนวน', value: amountText, color: '#f59e0b' },
+          { label: 'หมายเหตุ', value: data.note?.trim() || '—' },
+        ],
+        footer: 'มีการปรับค่าปรับในระบบแล้ว',
+      },
+      tenantId,
+    );
+  }
 
   return result;
 }

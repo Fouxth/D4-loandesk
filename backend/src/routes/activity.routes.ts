@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import sql from '../db';
 import { authenticate } from '../middleware/auth.middleware';
+import { handleRouteError } from '../utils/apiError';
 
 const router = Router();
 
@@ -25,8 +26,8 @@ router.get('/', async (req: any, res) => {
       LIMIT 100
     `;
     res.json(logs);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e) {
+    handleRouteError(e, res, 'GET /activity');
   }
 });
 
@@ -39,8 +40,8 @@ router.post('/', async (req: any, res) => {
       VALUES (${req.userId}, ${action}, ${entityType ?? null}, ${entityId ?? null}, ${details ? JSON.stringify(details) : null}, ${req.tenantId!})
     `;
     res.json({ success: true });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e) {
+    handleRouteError(e, res, 'POST /activity');
   }
 });
 

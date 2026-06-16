@@ -3,30 +3,119 @@ import sql from '../db';
 /**
  * Helper to reply to LINE messages
  */
-async function replyLineMessage(replyToken: string, messages: any[]) {
+export async function replyLineMessage(replyToken: string, messages: any[]): Promise<boolean> {
   const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-  if (!channelAccessToken) return;
+  if (!channelAccessToken) {
+    console.error('[LINE] ❌ Cannot reply — missing LINE_CHANNEL_ACCESS_TOKEN');
+    return false;
+  }
 
   try {
     const response = await fetch('https://api.line.me/v2/bot/message/reply', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${channelAccessToken}`
+        'Authorization': `Bearer ${channelAccessToken}`,
       },
-      body: JSON.stringify({
-        replyToken,
-        messages
-      })
+      body: JSON.stringify({ replyToken, messages }),
     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error(`[LINE] ❌ Reply API failed (${response.status}):`, errorData);
+    if (response.ok) {
+      console.log('[LINE] ✅ Reply sent');
+      return true;
     }
+
+    const errorData = await response.text();
+    console.error(`[LINE] ❌ Reply API failed (${response.status}):`, errorData);
+    return false;
   } catch (error) {
     console.error('[LINE] ❌ Failed to reply message:', error);
+    return false;
   }
+}
+
+export async function pushLineMessages(userId: string, messages: any[]): Promise<boolean> {
+  const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!channelAccessToken || !userId) return false;
+
+  try {
+    const response = await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${channelAccessToken}`,
+      },
+      body: JSON.stringify({ to: userId, messages }),
+    });
+
+    if (response.ok) {
+      console.log(`[LINE] ✅ Push sent to ${userId}`);
+      return true;
+    }
+
+    const errorData = await response.text();
+    console.error(`[LINE] ❌ Push API failed (${response.status}):`, errorData);
+    return false;
+  } catch (error) {
+    console.error('[LINE] ❌ Failed to push message:', error);
+    return false;
+  }
+}
+
+export async function pushLineText(userId: string, text: string): Promise<boolean> {
+  return pushLineMessages(userId, [{ type: 'text', text }]);
+}
+
+/** Reply in chat thread first; push to user if reply fails (manual chat / auto-reply safe) */
+export async function deliverMessages(
+  userId: string,
+  replyToken: string,
+  messages: any[],
+): Promise<boolean> {
+  const replied = await replyLineMessage(replyToken, messages);
+  if (replied) return true;
+  if (userId) return pushLineMessages(userId, messages);
+  return false;
+}
+
+export async function replyOrPush(userId: string, replyToken: string, messages: any[]) {
+  await deliverMessages(userId, replyToken, messages);
+}
+
+/**
+ * Reply with User ID (setup flow — no tenant check required)
+ */
+export async function replyWithUserId(userId: string, replyToken: string) {
+  await replyOrPush(userId, replyToken, [
+    {
+      type: 'text',
+      text: `รหัส User ID ของคุณคือ:\n${userId}\n\nคัดลอกรหัสนี้ไปใส่ในช่อง "LINE User ID" ในหน้าตั้งค่าของระบบได้เลยครับ 🚀`,
+    },
+  ]);
+}
+
+function isTokenRequest(lowerCmd: string): boolean {
+  const normalized = lowerCmd.replace(/\s+/g, ' ').trim();
+  return (
+    normalized === 'token' ||
+    normalized === 'id' ||
+    normalized === 'user id' ||
+    normalized === 'userid' ||
+    normalized === 'user' ||
+    normalized === 'uid' ||
+    normalized.startsWith('token ')
+  );
+}
+
+function findTenantForUser(userId: string) {
+  return sql`
+    SELECT tenant_id, value FROM settings 
+    WHERE key = 'line_notify' AND (
+      (value->>'userId') = ${userId}
+      OR COALESCE(value->'userIds', '[]'::jsonb) @> jsonb_build_array(${userId})
+    )
+    LIMIT 1
+  `;
 }
 
 /**
@@ -36,67 +125,75 @@ export async function handleBotCommand(text: string, userId: string, replyToken:
   const cmd = text.trim();
   const lowerCmd = cmd.toLowerCase();
 
-  // 1. Always allow 'token' or 'id' for setup
-  if (lowerCmd === 'token' || lowerCmd === 'id') {
-    await replyLineMessage(replyToken, [
+  // Setup / help — no tenant check
+  if (isTokenRequest(lowerCmd)) {
+    await replyWithUserId(userId, replyToken);
+    return;
+  }
+
+  if (lowerCmd === 'วิธีใช้' || lowerCmd === 'help') {
+    await handleHelp(userId, replyToken);
+    return;
+  }
+
+  if (lowerCmd === 'สวัสดี' || lowerCmd === 'hello' || lowerCmd === 'hi') {
+    await deliverMessages(userId, replyToken, [
       {
         type: 'text',
-        text: `รหัส User ID ของคุณคือ:\n${userId}\n\nคัดลอกรหัสนี้ไปใส่ในช่อง "LINE User ID" ในหน้าตั้งค่าของระบบได้เลยครับ 🚀`
-      }
+        text: 'สวัสดีครับ 👋\nพิมพ์ "token" เพื่อรับ User ID\nพิมพ์ "วิธีใช้" ดูคำสั่งทั้งหมด',
+      },
     ]);
     return;
   }
 
-  // 2. Security Check: Find the tenant that owns this LINE User ID
-  const settings = await sql`
-    SELECT tenant_id, value FROM settings 
-    WHERE key = 'line_notify' AND (value->>'userId') = ${userId}
-  `;
-  if (!settings || settings.length === 0) {
-    // Unauthorized user, silently ignore to prevent spam
+  const settings = await findTenantForUser(userId);
+  if (!settings?.length) {
+    await deliverMessages(userId, replyToken, [
+      {
+        type: 'text',
+        text: 'ยังไม่ได้ลงทะเบียน User ID ในระบบ\nพิมพ์ "token" เพื่อรับรหัส User ID\nพิมพ์ "วิธีใช้" ดูคำสั่งทั้งหมด',
+      },
+    ]);
     return;
   }
   const tenantId = settings[0].tenantId;
 
-  // 3. Process Commands
   try {
     if (lowerCmd === 'สรุป' || lowerCmd === 'summary') {
-      await handleSummary(replyToken, tenantId);
-    } 
-    else if (lowerCmd === 'ค้างชำระ' || lowerCmd === 'overdue') {
-      await handleOverdue(replyToken, tenantId);
-    }
-    else if (lowerCmd === 'เก็บวันนี้' || lowerCmd === 'today') {
-      await handleCollectToday(replyToken, tenantId);
-    }
-    else if (lowerCmd.startsWith('ยอด ')) {
+      await handleSummary(userId, replyToken, tenantId);
+    } else if (lowerCmd === 'ค้างชำระ' || lowerCmd === 'overdue') {
+      await handleOverdue(userId, replyToken, tenantId);
+    } else if (lowerCmd === 'เก็บวันนี้' || lowerCmd === 'today') {
+      await handleCollectToday(userId, replyToken, tenantId);
+    } else if (lowerCmd.startsWith('ยอด ')) {
       const searchName = cmd.substring(4).trim();
       if (searchName) {
-        await handleCustomerSearch(replyToken, searchName, tenantId);
+        await handleCustomerSearch(userId, replyToken, searchName, tenantId);
       } else {
-        await replyLineMessage(replyToken, [{ type: 'text', text: 'กรุณาระบุชื่อลูกค้า เช่น: ยอด สมชาย' }]);
+        await deliverMessages(userId, replyToken, [
+          { type: 'text', text: 'กรุณาระบุชื่อลูกค้า เช่น: ยอด สมชาย' },
+        ]);
       }
-    }
-    else if (lowerCmd === 'วิธีใช้' || lowerCmd === 'help') {
-      await handleHelp(replyToken);
-    }
-    else {
-      // Optional: Inform user command not found
-      await replyLineMessage(replyToken, [{ 
-        type: 'text', 
-        text: 'ขออภัยครับ ไม่พบคำสั่งนี้ 😅\nพิมพ์ "วิธีใช้" เพื่อดูคำสั่งทั้งหมดครับ' 
-      }]);
+    } else {
+      await deliverMessages(userId, replyToken, [
+        {
+          type: 'text',
+          text: 'ไม่พบคำสั่งนี้ 😅\nพิมพ์ "วิธีใช้" เพื่อดูคำสั่งทั้งหมด',
+        },
+      ]);
     }
   } catch (error) {
     console.error('Bot command error:', error);
-    await replyLineMessage(replyToken, [{ type: 'text', text: 'เกิดข้อผิดพลาดในการดึงข้อมูล กรุณาลองใหม่อีกครั้ง 🔧' }]);
+    await deliverMessages(userId, replyToken, [
+      { type: 'text', text: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง 🔧' },
+    ]);
   }
 }
 
 /**
  * Command: สรุป
  */
-async function handleSummary(replyToken: string, tenantId: string) {
+async function handleSummary(userId: string, replyToken: string, tenantId: string) {
   // Get today's logical date in local timezone
   const today = new Date().toISOString().split('T')[0];
 
@@ -160,13 +257,18 @@ async function handleSummary(replyToken: string, tenantId: string) {
     }
   };
 
-  await replyLineMessage(replyToken, [flexMessage]);
+  await deliverMessages(userId, replyToken, [flexMessage]);
 }
 
 /**
  * Command: ยอด <ชื่อ>
  */
-async function handleCustomerSearch(replyToken: string, name: string, tenantId: string) {
+async function handleCustomerSearch(
+  userId: string,
+  replyToken: string,
+  name: string,
+  tenantId: string,
+) {
   const customers = await sql`
     SELECT id, full_name, phone 
     FROM customers 
@@ -175,7 +277,9 @@ async function handleCustomerSearch(replyToken: string, name: string, tenantId: 
   `;
 
   if (customers.length === 0) {
-    await replyLineMessage(replyToken, [{ type: 'text', text: `❌ ไม่พบข้อมูลลูกค้าที่ชื่อคล้าย "${name}"` }]);
+    await deliverMessages(userId, replyToken, [
+      { type: 'text', text: `❌ ไม่พบข้อมูลลูกค้าที่ชื่อคล้าย "${name}"` },
+    ]);
     return;
   }
 
@@ -245,13 +349,13 @@ async function handleCustomerSearch(replyToken: string, name: string, tenantId: 
     });
   }
 
-  await replyLineMessage(replyToken, messages);
+  await deliverMessages(userId, replyToken, messages);
 }
 
 /**
  * Command: ค้างชำระ
  */
-async function handleOverdue(replyToken: string, tenantId: string) {
+async function handleOverdue(userId: string, replyToken: string, tenantId: string) {
   const today = new Date().toISOString().split('T')[0];
   
   const overdueLoans = await sql`
@@ -264,7 +368,9 @@ async function handleOverdue(replyToken: string, tenantId: string) {
   `;
 
   if (overdueLoans.length === 0) {
-    await replyLineMessage(replyToken, [{ type: 'text', text: '🎉 เยี่ยมมาก! วันนี้ไม่มีลูกค้าค้างชำระเลยครับ' }]);
+    await deliverMessages(userId, replyToken, [
+      { type: 'text', text: '🎉 เยี่ยมมาก! วันนี้ไม่มีลูกค้าค้างชำระเลยครับ' },
+    ]);
     return;
   }
 
@@ -304,13 +410,13 @@ async function handleOverdue(replyToken: string, tenantId: string) {
     }
   };
 
-  await replyLineMessage(replyToken, [flexMessage]);
+  await deliverMessages(userId, replyToken, [flexMessage]);
 }
 
 /**
  * Command: เก็บวันนี้
  */
-async function handleCollectToday(replyToken: string, tenantId: string) {
+async function handleCollectToday(userId: string, replyToken: string, tenantId: string) {
   const today = new Date().toISOString().split('T')[0];
   
   // Find active loans that haven't paid today
@@ -328,7 +434,9 @@ async function handleCollectToday(replyToken: string, tenantId: string) {
   `;
 
   if (pendingLoans.length === 0) {
-    await replyLineMessage(replyToken, [{ type: 'text', text: '🎉 ยอดเยี่ยม! วันนี้เก็บเงินครบทุกรายการแล้วครับ' }]);
+    await deliverMessages(userId, replyToken, [
+      { type: 'text', text: '🎉 ยอดเยี่ยม! วันนี้เก็บเงินครบทุกรายการแล้วครับ' },
+    ]);
     return;
   }
 
@@ -406,14 +514,14 @@ async function handleCollectToday(replyToken: string, tenantId: string) {
     }
   };
 
-  await replyLineMessage(replyToken, [flexMessage]);
+  await deliverMessages(userId, replyToken, [flexMessage]);
 }
 
 
 /**
  * Command: วิธีใช้
  */
-async function handleHelp(replyToken: string) {
+async function handleHelp(userId: string, replyToken: string) {
   const text = `🤖 คำสั่งที่บอทเข้าใจครับ:
 
 📊 "สรุป" - ดูข้อมูลรับ-จ่ายของวันนี้
@@ -422,5 +530,5 @@ async function handleHelp(replyToken: string) {
 🚨 "ค้างชำระ" - ดูรายชื่อคนที่เลยกำหนด
 ❓ "วิธีใช้" - ดูข้อความนี้อีกครั้ง`;
 
-  await replyLineMessage(replyToken, [{ type: 'text', text }]);
+  await deliverMessages(userId, replyToken, [{ type: 'text', text }]);
 }

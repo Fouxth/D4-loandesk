@@ -11,6 +11,16 @@ import type { ParsedLoan, ParsedPayment, ParseResult } from './types';
 
 const CURRENT_PORTFOLIO_SHEETS = new Set(['ดอกลอย', 'รายเดือน', 'รับจำนำ']);
 
+// วันเริ่มอ้างอิงคงที่สำหรับสัญญาแบบไม่มีกำหนด (ดอกลอย/รายเดือน/รับจำนำ) ที่ Excel ไม่มีวันเริ่มจริง
+// ใช้ค่าคงที่เพื่อให้การแปลง deterministic (เดิมอิงวันที่ปัจจุบันทำให้ผลแปลงไม่คงที่)
+const INDEFINITE_ANCHOR_YM = '2025-01';
+
+/** วันที่อ้างอิงคงที่ของเดือน โดยคงวันครบกำหนด (dueDay) ไว้ */
+function anchorDateWithDueDay(dueDay: number | null): string {
+  const dd = Math.min(Math.max(dueDay ?? 1, 1), 28);
+  return `${INDEFINITE_ANCHOR_YM}-${String(dd).padStart(2, '0')}`;
+}
+
 export function filterLoansByBeYear(loans: ParsedLoan[], beYear: number): ParsedLoan[] {
   return loans.filter((loan) => {
     if (CURRENT_PORTFOLIO_SHEETS.has(loan.sourceSheet)) return true;
@@ -174,12 +184,16 @@ export function parseDaily357Sheet(rows: Row[], sheetName: string): ParseResult 
         skipped.push({ sheet: sheetName, row: r + 1, reason: `ข้าม ${name}: ไม่มียอดต้น` });
         continue;
       }
+      if (!startDate) {
+        skipped.push({ sheet: sheetName, row: r + 1, reason: `ข้าม ${name}: ไม่มีวันเริ่มสัญญา` });
+        continue;
+      }
 
       const installments = block.installments;
       const totalPayable = totalPaid ?? principal;
       const installmentAmount = Math.round(totalPayable / installments);
       const { interestAmount, interestRate } = calcLoanAmounts(principal, installmentAmount, installments, false);
-      const dueDate = endDate ?? (startDate ? addDays(startDate, installments) : null);
+      const dueDate = endDate ?? addDays(startDate, installments);
       const completed = totalPaid != null && totalPaid > 0;
 
       loans.push({
@@ -192,7 +206,7 @@ export function parseDaily357Sheet(rows: Row[], sheetName: string): ParseResult 
         interestRate,
         interestAmount,
         totalPayable,
-        startDate: startDate ?? todayIso(),
+        startDate,
         dueDate,
         status: inferStatus(completed ? installments : 0, installments, dueDate, completed),
         notes: `นำเข้าจาก ${sheetName} (${installments} วัน)`,
@@ -200,7 +214,7 @@ export function parseDaily357Sheet(rows: Row[], sheetName: string): ParseResult 
         isIndefinite: false,
         isPawn: false,
         pawnItem: null,
-        payments: completed && startDate
+        payments: completed
           ? [{ paymentDate: dueDate ?? startDate, amount: totalPayable, installmentNumber: 1 }]
           : [],
       });
@@ -246,8 +260,12 @@ export function parseDailyGridSheet(
       skipped.push({ sheet: sheetName, row: r + 1, reason: `ข้าม ${name}: ไม่มียอดส่งวันละ` });
       continue;
     }
+    if (!startDate) {
+      skipped.push({ sheet: sheetName, row: r + 1, reason: `ข้าม ${name}: ไม่มีวันเริ่มสัญญา` });
+      continue;
+    }
 
-    const effectiveStart = startDate ?? todayIso();
+    const effectiveStart = startDate;
     const installmentsCount = defaultInstallments ?? inferInstallmentsCount(row, startCol, maxDayCols);
     const { totalPayable, interestAmount, interestRate } = calcLoanAmounts(
       principal,
@@ -325,8 +343,7 @@ export function parseMonthlySheet(rows: Row[], sheetName: string): ParseResult {
     if (installmentAmount == null || installmentAmount <= 0) continue;
 
     const interestRate = principal > 0 ? Math.round((installmentAmount / principal) * 10000) / 100 : 0;
-    const now = new Date();
-    const startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(Math.min(dueDay ?? 1, 28)).padStart(2, '0')}`;
+    const startDate = anchorDateWithDueDay(dueDay);
 
     loans.push({
       customerName: name,
@@ -380,7 +397,7 @@ export function parseInterestOnlySheet(rows: Row[], sheetName: string): ParseRes
       interestRate,
       interestAmount: dailyAmount,
       totalPayable: principal,
-      startDate: todayIso(),
+      startDate: `${INDEFINITE_ANCHOR_YM}-01`,
       dueDate: null,
       status: 'active',
       notes: `นำเข้าจาก ${sheetName} (ดอกลอย)`,
@@ -413,8 +430,7 @@ export function parsePawnSheet(rows: Row[], sheetName: string): ParseResult {
     if (installmentAmount == null || installmentAmount <= 0) continue;
 
     const interestRate = principal > 0 ? Math.round((installmentAmount / principal) * 10000) / 100 : 0;
-    const now = new Date();
-    const startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(Math.min(dueDay ?? 1, 28)).padStart(2, '0')}`;
+    const startDate = anchorDateWithDueDay(dueDay);
     const notes = [`นำเข้าจาก ${sheetName}`, `ชำระทุกวันที่ ${dueDay ?? '-'}`, extraNote].filter(Boolean).join('; ');
 
     loans.push({
