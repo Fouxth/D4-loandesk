@@ -31,3 +31,10 @@ export default function handler(req: any, res: any) {
     res.end(JSON.stringify(body));
   }
 }
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
