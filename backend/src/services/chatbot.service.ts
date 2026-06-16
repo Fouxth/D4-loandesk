@@ -527,6 +527,7 @@ async function handleCollectToday(userId: string, replyToken: string, tenantId: 
 async function handleHelp(userId: string, replyToken: string) {
   const text = `🤖 คำสั่งที่บอทเข้าใจครับ:
 
+🔑 "token" - ดูรหัส User ID เพื่อผูกระบบ
 📊 "สรุป" - ดูข้อมูลรับ-จ่ายของวันนี้
 📋 "เก็บวันนี้" - ดูรายชื่อที่ต้องเก็บวันนี้
 🔍 "ยอด [ชื่อ]" - ดูยอดคงเหลือของลูกค้า (เช่น ยอด สมชาย)
