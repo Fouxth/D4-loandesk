@@ -76,6 +76,7 @@ export function createApp() {
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'ngrok-skip-browser-warning'],
+      maxAge: 86400, // Cache CORS preflight (OPTIONS) response for 24 hours to reduce 204 logs
     }),
   );
   app.use(express.json({
