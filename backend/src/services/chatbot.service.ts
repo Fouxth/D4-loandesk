@@ -1,4 +1,6 @@
 import sql from '../db';
+import { getBangkokDateStr } from './lineConfig';
+
 
 /**
  * Helper to reply to LINE messages
@@ -195,7 +197,7 @@ export async function handleBotCommand(text: string, userId: string, replyToken:
  */
 async function handleSummary(userId: string, replyToken: string, tenantId: string) {
   // Get today's logical date in local timezone
-  const today = new Date().toISOString().split('T')[0];
+  const today = getBangkokDateStr();
 
   const [[payments], [loans], [expenses]] = await Promise.all([
     sql`SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE payment_date = ${today} AND tenant_id = ${tenantId}`,
@@ -356,7 +358,7 @@ async function handleCustomerSearch(
  * Command: ค้างชำระ
  */
 async function handleOverdue(userId: string, replyToken: string, tenantId: string) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getBangkokDateStr();
   
   const overdueLoans = await sql`
     SELECT l.*, c.full_name as customer_name
@@ -417,7 +419,7 @@ async function handleOverdue(userId: string, replyToken: string, tenantId: strin
  * Command: เก็บวันนี้
  */
 async function handleCollectToday(userId: string, replyToken: string, tenantId: string) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getBangkokDateStr();
   
   // Find active loans that haven't paid today
   const pendingLoans = await sql`
