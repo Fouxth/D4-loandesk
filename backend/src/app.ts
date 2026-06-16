@@ -25,6 +25,7 @@ import cronRoutes from './routes/cron.routes';
 
 export function createApp() {
   const app = express();
+  app.set('etag', false); // Disable ETag caching to return 200 instead of 304 for easier debugging
 
   const normalizeOrigin = (value: string) => {
     return value.trim().replace(/^['"]|['"]$/g, '').replace(/\/+$/, '');
