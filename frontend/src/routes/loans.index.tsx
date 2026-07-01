@@ -277,7 +277,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
   };
 
   return (
-    <DialogContent className="max-w-xl w-[95vw] sm:w-full">
+    <DialogContent className="max-w-xl w-[95vw] sm:w-full max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6">
       <DialogHeader>
         <DialogTitle className="text-xl font-bold">{t('loans.create_new')}</DialogTitle>
       </DialogHeader>
