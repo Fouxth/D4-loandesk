@@ -63,3 +63,9 @@ export const getActivityLogs = () => api.get('/activity').then(r => r.data);
 export const getSettings = () => api.get('/settings').then(r => r.data);
 export const updateSetting = (key: string, value: any) => api.post(`/settings/${key}`, { value }).then(r => r.data);
 export const testLineNotify = () => api.post('/settings/line-notify/test').then(r => r.data);
+
+// Staff management (admin only)
+export const getStaff = () => api.get('/auth/users').then(r => r.data);
+export const createStaff = (data: { username: string; password: string; fullName: string }) => api.post('/auth/users', data).then(r => r.data);
+export const deleteStaff = (id: string) => api.delete(`/auth/users/${id}`).then(r => r.data);
+export const resetStaffPassword = (id: string, newPassword: string) => api.patch(`/auth/users/${id}/password`, { newPassword }).then(r => r.data);

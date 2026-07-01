@@ -19,6 +19,10 @@ router.get('/payments/loan/:loanId', async (req: AuthRequest, res) => {
 });
 
 router.post('/payments', async (req: AuthRequest, res) => {
+  const amount = Number(req.body.amount);
+  if (!req.body.amount || isNaN(amount) || amount <= 0) {
+    return res.status(400).json({ error: 'จำนวนเงินต้องมากกว่า 0' });
+  }
   try { res.json(await financeService.dbCreatePayment(req.body, req.userId!, req.tenantId!)); }
   catch (e) { handleRouteError(e, res, 'POST /finance/payments'); }
 });

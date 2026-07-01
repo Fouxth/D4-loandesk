@@ -1,3 +1,9 @@
+// Thai business day changes at 05:00 UTC+7 (= 22:00 UTC). Shift +2h then read UTC date to avoid browser-timezone arithmetic.
+export function getThaiDateStr(d: Date = new Date()): string {
+  const adjusted = new Date(d.getTime() + 2 * 3600000);
+  return `${adjusted.getUTCFullYear()}-${String(adjusted.getUTCMonth() + 1).padStart(2, '0')}-${String(adjusted.getUTCDate()).padStart(2, '0')}`;
+}
+
 export const THB = new Intl.NumberFormat("th-TH", {
   style: "currency",
   currency: "THB",
@@ -32,10 +38,10 @@ export function daysBetween(a: string | Date | null | undefined, b: string | Dat
 
 export function dueStatus(dueDate: string, balance: number) {
   if (balance <= 0) return { label: "ชำระแล้ว", tone: "success" as const };
-  const diff = daysBetween(new Date(dueDate), new Date());
+  const diff = daysBetween(dueDate, getThaiDateStr());
   if (diff === 0) return { label: "ครบกำหนดวันนี้", tone: "warning" as const };
   if (diff > 0 && diff <= 7) return { label: `ครบกำหนดใน ${diff} วัน`, tone: "info" as const };
-  if (diff > 7) return { label: `เร็วๆ นี้`, tone: "muted" as const };
+  if (diff > 7) return { label: `อีก ${diff} วัน`, tone: "muted" as const };
   if (diff < 0 && diff >= -7) return { label: `ค้างชำระ ${-diff} วัน`, tone: "warning" as const };
   return { label: `ค้างชำระ ${-diff} วัน`, tone: "destructive" as const };
 }

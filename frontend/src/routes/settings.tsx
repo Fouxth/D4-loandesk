@@ -11,15 +11,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { 
-  getSettings, 
-  updateSetting, 
-  getLoans, 
-  getPayments, 
+import {
+  getSettings,
+  updateSetting,
+  getLoans,
+  getPayments,
   getCustomers,
   getExpenses,
   changePassword,
-  testLineNotify
+  testLineNotify,
+  getStaff,
+  createStaff,
+  deleteStaff,
+  resetStaffPassword,
 } from "@/lib/services";
 import {
   Dialog,
@@ -29,23 +33,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { 
-  User, 
-  Moon, 
-  Sun, 
-  LogOut, 
-  Shield, 
-  Building2, 
-  Percent, 
-  Bell, 
+import {
+  User,
+  Moon,
+  Sun,
+  LogOut,
+  Shield,
+  Building2,
+  Percent,
+  Bell,
   Database,
   Smartphone,
   Users,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  UserPlus,
+  Trash2,
+  KeyRound,
 } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
 import { cn } from "@/utils/utils";
+import { ConfirmDelete } from "@/components/ConfirmDelete";
 import {
   DEFAULT_LENDING_CONFIG,
   LENDING_RATE_CATEGORIES,
@@ -86,6 +94,14 @@ function Settings() {
   });
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
+
+  // Staff management
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [staffOpen, setStaffOpen] = useState(false);
+  const [staffForm, setStaffForm] = useState({ username: "", fullName: "", password: "" });
+  const [staffBusy, setStaffBusy] = useState(false);
+  const [resetTarget, setResetTarget] = useState<any>(null);
+  const [resetPassword, setResetPassword] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -142,6 +158,12 @@ function Settings() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (roles.includes('admin')) {
+      getStaff().then(setStaffList).catch(() => {});
+    }
+  }, [roles]);
 
   useEffect(() => {
     const ids = ["profile", "account", "lending", "limits", "notifications", "display"];
@@ -448,12 +470,60 @@ function Settings() {
       const a = document.createElement("a");
       a.href = url;
       a.download = `${business.nameEN || "DebtTracker"}_Backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       toast.success("สำรองข้อมูลเรียบร้อยแล้ว");
     } catch (e) {
       toast.error("ไม่สามารถสำรองข้อมูลได้");
     } finally {
       setBusy(null);
+    }
+  };
+
+  const handleAddStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!staffForm.username || !staffForm.fullName || !staffForm.password) return;
+    setStaffBusy(true);
+    try {
+      await createStaff(staffForm);
+      toast.success("เพิ่มพนักงานเรียบร้อยแล้ว");
+      setStaffOpen(false);
+      setStaffForm({ username: "", fullName: "", password: "" });
+      const updated = await getStaff();
+      setStaffList(updated);
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "ไม่สามารถเพิ่มพนักงานได้");
+    } finally {
+      setStaffBusy(false);
+    }
+  };
+
+  const handleDeleteStaff = async (staffId: string) => {
+    try {
+      await deleteStaff(staffId);
+      toast.success("ลบบัญชีพนักงานเรียบร้อยแล้ว");
+      // Refetch from server so we stay in sync even if another admin acted concurrently (#6)
+      const updated = await getStaff();
+      setStaffList(updated);
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "ไม่สามารถลบบัญชีได้");
+    }
+  };
+
+  const handleResetStaffPassword = async () => {
+    if (!resetTarget || !resetPassword) return;
+    setStaffBusy(true);
+    try {
+      await resetStaffPassword(resetTarget.id, resetPassword);
+      toast.success(`รีเซ็ตรหัสผ่านของ "${resetTarget.username}" เรียบร้อยแล้ว`);
+      setResetTarget(null);
+      setResetPassword("");
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "ไม่สามารถรีเซ็ตรหัสผ่านได้");
+    } finally {
+      setStaffBusy(false);
     }
   };
 
@@ -607,6 +677,81 @@ function Settings() {
               </div>
             </div>
           </section>
+
+          {/* Staff Management — admin only */}
+          {roles.includes('admin') && (
+            <section className="scroll-mt-24 space-y-4 pt-4 border-t border-border/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-warning/10 flex items-center justify-center text-warning">
+                    <Users className="h-4 w-4" />
+                  </div>
+                  <h3 className="font-black text-lg">จัดการพนักงาน</h3>
+                </div>
+                <Button
+                  size="sm"
+                  className="rounded-xl font-bold h-9 px-4 gap-2"
+                  onClick={() => setStaffOpen(true)}
+                >
+                  <UserPlus className="h-4 w-4" /> เพิ่มพนักงาน
+                </Button>
+              </div>
+              <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+                {staffList.length === 0 ? (
+                  <div className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีบัญชีในระบบ</div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {staffList.map((s) => (
+                      <div key={s.id} className="flex items-center justify-between px-5 py-4 hover:bg-muted/20 transition-colors">
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary font-black text-base shrink-0 border border-primary/10">
+                            {s.username?.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-sm text-foreground truncate">{s.fullName || s.username}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">@{s.username}</p>
+                          </div>
+                          <span className={`shrink-0 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${s.role === 'admin' ? 'bg-primary/10 text-primary border-primary/20' : 'bg-muted text-muted-foreground border-transparent'}`}>
+                            {s.role === 'admin' ? 'Admin' : 'Staff'}
+                          </span>
+                        </div>
+                        {s.id !== user?.id && (
+                          <div className="flex items-center gap-2 shrink-0 ml-4">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground"
+                              title="รีเซ็ตรหัสผ่าน"
+                              onClick={() => { setResetTarget(s); setResetPassword(""); }}
+                            >
+                              <KeyRound className="h-4 w-4" />
+                            </Button>
+                            <ConfirmDelete
+                              onConfirm={() => handleDeleteStaff(s.id)}
+                              title="ยืนยันการลบบัญชี"
+                              description={`คุณแน่ใจหรือไม่ว่าต้องการลบบัญชี "${s.fullName || s.username}" ออกจากระบบ?`}
+                            >
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-xl text-destructive hover:bg-destructive/10"
+                                title="ลบบัญชี"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </ConfirmDelete>
+                          </div>
+                        )}
+                        {s.id === user?.id && (
+                          <span className="text-[10px] font-bold text-muted-foreground ml-4 shrink-0">คุณ</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* Lending Settings */}
           <section id="lending" className="scroll-mt-24 space-y-4 pt-4 border-t border-border/50">
@@ -1120,6 +1265,100 @@ function Settings() {
             >
               {busy === "password" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               ยืนยันการเปลี่ยนรหัส
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Add Staff Dialog */}
+      <Dialog open={staffOpen} onOpenChange={setStaffOpen}>
+        <DialogContent className="rounded-2xl max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="font-black text-xl">เพิ่มพนักงาน</DialogTitle>
+            <DialogDescription className="text-xs font-bold text-muted-foreground">
+              สร้างบัญชี Staff สำหรับเข้าใช้งานระบบในร้านนี้
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddStaff} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black uppercase tracking-widest">ชื่อจริง</Label>
+              <Input
+                value={staffForm.fullName}
+                onChange={(e) => setStaffForm({ ...staffForm, fullName: e.target.value })}
+                className="rounded-xl h-11 bg-muted/20"
+                placeholder="เช่น สมชาย ใจดี"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black uppercase tracking-widest">ชื่อผู้ใช้ (Username)</Label>
+              <Input
+                value={staffForm.username}
+                onChange={(e) => setStaffForm({ ...staffForm, username: e.target.value })}
+                className="rounded-xl h-11 bg-muted/20"
+                placeholder="เช่น somchai"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black uppercase tracking-widest">รหัสผ่าน</Label>
+              <Input
+                type="password"
+                value={staffForm.password}
+                onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
+                className="rounded-xl h-11 bg-muted/20"
+                placeholder="อย่างน้อย 4 ตัวอักษร"
+                autoComplete="new-password"
+              />
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="ghost" className="rounded-xl font-bold h-11" onClick={() => setStaffOpen(false)}>
+                ยกเลิก
+              </Button>
+              <Button
+                type="submit"
+                className="rounded-xl font-black h-11 px-8"
+                disabled={staffBusy || !staffForm.username || !staffForm.fullName || !staffForm.password}
+              >
+                {staffBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                เพิ่มพนักงาน
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Staff Password Dialog */}
+      <Dialog open={!!resetTarget} onOpenChange={(o) => { if (!o) { setResetTarget(null); setResetPassword(""); } }}>
+        <DialogContent className="rounded-2xl max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="font-black text-xl">รีเซ็ตรหัสผ่าน</DialogTitle>
+            <DialogDescription className="text-xs font-bold text-muted-foreground">
+              ตั้งรหัสผ่านใหม่สำหรับ @{resetTarget?.username}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black uppercase tracking-widest">รหัสผ่านใหม่</Label>
+              <Input
+                type="password"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                className="rounded-xl h-11 bg-muted/20"
+                placeholder="อย่างน้อย 4 ตัวอักษร"
+                autoComplete="new-password"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" className="rounded-xl font-bold h-11" onClick={() => { setResetTarget(null); setResetPassword(""); }}>
+              ยกเลิก
+            </Button>
+            <Button
+              className="rounded-xl font-black h-11 px-8"
+              onClick={handleResetStaffPassword}
+              disabled={staffBusy || resetPassword.length < 4}
+            >
+              {staffBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              ยืนยันรีเซ็ต
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -17,26 +17,28 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts";
 import { StatusBadge, loanStatusTone } from "@/components/StatusBadge";
-import { formatDate } from "@/utils/format";
+import { formatDate, getThaiDateStr } from "@/utils/format";
 
 export const Route = createFileRoute("/")({
-  component: () => {
-    const { user, roles } = useAuth();
-    
-    // Automatically redirect system super-admins directly to the super admin console
-    if (user && user.tenantId === 'system' && roles.includes('admin')) {
-      return <Navigate to="/super-admin" />;
-    }
-
-    return (
-      <ProtectedRoute>
-        <AppLayout>
-          <Dashboard />
-        </AppLayout>
-      </ProtectedRoute>
-    );
-  },
+  component: IndexRouteComponent,
 });
+
+function IndexRouteComponent() {
+  const { user, roles } = useAuth();
+
+  // Automatically redirect system super-admins directly to the super admin console
+  if (user && user.tenantId === 'system' && roles.includes('admin')) {
+    return <Navigate to="/super-admin" />;
+  }
+
+  return (
+    <ProtectedRoute>
+      <AppLayout>
+        <Dashboard />
+      </AppLayout>
+    </ProtectedRoute>
+  );
+}
 
 interface Summary {
   customers: number;
@@ -54,18 +56,13 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "hsl(150 60% 50%)",
   overdue: "hsl(15 75% 55%)",
   cancelled: "hsl(220 10% 60%)",
+  forfeited: "hsl(0 75% 60%)",
+  refinanced: "hsl(42 85% 55%)",
 };
-
-function getLogicalDateStr(d: Date = new Date()): string {
-  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-  const thaiTime = new Date(utc + (3600000 * 7));
-  thaiTime.setHours(thaiTime.getHours() - 5);
-  return `${thaiTime.getFullYear()}-${String(thaiTime.getMonth() + 1).padStart(2, '0')}-${String(thaiTime.getDate()).padStart(2, '0')}`;
-}
 
 function getEffectiveStatus(l: any): string {
   if (l.status === 'completed' || l.status === 'cancelled' || l.status === 'forfeited' || l.status === 'refinanced') return l.status;
-  const todayStr = getLogicalDateStr();
+  const todayStr = getThaiDateStr();
   const dueStr = l.dueDate ? l.dueDate.substring(0, 10) : '';
   if (dueStr < todayStr) return 'overdue';
   if (dueStr === todayStr) return 'due_today';

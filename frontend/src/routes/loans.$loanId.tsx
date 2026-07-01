@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { StatusBadge, loanStatusTone } from "@/components/StatusBadge";
 import { ArrowLeft, Plus, Trash2, Camera, Image as ImageIcon, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { formatTHB, formatDate, daysBetween } from "@/utils/format";
+import { formatTHB, formatDate, daysBetween, getThaiDateStr } from "@/utils/format";
 import { calcLoan } from "@/utils/loanCalc";
 import { RefreshCw } from "lucide-react";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
@@ -94,7 +94,7 @@ function LoanDetail() {
 
   const paidInstallments = payments.filter((p) => p.category !== 'roll_penalty').length + tpCount;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getThaiDateStr();
   const diff = loan.dueDate ? daysBetween(today, loan.dueDate) : 0;
   const skipContractLateFee = shouldSkipContractLateFee(loan);
   const rawDaysOverdue =
@@ -155,6 +155,7 @@ function LoanDetail() {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
     setUploading(true);
     try {
       await uploadAttachment(loanId, file);
@@ -519,9 +520,10 @@ function LoanDetail() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {attachments.map((att) => {
+              const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '').replace(/\/api$/, '') ?? '';
               const imageUrl = att.filePath.startsWith('http://') || att.filePath.startsWith('https://')
                 ? att.filePath
-                : `${import.meta.env.VITE_API_URL || 'http://localhost:9876'}/${att.filePath}`;
+                : `${apiBase}/${att.filePath}`;
               return (
                 <div key={att.id} className="relative group aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
                   <a 
@@ -556,8 +558,8 @@ function LoanDetail() {
 
 function PaymentForm({ loanId, suggested, nextNum, isInterestOnly, onDone }: { loanId: string; suggested: number; nextNum: number; isInterestOnly: boolean; onDone: () => void }) {
   const [form, setForm] = useState({
-    amount: suggested, 
-    paymentDate: new Date().toISOString().split("T")[0],
+    amount: suggested,
+    paymentDate: getThaiDateStr(),
     installmentNumber: nextNum, 
     method: "cash" as "cash" | "bank_transfer" | "mobile" | "other", 
     category: isInterestOnly ? "interest" : "principal" as "interest" | "principal",
@@ -567,6 +569,10 @@ function PaymentForm({ loanId, suggested, nextNum, isInterestOnly, onDone }: { l
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.amount || Number(form.amount) <= 0) {
+      toast.error("กรุณาระบุจำนวนเงินที่ถูกต้อง");
+      return;
+    }
     setBusy(true);
     try {
       await createPayment({ ...form, loanId });
@@ -648,7 +654,7 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
     interestRate: Number(loan.interestRate),
     installmentsCount: Number(loan.installmentsCount),
     paymentType: loan.paymentType,
-    startDate: new Date().toISOString().split("T")[0],
+    startDate: getThaiDateStr(),
     notes: `รียอดใหม่จากสัญญา ${loan.loanNumber}`,
   });
 

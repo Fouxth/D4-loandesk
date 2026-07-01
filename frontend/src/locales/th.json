@@ -69,6 +69,7 @@
       "due_today": "ครบกำหนดวันนี้",
       "completed": "เสร็จสิ้น",
       "cancelled": "ยกเลิก",
+      "forfeited": "หลุดจำนำ",
       "refinanced": "รียอดแล้ว"
     }
   },

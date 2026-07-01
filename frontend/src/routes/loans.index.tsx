@@ -15,23 +15,16 @@ import { StatusBadge, loanStatusTone } from "@/components/StatusBadge";
 import { Plus, Search, Calendar, User, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { calcLoan } from "@/utils/loanCalc";
-import { formatTHB, formatDate } from "@/utils/format";
+import { formatTHB, formatDate, getThaiDateStr } from "@/utils/format";
 import { getLoanCategory, LOAN_CATEGORY_OPTIONS } from "@/utils/loanType";
 
 export const Route = createFileRoute("/loans/")({
   component: () => (<ProtectedRoute><AppLayout><Loans /></AppLayout></ProtectedRoute>),
 });
 
-function getLogicalDateStr(d: Date = new Date()): string {
-  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-  const thaiTime = new Date(utc + (3600000 * 7));
-  thaiTime.setHours(thaiTime.getHours() - 5);
-  return `${thaiTime.getFullYear()}-${String(thaiTime.getMonth() + 1).padStart(2, '0')}-${String(thaiTime.getDate()).padStart(2, '0')}`;
-}
-
 function getEffectiveStatus(l: any): string {
   if (l.status === 'completed' || l.status === 'cancelled' || l.status === 'forfeited' || l.status === 'refinanced') return l.status;
-  const todayStr = getLogicalDateStr();
+  const todayStr = getThaiDateStr();
   const dueStr = l.dueDate ? l.dueDate.substring(0, 10) : '';
   if (dueStr < todayStr) return 'overdue';
   if (dueStr === todayStr) return 'due_today';
@@ -59,10 +52,10 @@ function Loans() {
 
   const filtered = rows.filter((r) => {
     const q = search.toLowerCase();
-    const matchSearch = !q || 
-                        r.loanNumber.toLowerCase().includes(q) || 
+    const matchSearch = !q ||
+                        r.loanNumber.toLowerCase().includes(q) ||
                         r.customerName.toLowerCase().includes(q);
-    const matchStatus = filter === "all" || r.status === filter;
+    const matchStatus = filter === "all" || getEffectiveStatus(r) === filter || (filter === "active" && getEffectiveStatus(r) === "due_today");
     const matchType = typeFilter === "all" || getLoanCategory(r) === typeFilter;
     return matchSearch && matchStatus && matchType;
   });
@@ -101,6 +94,7 @@ function Loans() {
           <SelectContent>
             <SelectItem value="all">{t('loans.status.all')}</SelectItem>
             <SelectItem value="active">{t('loans.status.active')}</SelectItem>
+            <SelectItem value="due_today">{t('loans.status.due_today')}</SelectItem>
             <SelectItem value="overdue">{t('loans.status.overdue')}</SelectItem>
             <SelectItem value="completed">{t('loans.status.completed')}</SelectItem>
             <SelectItem value="cancelled">{t('loans.status.cancelled')}</SelectItem>
@@ -221,12 +215,12 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
   const [customers, setCustomers] = useState<any[]>([]);
   const [form, setForm] = useState({
-    customerId: "", 
-    principal: 10000, 
-    interestRate: 20, 
+    customerId: "",
+    principal: 10000,
+    interestRate: 20,
     installmentsCount: 30,
     paymentType: "daily" as "daily" | "weekly" | "monthly",
-    startDate: new Date().toISOString().split("T")[0], 
+    startDate: getThaiDateStr(),
     notes: "",
     isInterestOnly: false,
     isIndefinite: false,

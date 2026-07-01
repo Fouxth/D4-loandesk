@@ -61,7 +61,9 @@
       "overdue": "Overdue",
       "due_today": "Due Today",
       "completed": "Completed",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "forfeited": "Pawn Forfeited",
+      "refinanced": "Refinanced"
     }
   },
   "auth": {

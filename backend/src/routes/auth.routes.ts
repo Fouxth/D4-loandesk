@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import * as authService from '../services/auth.service';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 import { getJwtSecret } from '../utils/jwt';
+import { handleRouteError } from '../utils/apiError';
 import sql from '../db';
 
 const router = Router();
@@ -89,8 +90,7 @@ router.post('/signup', async (req, res) => {
       }
     });
   } catch (e: any) {
-    console.error('Signup Error:', e);
-    res.status(500).json({ error: e.message || 'Internal Server Error' });
+    handleRouteError(e, res, 'POST /auth/signup');
   }
 });
 
@@ -152,6 +152,70 @@ router.post('/change-password', authenticate, async (req: AuthRequest, res) => {
     console.error('Change Password Error:', e);
     res.status(500).json({ error: e.message || 'Internal Server Error' });
   }
+});
+
+// ── Staff management (admin only) ─────────────────────────────────────────
+
+async function requireAdmin(req: AuthRequest, res: any, next: any) {
+  try {
+    const roles = await authService.getUserRoles(req.userId!);
+    if (!roles.includes('admin')) return res.status(403).json({ error: 'เฉพาะผู้ดูแลระบบเท่านั้น' });
+    next();
+  } catch (e) {
+    handleRouteError(e, res, 'requireAdmin');
+  }
+}
+
+router.get('/users', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  try { res.json(await authService.getUsersByTenant(req.tenantId!)); }
+  catch (e) { handleRouteError(e, res, 'GET /auth/users'); }
+});
+
+router.post('/users', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  const { username, password, fullName } = req.body;
+  if (!username || !password || !fullName) {
+    return res.status(400).json({ error: 'กรุณากรอกชื่อผู้ใช้ ชื่อจริง และรหัสผ่าน' });
+  }
+  if (password.length < 4) {
+    return res.status(400).json({ error: 'รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร' });
+  }
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await authService.createUser(username, passwordHash, fullName, req.tenantId!, 'staff');
+    res.json(user);
+  } catch (e) { handleRouteError(e, res, 'POST /auth/users'); }
+});
+
+router.delete('/users/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  const targetId = req.params.id as string;
+  if (targetId === req.userId) {
+    return res.status(400).json({ error: 'ไม่สามารถลบบัญชีของตัวเองได้' });
+  }
+  try {
+    // Prevent locking the tenant out: never delete its last admin
+    const targetRole = await authService.getUserRole(targetId);
+    if (targetRole === 'admin') {
+      const adminCount = await authService.getAdminCountByTenant(req.tenantId!);
+      if (adminCount <= 1) {
+        return res.status(400).json({ error: 'ไม่สามารถลบผู้ดูแลระบบคนสุดท้ายของร้านได้' });
+      }
+    }
+    await authService.deleteUserFromTenant(targetId, req.tenantId!);
+    res.json({ success: true });
+  } catch (e) { handleRouteError(e, res, 'DELETE /auth/users/:id'); }
+});
+
+router.patch('/users/:id/password', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  const targetId = req.params.id as string;
+  const { newPassword } = req.body;
+  if (!newPassword || newPassword.length < 4) {
+    return res.status(400).json({ error: 'รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร' });
+  }
+  try {
+    const hash = await bcrypt.hash(newPassword, 10);
+    await authService.adminResetPassword(targetId, req.tenantId!, hash);
+    res.json({ success: true });
+  } catch (e) { handleRouteError(e, res, 'PATCH /auth/users/:id/password'); }
 });
 
 export default router;

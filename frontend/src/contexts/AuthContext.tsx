@@ -19,11 +19,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const refreshingRef = React.useRef(false);
 
   const refreshUser = async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
     const token = localStorage.getItem('auth_token');
     if (!token) {
       setLoading(false);
+      refreshingRef.current = false;
       return;
     }
     try {
@@ -50,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } finally {
       setLoading(false);
+      refreshingRef.current = false;
     }
   };
 
