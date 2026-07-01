@@ -43,7 +43,11 @@ export function LateFeeEditor({
     rawDaysOverdue,
     dueDate,
   );
-  const feeUnit = lending.lateFeePerHour > 0 ? `${hoursOverdue} ชม.` : `${daysOverdue} วัน`;
+  const feeUnitParts = [
+    daysOverdue > 0 ? `${daysOverdue} วัน` : null,
+    hoursOverdue > 0 ? `${hoursOverdue} ชม.` : null,
+  ].filter(Boolean);
+  const feeUnit = feeUnitParts.length > 0 ? feeUnitParts.join(' ') : '0 ชม.';
 
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<LateFeeMode>(currentMode);

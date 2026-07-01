@@ -23,13 +23,13 @@ export interface LendingConfig {
   tpPayAmount: number;
   /** ท+ป ปรับ (บาทต่อครั้ง) */
   tpPenaltyAmount: number;
-  /** ค่าปรับจ่ายช้า (บาท/ชั่วโมง) — ใช้เมื่อ > 0 */
+  /** ค่าปรับจ่ายช้า (บาท/ชั่วโมง) สำหรับเศษเวลาที่ยังไม่ครบวัน */
   lateFeePerHour: number;
   /** จำกัดชั่วโมงคิดค่าปรับสูงสุด (0 = ไม่จำกัด) */
   lateFeeMaxHours: number;
-  /** @deprecated ใช้ lateFeePerHour แทน */
+  /** ค่าปรับจ่ายช้า (บาท/วัน) */
   lateFeePerDay: number;
-  /** @deprecated ใช้ lateFeeMaxHours แทน */
+  /** จำกัดวันคิดค่าปรับสูงสุด (0 = ไม่จำกัด) */
   lateFeeMaxDays: number;
   deductInterestUpfront: boolean;
 }
@@ -64,32 +64,44 @@ function calcHoursOverdue(dueDate: string): number {
   return Math.max(0, Math.floor((now.getTime() - due.getTime()) / (1000 * 60 * 60)));
 }
 
+function splitOverdueTime(totalHours: number) {
+  return {
+    days: Math.floor(totalHours / 24),
+    hours: totalHours % 24,
+  };
+}
+
 export function calcLateFee(
   lending: LendingConfig,
   rawDaysOverdue: number,
   dueDate?: string | null,
 ): { daysOverdue: number; hoursOverdue: number; lateFeeTotal: number } {
-  if (!lending.applyLateFee || rawDaysOverdue <= 0) {
+  if (!lending.applyLateFee) {
     return { daysOverdue: 0, hoursOverdue: 0, lateFeeTotal: 0 };
   }
 
+  const perDay = Number(lending.lateFeePerDay) || 0;
   const perHour = Number(lending.lateFeePerHour) || 0;
-  if (perHour > 0 && dueDate) {
-    let hours = calcHoursOverdue(dueDate);
-    if (hours <= 0) return { daysOverdue: rawDaysOverdue, hoursOverdue: 0, lateFeeTotal: 0 };
-    const maxHours = Number(lending.lateFeeMaxHours) || 0;
-    if (maxHours > 0) hours = Math.min(hours, maxHours);
-    return { daysOverdue: rawDaysOverdue, hoursOverdue: hours, lateFeeTotal: hours * perHour };
+
+  if (dueDate && perHour > 0) {
+    const totalHours = calcHoursOverdue(dueDate);
+    if (totalHours <= 0) return { daysOverdue: 0, hoursOverdue: 0, lateFeeTotal: 0 };
+
+    const { days, hours } = perDay > 0
+      ? splitOverdueTime(totalHours)
+      : { days: 0, hours: totalHours };
+    return {
+      daysOverdue: days,
+      hoursOverdue: hours,
+      lateFeeTotal: days * perDay + hours * perHour,
+    };
   }
 
-  const rate = Number(lending.lateFeePerDay) || 0;
-  if (rate <= 0) return { daysOverdue: rawDaysOverdue, hoursOverdue: 0, lateFeeTotal: 0 };
+  if (perDay <= 0 || rawDaysOverdue <= 0) {
+    return { daysOverdue: 0, hoursOverdue: 0, lateFeeTotal: 0 };
+  }
 
-  let days = rawDaysOverdue;
-  const maxDays = Number(lending.lateFeeMaxDays) || 0;
-  if (maxDays > 0) days = Math.min(days, maxDays);
-
-  return { daysOverdue: days, hoursOverdue: 0, lateFeeTotal: days * rate };
+  return { daysOverdue: rawDaysOverdue, hoursOverdue: 0, lateFeeTotal: rawDaysOverdue * perDay };
 }
 
 const CATEGORY_TO_RATE_KEY: Partial<Record<LoanCategory, LendingRateKey>> = {

@@ -1,0 +1,2 @@
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS slip_url TEXT;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS slip_file_name TEXT;

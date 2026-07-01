@@ -23,32 +23,44 @@ function calcHoursOverdue(dueDate: string): number {
   return Math.max(0, Math.floor((now.getTime() - due.getTime()) / (1000 * 60 * 60)));
 }
 
+function splitOverdueTime(totalHours: number) {
+  return {
+    days: Math.floor(totalHours / 24),
+    hours: totalHours % 24,
+  };
+}
+
 export function calcAutoLateFee(
   config: LateFeeConfig,
   rawDaysOverdue: number,
   dueDate?: string | null,
 ): { fee: number; hoursOverdue: number; daysOverdue: number } {
-  if (!config.applyLateFee || rawDaysOverdue <= 0) {
+  if (!config.applyLateFee) {
     return { fee: 0, hoursOverdue: 0, daysOverdue: 0 };
   }
 
+  const perDay = Number(config.lateFeePerDay) || 0;
   const perHour = Number(config.lateFeePerHour) || 0;
-  if (perHour > 0 && dueDate) {
-    let hours = calcHoursOverdue(dueDate);
-    if (hours <= 0) return { fee: 0, hoursOverdue: 0, daysOverdue: rawDaysOverdue };
-    const maxHours = Number(config.lateFeeMaxHours) || 0;
-    if (maxHours > 0) hours = Math.min(hours, maxHours);
-    return { fee: hours * perHour, hoursOverdue: hours, daysOverdue: rawDaysOverdue };
+
+  if (dueDate && perHour > 0) {
+    const totalHours = calcHoursOverdue(dueDate);
+    if (totalHours <= 0) return { fee: 0, hoursOverdue: 0, daysOverdue: 0 };
+
+    const { days, hours } = perDay > 0
+      ? splitOverdueTime(totalHours)
+      : { days: 0, hours: totalHours };
+    return {
+      fee: days * perDay + hours * perHour,
+      hoursOverdue: hours,
+      daysOverdue: days,
+    };
   }
 
-  const rate = Number(config.lateFeePerDay) || 0;
-  if (rate <= 0) return { fee: 0, hoursOverdue: 0, daysOverdue: rawDaysOverdue };
+  if (perDay <= 0 || rawDaysOverdue <= 0) {
+    return { fee: 0, hoursOverdue: 0, daysOverdue: 0 };
+  }
 
-  let days = rawDaysOverdue;
-  const maxDays = Number(config.lateFeeMaxDays) || 0;
-  if (maxDays > 0) days = Math.min(days, maxDays);
-
-  return { fee: days * rate, hoursOverdue: 0, daysOverdue: days };
+  return { fee: rawDaysOverdue * perDay, hoursOverdue: 0, daysOverdue: rawDaysOverdue };
 }
 
 /** @deprecated use calcAutoLateFee */

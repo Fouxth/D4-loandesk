@@ -59,14 +59,14 @@ export function calcLoanTotalOwed(
   return Number(totalPayable) + tpCount * calcTpExtraOwed(installmentAmount, config);
 }
 
-/** สินเชื่อรายวันมีงวด — ไม่ใช้ค่าปรับล่าช้าระดับสัญญา (ใช้ ท+ป แทน) */
+/** ค่าปรับล่าช้าใช้ได้กับทุกสัญญาแล้ว; ท+ป เก็บไว้รองรับข้อมูลเก่าเท่านั้น */
 export function shouldSkipContractLateFee(loan: {
   paymentType?: string;
   installmentsCount?: number | string | null;
   isIndefinite?: boolean;
 }): boolean {
-  const n = Number(loan.installmentsCount) || 0;
-  return loan.paymentType === 'daily' && n > 0 && !loan.isIndefinite;
+  void loan;
+  return false;
 }
 
 export function formatTpNote(

@@ -61,8 +61,8 @@ export function shouldSkipContractLateFee(loan: {
   installmentsCount?: number | string | null;
   isIndefinite?: boolean;
 }): boolean {
-  const n = Number(loan.installmentsCount) || 0;
-  return loan.paymentType === 'daily' && n > 0 && !loan.isIndefinite;
+  void loan;
+  return false;
 }
 
 export function tpConfigFromSettings(raw?: Record<string, unknown> | null): TpConfig {

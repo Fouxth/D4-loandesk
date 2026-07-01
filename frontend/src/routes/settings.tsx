@@ -801,54 +801,10 @@ function Settings() {
               </div>
 
               <div className="space-y-4 border-t border-border/50 pt-6">
-                <div>
-                  <span className="text-sm font-bold">สูตร ท+ป ต่อครั้ง</span>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    ทบ + จ่าย + ปรับ = ยอดชำระ ท+ป (ใส่ 0 ที่ทบ/จ่าย = ใช้ยอดส่งรายวันของสัญญา)
-                  </p>
-                </div>
-                <div className="grid gap-6 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ทบ (บาท)</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={lending.tpRollAmount}
-                      onChange={(e) => setLending({ ...lending, tpRollAmount: Number(e.target.value) })}
-                      className="h-11 rounded-xl bg-muted/20 font-bold"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">จ่าย (บาท)</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={lending.tpPayAmount}
-                      onChange={(e) => setLending({ ...lending, tpPayAmount: Number(e.target.value) })}
-                      className="h-11 rounded-xl bg-muted/20 font-bold"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ปรับ (บาท)</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={lending.tpPenaltyAmount}
-                      onChange={(e) => setLending({ ...lending, tpPenaltyAmount: Number(e.target.value) })}
-                      className="h-11 rounded-xl bg-muted/20 font-bold"
-                    />
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  ตัวอย่าง ส่งวันละ 200, ทบ 0 / จ่าย 0 / ปรับ 100 → ชำระ ท+ป = 500 บาท
-                </p>
-              </div>
-
-              <div className="space-y-4 border-t border-border/50 pt-6">
                 <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50">
                   <div className="space-y-0.5">
                     <span className="text-sm font-bold">คิดค่าปรับล่าช้า</span>
-                    <p className="text-[11px] text-muted-foreground">เปิดใช้กับทุกสัญญาในระบบ</p>
+                    <p className="text-[11px] text-muted-foreground">คิดจากเวลาที่เลยกำหนดจริง: เต็มวันใช้รายวัน เศษชั่วโมงใช้รายชั่วโมง</p>
                   </div>
                   <Switch
                     checked={lending.applyLateFee}
@@ -858,7 +814,21 @@ function Settings() {
 
                 <div className="grid gap-6 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ค่าปรับจ่ายช้า (บาท/ชม.)</Label>
+                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ค่าปรับรายวัน (บาท/วัน)</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min={0}
+                        disabled={!lending.applyLateFee}
+                        value={lending.lateFeePerDay}
+                        onChange={(e) => setLending({ ...lending, lateFeePerDay: Number(e.target.value) })}
+                        className="h-11 rounded-xl bg-muted/20 pr-10 font-bold disabled:opacity-50"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ค่าปรับรายชั่วโมง (บาท/ชม.)</Label>
                     <div className="relative">
                       <Input
                         type="number"
@@ -871,22 +841,10 @@ function Settings() {
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">จำกัดชั่วโมงคิดค่าปรับสูงสุด</Label>
-                    <div className="relative">
-                      <Input
-                        type="number"
-                        min={0}
-                        disabled={!lending.applyLateFee}
-                        value={lending.lateFeeMaxHours}
-                        onChange={(e) => setLending({ ...lending, lateFeeMaxHours: Number(e.target.value) })}
-                        className="h-11 rounded-xl bg-muted/20 pr-12 font-bold disabled:opacity-50"
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">ชม.</span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">ใส่ 0 = ไม่จำกัด</p>
-                  </div>
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  ตัวอย่าง: ค่าปรับรายวัน 200 และรายชั่วโมง 20 ถ้าเลยกำหนด 1 วัน 5 ชม. = 200 + (5 × 20) = 300 บาท
+                </p>
               </div>
               <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50">
                 <div className="space-y-0.5">

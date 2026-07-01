@@ -44,7 +44,23 @@ export const deleteAttachment = (id: string) => api.delete(`/loans/attachments/$
 // Finance
 export const getPayments = () => api.get('/finance/payments').then(r => r.data);
 export const getPaymentsByLoan = (loanId: string) => api.get(`/finance/payments/loan/${loanId}`).then(r => r.data);
-export const createPayment = (data: any) => api.post('/finance/payments', data).then(r => r.data);
+export const createPayment = (data: any, slipFile?: File | null) => {
+  if (!slipFile) {
+    return api.post('/finance/payments', data).then(r => r.data);
+  }
+
+  const formData = new FormData();
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, String(value));
+    }
+  });
+  formData.append('slip', slipFile);
+
+  return api.post('/finance/payments', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }).then(r => r.data);
+};
 export const deletePayment = (id: string) => api.delete(`/finance/payments/${id}`).then(r => r.data);
 
 export const getExpenses = () => api.get('/finance/expenses').then(r => r.data);

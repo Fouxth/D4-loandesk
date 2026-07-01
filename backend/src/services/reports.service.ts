@@ -73,14 +73,12 @@ export async function fetchDashboardRawData(tenantId: string, monthStartStr?: st
       !l.isIndefinite &&
       (l.status === 'active' || l.status === 'overdue') &&
       dueStr &&
-      dueStr < today
+      dueStr <= today
     ) {
       const dueDate = new Date(dueStr);
       const todayDate = new Date(today);
-      const diffDays = Math.floor((todayDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays > 0) {
-        lateFeeTotal = resolveLateFee(lendingConfig, l, diffDays, dueStr).effectiveFee;
-      }
+      const diffDays = Math.max(0, Math.floor((todayDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
+      lateFeeTotal = resolveLateFee(lendingConfig, l, diffDays, dueStr).effectiveFee;
     }
 
     let baseAmount: number;
@@ -211,14 +209,12 @@ export async function fetchReportRawData(tenantId: string, ms?: string) {
       !l.isIndefinite &&
       (l.status === 'active' || l.status === 'overdue') &&
       dueStr &&
-      dueStr < today
+      dueStr <= today
     ) {
       const dueDate = new Date(dueStr);
       const todayDate = new Date(today);
-      const diffDays = Math.floor((todayDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays > 0) {
-        lateFeeTotal = resolveLateFee(lendingConfig, l, diffDays, dueStr).effectiveFee;
-      }
+      const diffDays = Math.max(0, Math.floor((todayDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
+      lateFeeTotal = resolveLateFee(lendingConfig, l, diffDays, dueStr).effectiveFee;
     }
 
     let baseAmount: number;

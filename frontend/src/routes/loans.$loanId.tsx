@@ -43,6 +43,13 @@ const PAWN_STATUS_LABELS: Record<string, string> = {
   forfeited: "หลุดจำนำ",
 };
 
+function resolveFileUrl(filePath?: string | null) {
+  if (!filePath) return "";
+  if (filePath.startsWith('http://') || filePath.startsWith('https://')) return filePath;
+  const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '').replace(/\/api$/, '') ?? '';
+  return `${apiBase}/${filePath}`;
+}
+
 function LoanDetail() {
   const { loanId } = Route.useParams();
   const navigate = useNavigate();
@@ -83,6 +90,7 @@ function LoanDetail() {
     tpPenaltyAmount: lending.tpPenaltyAmount,
   };
   const rollPenalties = payments.filter((p) => p.category === 'roll_penalty');
+  const regularPayments = payments.filter((p) => p.category !== 'roll_penalty');
   const tpCount = rollPenalties.length;
 
   const principalPaid = payments.filter(p => p.category === 'principal').reduce((a, p) => a + Number(p.amount), 0);
@@ -93,14 +101,14 @@ function LoanDetail() {
     ? calcLoanPaidTotal(payments, installmentAmount, tpConfig)
     : payments.reduce((a, p) => a + Number(p.amount), 0);
 
-  const paidInstallments = payments.filter((p) => p.category !== 'roll_penalty').length + tpCount;
+  const paidInstallments = regularPayments.length + tpCount;
 
   const today = getThaiDateStr();
   const diff = loan.dueDate ? daysBetween(today, loan.dueDate) : 0;
   const skipContractLateFee = shouldSkipContractLateFee(loan);
   const rawDaysOverdue =
-    !skipContractLateFee && loan.dueDate && (loan.status === 'active' || loan.status === 'overdue') && diff > 0
-      ? diff
+    !skipContractLateFee && loan.dueDate && (loan.status === 'active' || loan.status === 'overdue')
+      ? Math.max(diff, 0)
       : 0;
   const { autoFee, effectiveFee, daysOverdue, hoursOverdue, mode: lateFeeMode } = resolveLateFee(
     lending,
@@ -108,7 +116,11 @@ function LoanDetail() {
     rawDaysOverdue,
     loan.dueDate,
   );
-  const lateFeeUnit = lending.lateFeePerHour > 0 ? `${hoursOverdue} ชม.` : `${daysOverdue} วัน`;
+  const lateFeeUnitParts = [
+    daysOverdue > 0 ? `${daysOverdue} วัน` : null,
+    hoursOverdue > 0 ? `${hoursOverdue} ชม.` : null,
+  ].filter(Boolean);
+  const lateFeeUnit = lateFeeUnitParts.length > 0 ? lateFeeUnitParts.join(' ') : '0 ชม.';
 
   const totalOwed = hasTpAccounting
     ? calcLoanTotalOwed(Number(loan.totalPayable), tpCount, installmentAmount, tpConfig)
@@ -121,6 +133,16 @@ function LoanDetail() {
   const remaining = contractRemaining + (skipContractLateFee ? 0 : effectiveFee);
   const loanCategory = getLoanCategory(loan);
   const totalInstallments = Number(loan.installmentsCount ?? 0);
+  const recordedInstallmentNumbers = regularPayments
+    .map((payment) => Number(payment.installmentNumber))
+    .filter((installmentNumber) => Number.isFinite(installmentNumber) && installmentNumber > 0);
+  const nextInstallmentNumber = recordedInstallmentNumbers.length > 0
+    ? Math.max(...recordedInstallmentNumbers) + 1
+    : regularPayments.length + 1;
+  const dueAmountBase = isPrincipalInterestAtEnd ? contractRemaining : installmentAmount;
+  const suggestedPaymentAmount = loan.isInterestOnly
+    ? installmentAmount
+    : Math.max(Math.min(dueAmountBase, contractRemaining || dueAmountBase), 0);
 
   const removePayment = async (id: string) => {
     try {
@@ -216,8 +238,8 @@ function LoanDetail() {
               </DialogTrigger>
               <PaymentForm 
                 loanId={loanId} 
-                suggested={Number(loan.installmentAmount)} 
-                nextNum={payments.length + 1} 
+                suggested={suggestedPaymentAmount} 
+                nextNum={nextInstallmentNumber} 
                 isInterestOnly={loan.isInterestOnly}
                 onDone={() => { setOpen(false); load(); }} 
               />
@@ -254,20 +276,22 @@ function LoanDetail() {
             </DialogTrigger>
             <PaymentForm 
               loanId={loanId} 
-              suggested={Number(loan.installmentAmount)} 
-              nextNum={payments.length + 1} 
+              suggested={suggestedPaymentAmount} 
+              nextNum={nextInstallmentNumber} 
               isInterestOnly={loan.isInterestOnly}
               onDone={() => { setOpenMobile(false); load(); }} 
             />
           </Dialog>
-          <Button
-            variant="outline"
-            className="h-12 w-12 rounded-xl shrink-0 border-border/60"
-            onClick={() => document.getElementById('photo-upload')?.click()}
-            disabled={uploading}
-          >
-            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-          </Button>
+          {loan.isPawn && (
+            <Button
+              variant="outline"
+              className="h-12 w-12 rounded-xl shrink-0 border-border/60"
+              onClick={() => document.getElementById('photo-upload')?.click()}
+              disabled={uploading}
+            >
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -340,7 +364,7 @@ function LoanDetail() {
               <dt className="text-muted-foreground">ดอกเบี้ย ({loan.interestRate}%)</dt>
               <dd className="font-medium text-warning-foreground">{formatTHB(loan.interestAmount)}</dd>
             </div>
-            {(rawDaysOverdue > 0 || lateFeeMode !== 'auto') && !skipContractLateFee && (
+            {(effectiveFee > 0 || rawDaysOverdue > 0 || lateFeeMode !== 'auto') && !skipContractLateFee && (
               <div className="space-y-1">
                 <div className="flex justify-between items-center">
                   <dt className="text-destructive font-medium flex items-center gap-1 flex-wrap">
@@ -454,6 +478,8 @@ function LoanDetail() {
               const tpAmount = p.category === 'roll_penalty'
                 ? calcTpSettlementAmount(installmentAmount, tpConfig)
                 : Number(p.amount);
+              const slipUrl = resolveFileUrl(p.slipUrl ?? p.slip_url);
+              const slipFileName = p.slipFileName ?? p.slip_file_name ?? 'payment-slip';
               return (
               <div key={p.id} className="flex items-center justify-between border border-border/50 rounded-xl px-4 py-3 hover:bg-muted/30 transition-colors group">
                 <div className="min-w-0">
@@ -475,6 +501,18 @@ function LoanDetail() {
                     {formatDate(p.paymentDate)} · {METHOD_LABELS[p.method] || p.method}
                     {p.notes && <span className="block mt-0.5 text-foreground/80">{p.notes}</span>}
                   </p>
+                  {slipUrl && (
+                    <a
+                      href={slipUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 rounded-lg border border-primary/20 bg-primary/5 px-2 py-1 text-[11px] font-bold text-primary hover:bg-primary/10"
+                      title={slipFileName}
+                    >
+                      <ImageIcon className="h-3 w-3" />
+                      ดูสลิป
+                    </a>
+                  )}
                 </div>
                 <ConfirmDelete
                   onConfirm={() => removePayment(p.id)}
@@ -492,6 +530,7 @@ function LoanDetail() {
         </div>
       </div>
 
+      {loan.isPawn && (
       <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] mb-10 overflow-hidden">
         <div className="flex items-center justify-between mb-6 border-b border-border pb-2">
           <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
@@ -526,10 +565,7 @@ function LoanDetail() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {attachments.map((att) => {
-              const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '').replace(/\/api$/, '') ?? '';
-              const imageUrl = att.filePath.startsWith('http://') || att.filePath.startsWith('https://')
-                ? att.filePath
-                : `${apiBase}/${att.filePath}`;
+              const imageUrl = resolveFileUrl(att.filePath);
               return (
                 <div key={att.id} className="relative group aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
                   <a 
@@ -558,6 +594,7 @@ function LoanDetail() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -571,7 +608,17 @@ function PaymentForm({ loanId, suggested, nextNum, isInterestOnly, onDone }: { l
     category: isInterestOnly ? "interest" : "principal" as "interest" | "principal",
     notes: "",
   });
+  const [slipFile, setSlipFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      amount: suggested,
+      installmentNumber: nextNum,
+      category: isInterestOnly ? "interest" : "principal",
+    }));
+  }, [suggested, nextNum, isInterestOnly]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -581,13 +628,14 @@ function PaymentForm({ loanId, suggested, nextNum, isInterestOnly, onDone }: { l
     }
     setBusy(true);
     try {
-      await createPayment({ ...form, loanId });
+      await createPayment({ ...form, loanId }, slipFile);
       try {
         await logActivity({ action: "record_payment", entity_type: "payment", details: { loanId, amount: form.amount } });
       } catch (logError) {
         console.error("Activity log failed:", logError);
       }
       toast.success("บันทึกการชำระเงินเรียบร้อยแล้ว");
+      setSlipFile(null);
       onDone();
     } catch (error: any) {
       toast.error(error.message);
@@ -641,6 +689,38 @@ function PaymentForm({ loanId, suggested, nextNum, isInterestOnly, onDone }: { l
         <div className="space-y-2">
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">หมายเหตุ</Label>
           <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="bg-muted/20" placeholder="ระบุรายละเอียดเพิ่มเติม..." />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={`payment-slip-${loanId}`} className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            แนบสลิปการโอน (ไม่บังคับ)
+          </Label>
+          <div className="flex items-center gap-2">
+            <Input
+              key={slipFile ? 'payment-slip-selected' : 'payment-slip-empty'}
+              id={`payment-slip-${loanId}`}
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={(e) => setSlipFile(e.target.files?.[0] ?? null)}
+              className="bg-muted/20"
+            />
+            {slipFile && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 shrink-0"
+                onClick={() => setSlipFile(null)}
+                title="ล้างไฟล์"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          {slipFile && (
+            <p className="text-[11px] text-muted-foreground truncate">
+              {slipFile.name}
+            </p>
+          )}
         </div>
         <DialogFooter className="pt-4">
           <Button type="submit" disabled={busy} className="w-full py-6 text-base font-bold shadow-[var(--shadow-elevated)]">
