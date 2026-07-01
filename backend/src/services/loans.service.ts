@@ -6,14 +6,14 @@ const LOAN_CREATE_ALLOWED = new Set([
   'customerId', 'principal', 'interestRate', 'interestAmount', 'totalPayable',
   'installmentsCount', 'installmentAmount', 'paymentType',
   'startDate', 'dueDate', 'status', 'notes',
-  'isInterestOnly', 'isIndefinite', 'isPawn', 'pawnItem', 'pawnStatus',
+  'isInterestOnly', 'isIndefinite', 'isPrincipalInterestAtEnd', 'isPawn', 'pawnItem', 'pawnStatus',
 ]);
 
 const LOAN_UPDATE_ALLOWED = new Set([
   'principal', 'interestRate', 'interestAmount', 'totalPayable',
   'installmentsCount', 'installmentAmount', 'paymentType',
   'startDate', 'dueDate', 'status', 'notes',
-  'isInterestOnly', 'isIndefinite', 'isPawn', 'pawnItem', 'pawnStatus',
+  'isInterestOnly', 'isIndefinite', 'isPrincipalInterestAtEnd', 'isPawn', 'pawnItem', 'pawnStatus',
 ]);
 
 function pickFields(data: any, allowed: Set<string>): Record<string, unknown> {

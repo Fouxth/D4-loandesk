@@ -6,6 +6,7 @@ export type LoanCategory =
   | 'รายวัน 12-24'
   | 'รายเดือน'
   | 'ดอกลอย'
+  | 'จบต้นจบดอก'
   | 'รับจำนำ'
   | 'อื่นๆ';
 
@@ -45,6 +46,8 @@ export function getLoanCategory(loan: {
   is_interest_only?: boolean;
   isIndefinite?: boolean;
   is_indefinite?: boolean;
+  isPrincipalInterestAtEnd?: boolean;
+  is_principal_interest_at_end?: boolean;
   paymentType?: string;
   payment_type?: string;
   installmentsCount?: number;
@@ -67,9 +70,11 @@ export function getLoanCategory(loan: {
   const isPawn = loan.isPawn ?? loan.is_pawn;
   const isInterestOnly = loan.isInterestOnly ?? loan.is_interest_only;
   const isIndefinite = loan.isIndefinite ?? loan.is_indefinite;
+  const isPrincipalInterestAtEnd = loan.isPrincipalInterestAtEnd ?? loan.is_principal_interest_at_end;
   const paymentType = loan.paymentType ?? loan.payment_type ?? 'daily';
 
   if (isPawn) return 'รับจำนำ';
+  if (isPrincipalInterestAtEnd) return 'จบต้นจบดอก';
   if (isInterestOnly && isIndefinite) {
     return paymentType === 'monthly' ? 'รายเดือน' : 'ดอกลอย';
   }
@@ -93,5 +98,6 @@ export const LOAN_CATEGORY_OPTIONS: LoanCategory[] = [
   'รายวัน 12-24',
   'รายเดือน',
   'ดอกลอย',
+  'จบต้นจบดอก',
   'รับจำนำ',
 ];

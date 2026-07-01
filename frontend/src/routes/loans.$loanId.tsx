@@ -74,6 +74,7 @@ function LoanDetail() {
   if (!loan) return <div className="flex h-64 items-center justify-center text-muted-foreground animate-pulse">กำลังโหลดข้อมูลสัญญา...</div>;
 
   const pawnStatus = loan.pawnStatus || 'in_storage';
+  const isPrincipalInterestAtEnd = loan.isPrincipalInterestAtEnd ?? loan.is_principal_interest_at_end;
   
   const installmentAmount = Number(loan.installmentAmount ?? 0);
   const tpConfig = {
@@ -289,6 +290,11 @@ function LoanDetail() {
                     ดอกลอย
                   </span>
                 )}
+                {isPrincipalInterestAtEnd && (
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-warning/20 text-warning-foreground">
+                    จบต้นจบดอก
+                  </span>
+                )}
               </dd>
             </div>
             <div className="flex justify-between items-center">
@@ -297,7 +303,7 @@ function LoanDetail() {
                 {loanCategory}
                 {!loan.isIndefinite && totalInstallments > 0 && (
                   <span className="block text-muted-foreground font-medium">
-                    {totalInstallments} งวด (
+                    {isPrincipalInterestAtEnd ? 'ระยะเวลา ' : ''}{totalInstallments} {isPrincipalInterestAtEnd ? '' : 'งวด '}(
                     {loan.paymentType === "daily"
                       ? "รายวัน"
                       : loan.paymentType === "weekly"
@@ -308,7 +314,7 @@ function LoanDetail() {
                 )}
               </dd>
             </div>
-            {!loan.isIndefinite && totalInstallments > 0 && (
+            {!loan.isIndefinite && !isPrincipalInterestAtEnd && totalInstallments > 0 && (
               <div className="flex justify-between items-center">
                 <dt className="text-muted-foreground">ความคืบหน้าการชำระ</dt>
                 <dd className="font-bold">
@@ -395,7 +401,7 @@ function LoanDetail() {
               <dd className="text-xl font-black text-primary">{formatTHB(remaining)}</dd>
             </div>
             <div className="flex justify-between items-center mt-2">
-              <dt className="text-muted-foreground">ยอดชำระต่องวด</dt>
+              <dt className="text-muted-foreground">{isPrincipalInterestAtEnd ? 'ยอดปิดวันครบกำหนด' : 'ยอดชำระต่องวด'}</dt>
               <dd className="font-bold">{formatTHB(loan.installmentAmount)} ({loan.paymentType === 'daily' ? 'รายวัน' : loan.paymentType === 'weekly' ? 'รายสัปดาห์' : 'รายเดือน'})</dd>
             </div>
             <div className="flex justify-between items-center">

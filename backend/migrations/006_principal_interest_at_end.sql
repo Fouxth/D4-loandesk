@@ -1,0 +1,2 @@
+ALTER TABLE loans
+ADD COLUMN IF NOT EXISTS is_principal_interest_at_end BOOLEAN DEFAULT FALSE;

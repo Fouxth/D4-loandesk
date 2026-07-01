@@ -335,8 +335,11 @@ function Settings() {
         let typeStr = "";
         const period = l.installmentsCount || l.installments_count || 0;
         const pType = (l.paymentType || l.payment_type || '').toLowerCase();
+        const isPrincipalInterestAtEnd = l.isPrincipalInterestAtEnd || l.is_principal_interest_at_end;
         
-        if (pType === 'daily') {
+        if (isPrincipalInterestAtEnd) {
+          typeStr = `จบต้นจบดอก (${period} ${pType === 'monthly' ? 'เดือน' : pType === 'weekly' ? 'สัปดาห์' : 'วัน'})`;
+        } else if (pType === 'daily') {
           if (period === 30) typeStr = "ราย 1 เดือน";
           else typeStr = `ราย ${period} วัน`;
         } else if (pType === 'weekly') {

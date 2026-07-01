@@ -224,6 +224,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
     notes: "",
     isInterestOnly: false,
     isIndefinite: false,
+    isPrincipalInterestAtEnd: false,
     isPawn: false,
     pawnItem: "",
   });
@@ -233,7 +234,16 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
     getCustomers().then(data => setCustomers(data ?? []));
   }, []);
   
-  const calc = calcLoan(form.principal, form.interestRate, form.installmentsCount, form.paymentType, new Date(form.startDate), form.isInterestOnly, form.isIndefinite);
+  const calc = calcLoan(
+    form.principal,
+    form.interestRate,
+    form.installmentsCount,
+    form.paymentType,
+    new Date(form.startDate),
+    form.isInterestOnly,
+    form.isIndefinite,
+    form.isPrincipalInterestAtEnd,
+  );
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -254,6 +264,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
         notes: form.notes,
         isInterestOnly: form.isInterestOnly,
         isIndefinite: form.isIndefinite,
+        isPrincipalInterestAtEnd: form.isPrincipalInterestAtEnd,
         isPawn: form.isPawn,
         pawnItem: form.isPawn ? form.pawnItem : null,
       });
@@ -327,6 +338,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
               type="checkbox" 
               id="isInterestOnly" 
               checked={form.isInterestOnly} 
+              disabled={form.isPrincipalInterestAtEnd}
               onChange={(e) => setForm({ ...form, isInterestOnly: e.target.checked })}
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
             />
@@ -337,10 +349,26 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
               type="checkbox" 
               id="isIndefinite" 
               checked={form.isIndefinite} 
+              disabled={form.isPrincipalInterestAtEnd}
               onChange={(e) => setForm({ ...form, isIndefinite: e.target.checked })}
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
             />
             <Label htmlFor="isIndefinite" className="text-sm font-bold text-foreground cursor-pointer">ไม่มีกำหนด (เก็บไปเรื่อยๆ)</Label>
+          </div>
+          <div className="flex items-center space-x-2 pt-1">
+            <input
+              type="checkbox"
+              id="isPrincipalInterestAtEnd"
+              checked={form.isPrincipalInterestAtEnd}
+              onChange={(e) => setForm({
+                ...form,
+                isPrincipalInterestAtEnd: e.target.checked,
+                isInterestOnly: e.target.checked ? false : form.isInterestOnly,
+                isIndefinite: e.target.checked ? false : form.isIndefinite,
+              })}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <Label htmlFor="isPrincipalInterestAtEnd" className="text-sm font-bold text-foreground cursor-pointer">จบต้นจบดอก (ชำระครั้งเดียววันครบกำหนด)</Label>
           </div>
           <div className="flex items-center space-x-2 pt-1">
             <input 
@@ -378,7 +406,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
               <p className="text-sm font-bold text-primary">{formatTHB(calc.total)}</p>
             </div>
             <div>
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">ต่องวด</p>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{form.isPrincipalInterestAtEnd ? 'ยอดปิด' : 'ต่องวด'}</p>
               <p className="text-sm font-bold text-primary">{formatTHB(calc.installment)}</p>
             </div>
             <div>
