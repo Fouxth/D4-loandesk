@@ -1,4 +1,4 @@
-import { logActivity, getCustomers, createCustomer, updateCustomer, deleteCustomer } from "@/lib/services";
+import { logActivity, getCustomers, createCustomer, updateCustomer, deleteCustomer, getCustomerAttachments, uploadCustomerAttachment, deleteCustomerAttachment } from "@/lib/services";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,10 +13,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Plus, Search, Trash2, Pencil, Phone, CreditCard, X } from "lucide-react";
+import { Plus, Search, Trash2, Pencil, Phone, CreditCard, X, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/utils/format";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
+
+function resolveFileUrl(filePath?: string | null) {
+  if (!filePath) return "";
+  if (filePath.startsWith('http://') || filePath.startsWith('https://')) return filePath;
+  const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '').replace(/\/api$/, '') ?? '';
+  return `${apiBase}/${filePath}`;
+}
+
+function isImageFileName(name: string) {
+  return /\.(jpe?g|png|gif|webp)$/i.test(name);
+}
 
 export const Route = createFileRoute("/customers/")({
   component: () => (
@@ -31,11 +42,9 @@ type Customer = {
   idCard: string | null; 
   address: string | null; 
   notes: string | null; 
-  riskLevel: string; 
+  riskLevel: string;
   category: string;
-  idDocumentUrl?: string | null;
-  idDocumentFileName?: string | null;
-  createdAt: string 
+  createdAt: string
 };
 
 function Customers() {
@@ -79,28 +88,27 @@ function Customers() {
     }
   };
 
-  const submit = async (formData: any, idDocumentFile?: File | null) => {
+  const submit = async (formData: any) => {
     try {
-      if (editing) {
-        await updateCustomer({ id: editing.id, ...formData }, idDocumentFile);
-      } else {
-        await createCustomer(formData, idDocumentFile);
-      }
+      const result = editing
+        ? await updateCustomer({ id: editing.id, ...formData })
+        : await createCustomer(formData);
+      const customer = Array.isArray(result) ? result[0] : result;
       try {
-        await logActivity({ 
-          action: editing ? "update_customer" : "create_customer", 
-          entity_type: "customer", 
-          entity_id: editing?.id, 
-          details: { name: formData.fullName } 
+        await logActivity({
+          action: editing ? "update_customer" : "create_customer",
+          entity_type: "customer",
+          entity_id: editing?.id ?? customer?.id,
+          details: { name: formData.fullName }
         });
       } catch (logError) {
         console.error("Activity log failed:", logError);
       }
       toast.success(t('common.save_success', 'บันทึกเรียบร้อยแล้ว'));
-      setOpen(false);
-      load();
+      return customer;
     } catch (error: any) {
       toast.error(error.message);
+      return undefined;
     }
   };
 
@@ -246,7 +254,7 @@ function Customers() {
   );
 }
 
-function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null; onDone: () => void; onSubmit: (data: any, idDocumentFile?: File | null) => Promise<void> }) {
+function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null; onDone: () => void; onSubmit: (data: any) => Promise<any> }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({
     fullName: editing?.fullName ?? "",
@@ -257,11 +265,13 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
     riskLevel: editing?.riskLevel ?? "low",
     category: editing?.category ?? "new",
   });
-  const [idDocumentFile, setIdDocumentFile] = useState<File | null>(null);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [attachments, setAttachments] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    setIdDocumentFile(null);
+    setNewFiles([]);
     if (editing) {
       setForm({
         fullName: editing.fullName ?? "",
@@ -272,6 +282,7 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
         riskLevel: editing.riskLevel ?? "low",
         category: editing.category ?? "new",
       });
+      getCustomerAttachments(editing.id).then(setAttachments).catch(() => setAttachments([]));
     } else {
       setForm({
         fullName: "",
@@ -282,8 +293,29 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
         riskLevel: "low",
         category: "new",
       });
+      setAttachments([]);
     }
   }, [editing]);
+
+  const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    setNewFiles((prev) => [...prev, ...picked]);
+    e.target.value = "";
+  };
+
+  const removeNewFile = (index: number) => {
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingAttachment = async (id: string) => {
+    try {
+      await deleteCustomerAttachment(id);
+      setAttachments((prev) => prev.filter((a) => a.id !== id));
+      toast.success("ลบไฟล์แนบเรียบร้อยแล้ว");
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -294,7 +326,18 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
     }
     setBusy(true);
     try {
-      await onSubmit(form, idDocumentFile);
+      const customer = await onSubmit(form);
+      if (customer?.id && newFiles.length > 0) {
+        setUploading(true);
+        for (const file of newFiles) {
+          try {
+            await uploadCustomerAttachment(customer.id, file);
+          } catch (error: any) {
+            toast.error(`อัปโหลด ${file.name} ไม่สำเร็จ: ${error.message}`);
+          }
+        }
+        setUploading(false);
+      }
       onDone();
     } finally {
       setBusy(false);
@@ -387,40 +430,64 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
           <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="bg-muted/20" placeholder="ระบุข้อมูลเพิ่มเติม..." />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="customer-id-document" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            แนบเอกสารบัตรประชาชน (ไม่บังคับ)
+          <Label htmlFor="customer-attachments" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            เอกสารแนบ (ไม่บังคับ) — สัญญา, บัตรประชาชน, รูปคู่บัตร ฯลฯ แนบได้หลายไฟล์
           </Label>
-          <div className="flex items-center gap-2">
-            <Input
-              key={idDocumentFile ? 'id-document-selected' : 'id-document-empty'}
-              id="customer-id-document"
-              type="file"
-              accept="image/*,application/pdf"
-              onChange={(e) => setIdDocumentFile(e.target.files?.[0] ?? null)}
-              className="bg-muted/20 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-primary-foreground file:transition-colors hover:file:bg-primary/90"
-            />
-            {idDocumentFile && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-10 w-10 shrink-0"
-                onClick={() => setIdDocumentFile(null)}
-                title="ล้างไฟล์"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-          {idDocumentFile ? (
-            <p className="truncate text-[11px] text-muted-foreground">{idDocumentFile.name}</p>
-          ) : editing?.idDocumentFileName ? (
-            <p className="truncate text-[11px] text-muted-foreground">ไฟล์เดิม: {editing.idDocumentFileName}</p>
-          ) : null}
+          <Input
+            id="customer-attachments"
+            type="file"
+            multiple
+            accept="image/*,application/pdf"
+            onChange={handleFilesChange}
+            className="bg-muted/20 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-primary-foreground file:transition-colors hover:file:bg-primary/90"
+          />
+
+          {newFiles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {newFiles.map((f, i) => (
+                <span key={`${f.name}-${i}`} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px]">
+                  <span className="max-w-[140px] truncate">{f.name}</span>
+                  <button type="button" onClick={() => removeNewFile(i)} title="ลบไฟล์นี้ออกจากรายการ">
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {attachments.length > 0 && (
+            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 pt-1">
+              {attachments.map((att) => {
+                const url = resolveFileUrl(att.filePath);
+                const isImage = isImageFileName(att.fileName ?? "");
+                return (
+                  <div key={att.id} className="relative group aspect-square rounded-lg overflow-hidden border border-border">
+                    <a href={url} target="_blank" rel="noreferrer" className="block h-full w-full">
+                      {isImage ? (
+                        <img src={url} alt={att.fileName} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-muted/50">
+                          <FileText className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => removeExistingAttachment(att.id)}
+                      title="ลบไฟล์นี้"
+                      className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 shadow transition-opacity group-hover:opacity-100"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
         <DialogFooter className="pt-4">
           <Button type="submit" disabled={busy} className="w-full">
-            {busy ? "..." : t('common.save')}
+            {busy ? (uploading ? "กำลังอัปโหลดไฟล์แนบ..." : "...") : t('common.save')}
           </Button>
         </DialogFooter>
       </form>

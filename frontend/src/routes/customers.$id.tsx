@@ -1,4 +1,4 @@
-import { getCustomerById, getLoansByCustomer, getPayments } from "@/lib/services";
+import { getCustomerById, getLoansByCustomer, getPayments, getCustomerAttachments } from "@/lib/services";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
@@ -8,7 +8,7 @@ import { StatusBadge, loanStatusTone } from "@/components/StatusBadge";
 import { formatTHB, formatDate } from "@/utils/format";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, FileText, Paperclip } from "lucide-react";
 
 export const Route = createFileRoute("/customers/$id")({
   component: () => (
@@ -32,7 +32,8 @@ function Detail() {
   const [c, setC] = useState<any>(null);
   const [loans, setLoans] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -41,11 +42,14 @@ function Detail() {
         setC(cust);
         const ls = await getLoansByCustomer(id);
         setLoans(ls ?? []);
-        
+
         // Get all payments for this customer's loans
         const allPayments = await getPayments();
         const customerPayments = allPayments.filter((p: any) => ls.some((l: any) => l.id === p.loanId));
         setPayments(customerPayments);
+
+        const atts = await getCustomerAttachments(id);
+        setAttachments(atts ?? []);
       } catch (e) {
         console.error("Failed to load customer details", e);
       }
@@ -58,9 +62,6 @@ function Detail() {
     const paid = payments.filter((p) => p.loanId === l.id).reduce((a, p) => a + Number(p.amount), 0);
     return l.status !== "completed" && l.status !== "cancelled" ? sum + Math.max(Number(l.totalPayable) - paid, 0) : sum;
   }, 0);
-  const idDocumentUrl = resolveFileUrl(c.idDocumentUrl ?? c.id_document_url);
-  const idDocumentFileName = c.idDocumentFileName ?? c.id_document_file_name ?? 'id-document';
-  const idDocumentIsImage = isImageFileName(idDocumentFileName);
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -71,7 +72,7 @@ function Detail() {
       </Link>
       <PageHeader title={c.fullName} description={c.phone || "ไม่มีเบอร์โทรศัพท์"} />
 
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 pb-10">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 pb-6">
         <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)]">
           <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-2">ข้อมูลส่วนตัว</h3>
           <dl className="space-y-3 text-sm">
@@ -91,33 +92,6 @@ function Detail() {
               <dt className="text-muted-foreground shrink-0">ที่อยู่</dt>
               <dd className="text-right text-foreground">{c.address || "—"}</dd>
             </div>
-            {idDocumentUrl && (
-              <div className="border-t border-border pt-3">
-                <dt className="text-muted-foreground mb-2">เอกสารบัตรประชาชน</dt>
-                <dd>
-                  {idDocumentIsImage ? (
-                    <button
-                      type="button"
-                      onClick={() => setPreviewOpen(true)}
-                      className="block w-full overflow-hidden rounded-xl border border-border hover:opacity-90 transition-opacity"
-                      title="ดูรูปขนาดเต็ม"
-                    >
-                      <img src={idDocumentUrl} alt={idDocumentFileName} className="w-full max-h-48 object-cover" />
-                    </button>
-                  ) : (
-                    <a
-                      href={idDocumentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium truncate max-w-full"
-                    >
-                      <FileText className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{idDocumentFileName}</span>
-                    </a>
-                  )}
-                </dd>
-              </div>
-            )}
             <div className="flex justify-between items-center border-t border-border pt-3">
               <dt className="text-muted-foreground font-bold">ยอดเงินคงค้างรวม</dt>
               <dd className="font-black text-lg text-primary">{formatTHB(outstanding)}</dd>
@@ -169,14 +143,59 @@ function Detail() {
         </div>
       </div>
 
-      {idDocumentIsImage && (
-        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-          <DialogContent className="max-w-3xl w-[95vw] p-2 sm:p-4">
-            <DialogTitle className="sr-only">{idDocumentFileName}</DialogTitle>
-            <img src={idDocumentUrl} alt={idDocumentFileName} className="w-full max-h-[85vh] rounded-lg object-contain" />
-          </DialogContent>
-        </Dialog>
-      )}
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] mb-10 overflow-hidden">
+        <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-2 flex items-center gap-2">
+          <Paperclip className="h-4 w-4" /> เอกสารแนบ ({attachments.length})
+        </h3>
+
+        {attachments.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 border-2 border-dashed border-border rounded-xl bg-muted/5">
+            <Paperclip className="h-10 w-10 text-muted-foreground/30 mb-2" />
+            <p className="text-sm text-muted-foreground">ยังไม่มีเอกสารแนบ (สามารถแนบได้ที่หน้าแก้ไขลูกค้า)</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {attachments.map((att) => {
+              const url = resolveFileUrl(att.filePath);
+              const isImage = isImageFileName(att.fileName ?? "");
+              return (
+                <div key={att.id} className="relative group aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
+                  {isImage ? (
+                    <button
+                      type="button"
+                      onClick={() => setPreview({ url, name: att.fileName })}
+                      className="block w-full h-full"
+                    >
+                      <img
+                        src={url}
+                        alt={att.fileName}
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    </button>
+                  ) : (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex flex-col items-center justify-center gap-1.5 w-full h-full bg-muted/40 hover:bg-muted/60 transition-colors px-2 text-center"
+                    >
+                      <FileText className="h-6 w-6 text-muted-foreground" />
+                      <span className="text-[10px] text-muted-foreground truncate max-w-full">{att.fileName}</span>
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
+        <DialogContent className="max-w-3xl w-[95vw] p-2 sm:p-4">
+          <DialogTitle className="sr-only">{preview?.name}</DialogTitle>
+          {preview && <img src={preview.url} alt={preview.name} className="w-full max-h-[85vh] rounded-lg object-contain" />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
