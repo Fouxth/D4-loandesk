@@ -334,7 +334,7 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
   };
 
   return (
-    <DialogContent className="max-w-lg w-[95vw] sm:w-full">
+    <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6">
       <DialogHeader>
         <DialogTitle className="text-xl font-bold">{editing ? t('customers.edit') : t('customers.add_new')}</DialogTitle>
       </DialogHeader>
@@ -397,7 +397,7 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
               type="file"
               accept="image/*,application/pdf"
               onChange={(e) => setIdDocumentFile(e.target.files?.[0] ?? null)}
-              className="bg-muted/20"
+              className="bg-muted/20 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-primary-foreground file:transition-colors hover:file:bg-primary/90"
             />
             {idDocumentFile && (
               <Button

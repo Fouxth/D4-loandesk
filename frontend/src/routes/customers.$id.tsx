@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge, loanStatusTone } from "@/components/StatusBadge";
 import { formatTHB, formatDate } from "@/utils/format";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ArrowLeft, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/customers/$id")({
@@ -22,11 +23,16 @@ function resolveFileUrl(filePath?: string | null) {
   return `${apiBase}/${filePath}`;
 }
 
+function isImageFileName(name: string) {
+  return /\.(jpe?g|png|gif|webp)$/i.test(name);
+}
+
 function Detail() {
   const { id } = Route.useParams();
   const [c, setC] = useState<any>(null);
   const [loans, setLoans] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -54,6 +60,7 @@ function Detail() {
   }, 0);
   const idDocumentUrl = resolveFileUrl(c.idDocumentUrl ?? c.id_document_url);
   const idDocumentFileName = c.idDocumentFileName ?? c.id_document_file_name ?? 'id-document';
+  const idDocumentIsImage = isImageFileName(idDocumentFileName);
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -84,24 +91,33 @@ function Detail() {
               <dt className="text-muted-foreground shrink-0">ที่อยู่</dt>
               <dd className="text-right text-foreground">{c.address || "—"}</dd>
             </div>
-            <div className="flex justify-between items-center gap-4">
-              <dt className="text-muted-foreground shrink-0">เอกสารบัตรประชาชน</dt>
-              <dd className="text-right">
-                {idDocumentUrl ? (
-                  <a
-                    href={idDocumentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium truncate max-w-[180px]"
-                  >
-                    <FileText className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{idDocumentFileName}</span>
-                  </a>
-                ) : (
-                  <span className="text-foreground">—</span>
-                )}
-              </dd>
-            </div>
+            {idDocumentUrl && (
+              <div className="border-t border-border pt-3">
+                <dt className="text-muted-foreground mb-2">เอกสารบัตรประชาชน</dt>
+                <dd>
+                  {idDocumentIsImage ? (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewOpen(true)}
+                      className="block w-full overflow-hidden rounded-xl border border-border hover:opacity-90 transition-opacity"
+                      title="ดูรูปขนาดเต็ม"
+                    >
+                      <img src={idDocumentUrl} alt={idDocumentFileName} className="w-full max-h-48 object-cover" />
+                    </button>
+                  ) : (
+                    <a
+                      href={idDocumentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium truncate max-w-full"
+                    >
+                      <FileText className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{idDocumentFileName}</span>
+                    </a>
+                  )}
+                </dd>
+              </div>
+            )}
             <div className="flex justify-between items-center border-t border-border pt-3">
               <dt className="text-muted-foreground font-bold">ยอดเงินคงค้างรวม</dt>
               <dd className="font-black text-lg text-primary">{formatTHB(outstanding)}</dd>
@@ -152,6 +168,15 @@ function Detail() {
           </div>
         </div>
       </div>
+
+      {idDocumentIsImage && (
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogContent className="max-w-3xl w-[95vw] p-2 sm:p-4">
+            <DialogTitle className="sr-only">{idDocumentFileName}</DialogTitle>
+            <img src={idDocumentUrl} alt={idDocumentFileName} className="w-full max-h-[85vh] rounded-lg object-contain" />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
