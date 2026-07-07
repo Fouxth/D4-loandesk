@@ -316,7 +316,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">จำนวนงวด</Label>
-            <Input type="number" min={1} disabled={form.isIndefinite} value={form.isIndefinite ? "" : form.installmentsCount} onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
+            <Input type="number" min={1} value={form.installmentsCount} onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ความถี่ในการชำระ</Label>
@@ -345,17 +345,6 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
             <Label htmlFor="isInterestOnly" className="text-sm font-bold text-foreground cursor-pointer">เงินกู้แบบดอกลอย (เก็บแต่ดอกเบี้ย)</Label>
           </div>
           <div className="flex items-center space-x-2 pt-1">
-            <input 
-              type="checkbox" 
-              id="isIndefinite" 
-              checked={form.isIndefinite} 
-              disabled={form.isPrincipalInterestAtEnd}
-              onChange={(e) => setForm({ ...form, isIndefinite: e.target.checked })}
-              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <Label htmlFor="isIndefinite" className="text-sm font-bold text-foreground cursor-pointer">ไม่มีกำหนด (เก็บไปเรื่อยๆ)</Label>
-          </div>
-          <div className="flex items-center space-x-2 pt-1">
             <input
               type="checkbox"
               id="isPrincipalInterestAtEnd"
@@ -364,7 +353,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
                 ...form,
                 isPrincipalInterestAtEnd: e.target.checked,
                 isInterestOnly: e.target.checked ? false : form.isInterestOnly,
-                isIndefinite: e.target.checked ? false : form.isIndefinite,
+                isIndefinite: false,
               })}
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
             />

@@ -17,16 +17,12 @@ export function calcLoan(
   }
 
   const due = new Date(startDate);
-  const duePeriods = isPrincipalInterestAtEnd
-    ? Math.max(installmentsCount - 1, 0)
-    : installmentsCount;
-
   if (paymentType === "daily") {
-    due.setDate(due.getDate() + duePeriods);
+    due.setDate(due.getDate() + installmentsCount);
   } else if (paymentType === "weekly") {
-    due.setDate(due.getDate() + duePeriods * 7);
+    due.setDate(due.getDate() + installmentsCount * 7);
   } else if (paymentType === "monthly") {
-    due.setMonth(due.getMonth() + duePeriods);
+    due.setMonth(due.getMonth() + installmentsCount);
   }
 
   return {
