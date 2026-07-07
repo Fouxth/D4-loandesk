@@ -851,12 +851,48 @@ function Settings() {
                   <span className="text-sm font-bold">หักดอกเบี้ยล่วงหน้า</span>
                   <p className="text-[11px] text-muted-foreground">หักดอกเบี้ยจากยอดเงินต้นทันทีเมื่อทำสัญญา</p>
                 </div>
-                <Switch 
-                  checked={lending.deductInterestUpfront} 
+                <Switch
+                  checked={lending.deductInterestUpfront}
                   onCheckedChange={(checked) => setLending({...lending, deductInterestUpfront: checked})}
                 />
               </div>
-              <Button 
+
+              <div className="space-y-4 border-t border-border/50 pt-6">
+                <div>
+                  <span className="text-sm font-bold">ค่าธรรมเนียมหักล่วงหน้า</span>
+                  <p className="text-[11px] text-muted-foreground">ค่าเริ่มต้นที่จะแสดงในหน้าสร้างสัญญา เลือกหักได้เป็นรายสัญญา ไม่กระทบยอดหนี้ที่ลูกค้าต้องชำระ</p>
+                </div>
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ค่าเอกสาร (บาท)</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={lending.documentFeeAmount}
+                        onChange={(e) => setLending({ ...lending, documentFeeAmount: Number(e.target.value) })}
+                        className="h-11 rounded-xl bg-muted/20 pr-10 font-bold"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ค่าล่วงหน้า (บาท)</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={lending.advanceFeeAmount}
+                        onChange={(e) => setLending({ ...lending, advanceFeeAmount: Number(e.target.value) })}
+                        className="h-11 rounded-xl bg-muted/20 pr-10 font-bold"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Button
                 onClick={handleSaveLending} 
                 disabled={busy === "lending"}
                 className="rounded-xl px-8 font-bold h-11"

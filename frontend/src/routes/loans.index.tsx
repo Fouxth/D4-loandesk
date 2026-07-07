@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { calcLoan } from "@/utils/loanCalc";
 import { formatTHB, formatDate, getThaiDateStr } from "@/utils/format";
 import { getLoanCategory, LOAN_CATEGORY_OPTIONS } from "@/utils/loanType";
+import { useSettings } from "@/contexts/SettingsContext";
 
 export const Route = createFileRoute("/loans/")({
   component: () => (<ProtectedRoute><AppLayout><Loans /></AppLayout></ProtectedRoute>),
@@ -213,6 +214,7 @@ function Loans() {
 
 function NewLoanForm({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
+  const { lending } = useSettings();
   const [customers, setCustomers] = useState<any[]>([]);
   const [form, setForm] = useState({
     customerId: "",
@@ -228,6 +230,10 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
     isPawn: false,
     pawnItem: "",
   });
+  const [applyDocumentFee, setApplyDocumentFee] = useState(false);
+  const [documentFee, setDocumentFee] = useState(lending.documentFeeAmount);
+  const [applyAdvanceFee, setApplyAdvanceFee] = useState(false);
+  const [advanceFee, setAdvanceFee] = useState(lending.advanceFeeAmount);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { 
@@ -245,28 +251,34 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
     form.isPrincipalInterestAtEnd,
   );
 
+  const appliedDocumentFee = applyDocumentFee ? Number(documentFee) || 0 : 0;
+  const appliedAdvanceFee = applyAdvanceFee ? Number(advanceFee) || 0 : 0;
+  const netDisbursement = Math.max(Number(form.principal || 0) - appliedDocumentFee - appliedAdvanceFee, 0);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.customerId) return toast.error("กรุณาเลือกลูกค้า");
     setBusy(true);
     try {
       const data = await createLoan({
-        customerId: form.customerId, 
-        principal: form.principal, 
+        customerId: form.customerId,
+        principal: form.principal,
         interestRate: form.interestRate,
-        interestAmount: calc.interest, 
-        totalPayable: calc.total, 
+        interestAmount: calc.interest,
+        totalPayable: calc.total,
         installmentsCount: form.installmentsCount,
-        installmentAmount: calc.installment, 
-        paymentType: form.paymentType, 
+        installmentAmount: calc.installment,
+        paymentType: form.paymentType,
         startDate: form.startDate,
-        dueDate: calc.due ? calc.due.toISOString().split("T")[0] : null, 
+        dueDate: calc.due ? calc.due.toISOString().split("T")[0] : null,
         notes: form.notes,
         isInterestOnly: form.isInterestOnly,
         isIndefinite: form.isIndefinite,
         isPrincipalInterestAtEnd: form.isPrincipalInterestAtEnd,
         isPawn: form.isPawn,
         pawnItem: form.isPawn ? form.pawnItem : null,
+        documentFee: appliedDocumentFee,
+        advanceFee: appliedAdvanceFee,
       });
       
       const loanId = (data as any)[0]?.id;
@@ -373,14 +385,59 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
           {form.isPawn && (
             <div className="space-y-2 mt-2 animate-in slide-in-from-top-2">
               <Label className="text-[11px] font-bold uppercase tracking-wider text-primary">รายละเอียดสิ่งของที่จำนำ</Label>
-              <Input 
-                value={form.pawnItem} 
-                onChange={(e) => setForm({ ...form, pawnItem: e.target.value })} 
-                placeholder="เช่น ทองคำหนัก 1 บาท, iPhone 15 Pro Max..." 
+              <Input
+                value={form.pawnItem}
+                onChange={(e) => setForm({ ...form, pawnItem: e.target.value })}
+                placeholder="เช่น ทองคำหนัก 1 บาท, iPhone 15 Pro Max..."
                 className="bg-primary/5 border-primary/20 focus:border-primary"
               />
             </div>
           )}
+
+          <div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-border/50 pt-3 mt-1">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="applyDocumentFee"
+                  checked={applyDocumentFee}
+                  onChange={(e) => setApplyDocumentFee(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <Label htmlFor="applyDocumentFee" className="text-sm font-bold text-foreground cursor-pointer">หักค่าเอกสาร</Label>
+              </div>
+              {applyDocumentFee && (
+                <Input
+                  type="number"
+                  min={0}
+                  value={documentFee}
+                  onChange={(e) => setDocumentFee(e.target.value === "" ? 0 : Number(e.target.value))}
+                  className="bg-muted/20"
+                />
+              )}
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="applyAdvanceFee"
+                  checked={applyAdvanceFee}
+                  onChange={(e) => setApplyAdvanceFee(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <Label htmlFor="applyAdvanceFee" className="text-sm font-bold text-foreground cursor-pointer">หักค่าล่วงหน้า</Label>
+              </div>
+              {applyAdvanceFee && (
+                <Input
+                  type="number"
+                  min={0}
+                  value={advanceFee}
+                  onChange={(e) => setAdvanceFee(e.target.value === "" ? 0 : Number(e.target.value))}
+                  className="bg-muted/20"
+                />
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="rounded-xl bg-primary/10 border border-primary/20 p-4 shadow-sm">
@@ -403,6 +460,12 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
               <p className="text-sm font-bold text-primary">{formatDate(calc.due)}</p>
             </div>
           </div>
+          {(applyDocumentFee || applyAdvanceFee) && (
+            <div className="mt-3 pt-3 border-t border-primary/20">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">ยอดที่จ่ายลูกค้าจริง (หักค่าเอกสาร/ค่าล่วงหน้าแล้ว)</p>
+              <p className="text-base font-black text-primary">{formatTHB(netDisbursement)}</p>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="pt-4">

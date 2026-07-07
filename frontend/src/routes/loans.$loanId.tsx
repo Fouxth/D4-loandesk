@@ -360,6 +360,28 @@ function LoanDetail() {
               <dt className="text-muted-foreground">เงินต้น</dt>
               <dd className="font-medium">{formatTHB(loan.principal)}</dd>
             </div>
+            {(Number(loan.documentFee) > 0 || Number(loan.advanceFee) > 0) && (
+              <div className="space-y-1">
+                {Number(loan.documentFee) > 0 && (
+                  <div className="flex justify-between items-center">
+                    <dt className="text-muted-foreground pl-4">└ หักค่าเอกสาร</dt>
+                    <dd className="font-medium text-destructive">-{formatTHB(loan.documentFee)}</dd>
+                  </div>
+                )}
+                {Number(loan.advanceFee) > 0 && (
+                  <div className="flex justify-between items-center">
+                    <dt className="text-muted-foreground pl-4">└ หักค่าล่วงหน้า</dt>
+                    <dd className="font-medium text-destructive">-{formatTHB(loan.advanceFee)}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <dt className="text-muted-foreground pl-4 font-bold">└ ยอดที่จ่ายลูกค้าจริง</dt>
+                  <dd className="font-bold text-success-foreground">
+                    {formatTHB(Math.max(Number(loan.principal) - Number(loan.documentFee) - Number(loan.advanceFee), 0))}
+                  </dd>
+                </div>
+              </div>
+            )}
             <div className="flex justify-between items-center">
               <dt className="text-muted-foreground">ดอกเบี้ย ({loan.interestRate}%)</dt>
               <dd className="font-medium text-warning-foreground">{formatTHB(loan.interestAmount)}</dd>

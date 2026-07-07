@@ -32,6 +32,10 @@ export interface LendingConfig {
   /** จำกัดวันคิดค่าปรับสูงสุด (0 = ไม่จำกัด) */
   lateFeeMaxDays: number;
   deductInterestUpfront: boolean;
+  /** ค่าเอกสารเริ่มต้น (บาท) หักออกจากยอดที่จ่ายลูกค้าจริงตอนทำสัญญา */
+  documentFeeAmount: number;
+  /** ค่าล่วงหน้าเริ่มต้น (บาท) หักออกจากยอดที่จ่ายลูกค้าจริงตอนทำสัญญา */
+  advanceFeeAmount: number;
 }
 
 export const DEFAULT_CATEGORY_RATES: CategoryInterestRates = {
@@ -54,6 +58,8 @@ export const DEFAULT_LENDING_CONFIG: LendingConfig = {
   lateFeePerDay: 200,
   lateFeeMaxDays: 0,
   deductInterestUpfront: true,
+  documentFeeAmount: 500,
+  advanceFeeAmount: 500,
 };
 
 function calcHoursOverdue(dueDate: string): number {
@@ -135,6 +141,8 @@ export function normalizeLendingConfig(raw?: Record<string, unknown> | null): Le
     lateFeePerDay: Number(raw?.lateFeePerDay ?? DEFAULT_LENDING_CONFIG.lateFeePerDay),
     lateFeeMaxDays: Number(raw?.lateFeeMaxDays ?? DEFAULT_LENDING_CONFIG.lateFeeMaxDays),
     deductInterestUpfront: typeof raw?.deductInterestUpfront === 'boolean' ? raw.deductInterestUpfront : DEFAULT_LENDING_CONFIG.deductInterestUpfront,
+    documentFeeAmount: Number(raw?.documentFeeAmount ?? DEFAULT_LENDING_CONFIG.documentFeeAmount),
+    advanceFeeAmount: Number(raw?.advanceFeeAmount ?? DEFAULT_LENDING_CONFIG.advanceFeeAmount),
   };
 }
 

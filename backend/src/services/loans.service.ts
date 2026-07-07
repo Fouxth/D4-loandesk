@@ -7,6 +7,7 @@ const LOAN_CREATE_ALLOWED = new Set([
   'installmentsCount', 'installmentAmount', 'paymentType',
   'startDate', 'dueDate', 'status', 'notes',
   'isInterestOnly', 'isIndefinite', 'isPrincipalInterestAtEnd', 'isPawn', 'pawnItem', 'pawnStatus',
+  'documentFee', 'advanceFee',
 ]);
 
 const LOAN_UPDATE_ALLOWED = new Set([
