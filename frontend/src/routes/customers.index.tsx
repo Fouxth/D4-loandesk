@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Plus, Search, Trash2, Pencil, Phone, CreditCard } from "lucide-react";
+import { Plus, Search, Trash2, Pencil, Phone, CreditCard, X } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/utils/format";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
@@ -33,6 +33,8 @@ type Customer = {
   notes: string | null; 
   riskLevel: string; 
   category: string;
+  idDocumentUrl?: string | null;
+  idDocumentFileName?: string | null;
   createdAt: string 
 };
 
@@ -77,12 +79,12 @@ function Customers() {
     }
   };
 
-  const submit = async (formData: any) => {
+  const submit = async (formData: any, idDocumentFile?: File | null) => {
     try {
       if (editing) {
-        await updateCustomer({ id: editing.id, ...formData });
+        await updateCustomer({ id: editing.id, ...formData }, idDocumentFile);
       } else {
-        await createCustomer(formData);
+        await createCustomer(formData, idDocumentFile);
       }
       try {
         await logActivity({ 
@@ -244,7 +246,7 @@ function Customers() {
   );
 }
 
-function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null; onDone: () => void; onSubmit: (data: any) => Promise<void> }) {
+function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null; onDone: () => void; onSubmit: (data: any, idDocumentFile?: File | null) => Promise<void> }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({
     fullName: editing?.fullName ?? "",
@@ -255,9 +257,11 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
     riskLevel: editing?.riskLevel ?? "low",
     category: editing?.category ?? "new",
   });
+  const [idDocumentFile, setIdDocumentFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    setIdDocumentFile(null);
     if (editing) {
       setForm({
         fullName: editing.fullName ?? "",
@@ -290,7 +294,7 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
     }
     setBusy(true);
     try {
-      await onSubmit(form);
+      await onSubmit(form, idDocumentFile);
       onDone();
     } finally {
       setBusy(false);
@@ -381,6 +385,38 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
         <div className="space-y-2">
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">หมายเหตุ</Label>
           <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="bg-muted/20" placeholder="ระบุข้อมูลเพิ่มเติม..." />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="customer-id-document" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            แนบเอกสารบัตรประชาชน (ไม่บังคับ)
+          </Label>
+          <div className="flex items-center gap-2">
+            <Input
+              key={idDocumentFile ? 'id-document-selected' : 'id-document-empty'}
+              id="customer-id-document"
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={(e) => setIdDocumentFile(e.target.files?.[0] ?? null)}
+              className="bg-muted/20"
+            />
+            {idDocumentFile && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 shrink-0"
+                onClick={() => setIdDocumentFile(null)}
+                title="ล้างไฟล์"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          {idDocumentFile ? (
+            <p className="truncate text-[11px] text-muted-foreground">{idDocumentFile.name}</p>
+          ) : editing?.idDocumentFileName ? (
+            <p className="truncate text-[11px] text-muted-foreground">ไฟล์เดิม: {editing.idDocumentFileName}</p>
+          ) : null}
         </div>
         <DialogFooter className="pt-4">
           <Button type="submit" disabled={busy} className="w-full">

@@ -13,8 +13,25 @@ export const updateTenantStatus = (id: string, isActive: boolean) => api.put(`/t
 // Customers
 export const getCustomers = () => api.get('/customers').then(r => r.data);
 export const getCustomerById = (id: string) => api.get(`/customers/${id}`).then(r => r.data);
-export const createCustomer = (data: any) => api.post('/customers', data).then(r => r.data);
-export const updateCustomer = (data: { id: string, [key: string]: any }) => api.put(`/customers/${data.id}`, data).then(r => r.data);
+function toCustomerPayload(data: any, idDocumentFile?: File | null) {
+  if (!idDocumentFile) return data;
+
+  const formData = new FormData();
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, String(value));
+    }
+  });
+  formData.append('idDocument', idDocumentFile);
+  return formData;
+}
+
+export const createCustomer = (data: any, idDocumentFile?: File | null) => api.post('/customers', toCustomerPayload(data, idDocumentFile), idDocumentFile ? {
+  headers: { 'Content-Type': 'multipart/form-data' }
+} : undefined).then(r => r.data);
+export const updateCustomer = (data: { id: string, [key: string]: any }, idDocumentFile?: File | null) => api.put(`/customers/${data.id}`, toCustomerPayload(data, idDocumentFile), idDocumentFile ? {
+  headers: { 'Content-Type': 'multipart/form-data' }
+} : undefined).then(r => r.data);
 export const deleteCustomer = (id: string) => api.delete(`/customers/${id}`).then(r => r.data);
 
 // Loans

@@ -7,13 +7,20 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge, loanStatusTone } from "@/components/StatusBadge";
 import { formatTHB, formatDate } from "@/utils/format";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/customers/$id")({
   component: () => (
     <ProtectedRoute><AppLayout><Detail /></AppLayout></ProtectedRoute>
   ),
 });
+
+function resolveFileUrl(filePath?: string | null) {
+  if (!filePath) return "";
+  if (filePath.startsWith('http://') || filePath.startsWith('https://')) return filePath;
+  const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '').replace(/\/api$/, '') ?? '';
+  return `${apiBase}/${filePath}`;
+}
 
 function Detail() {
   const { id } = Route.useParams();
@@ -45,6 +52,8 @@ function Detail() {
     const paid = payments.filter((p) => p.loanId === l.id).reduce((a, p) => a + Number(p.amount), 0);
     return l.status !== "completed" && l.status !== "cancelled" ? sum + Math.max(Number(l.totalPayable) - paid, 0) : sum;
   }, 0);
+  const idDocumentUrl = resolveFileUrl(c.idDocumentUrl ?? c.id_document_url);
+  const idDocumentFileName = c.idDocumentFileName ?? c.id_document_file_name ?? 'id-document';
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -74,6 +83,24 @@ function Detail() {
             <div className="flex justify-between items-start gap-4">
               <dt className="text-muted-foreground shrink-0">ที่อยู่</dt>
               <dd className="text-right text-foreground">{c.address || "—"}</dd>
+            </div>
+            <div className="flex justify-between items-center gap-4">
+              <dt className="text-muted-foreground shrink-0">เอกสารบัตรประชาชน</dt>
+              <dd className="text-right">
+                {idDocumentUrl ? (
+                  <a
+                    href={idDocumentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium truncate max-w-[180px]"
+                  >
+                    <FileText className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{idDocumentFileName}</span>
+                  </a>
+                ) : (
+                  <span className="text-foreground">—</span>
+                )}
+              </dd>
             </div>
             <div className="flex justify-between items-center border-t border-border pt-3">
               <dt className="text-muted-foreground font-bold">ยอดเงินคงค้างรวม</dt>

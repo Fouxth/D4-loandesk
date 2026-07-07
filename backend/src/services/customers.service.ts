@@ -3,6 +3,7 @@ import { ApiError } from '../utils/apiError';
 
 const CUSTOMER_ALLOWED = new Set([
   'fullName', 'phone', 'idCard', 'address', 'notes', 'riskLevel', 'category',
+  'idDocumentUrl', 'idDocumentFileName',
 ]);
 
 function pickFields(data: any, allowed: Set<string>): Record<string, unknown> {
