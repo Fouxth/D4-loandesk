@@ -140,3 +140,49 @@ export async function uploadFileToDiscord(
   console.log(`[Discord] ✅ Upload complete! URL: ${attachment.url}`);
   return attachment.url;
 }
+
+/**
+ * Discord CDN attachment URLs are signed and expire after ~24h (the ex/is/hm
+ * query params). A URL stored in the DB days ago will 404. This asks Discord to
+ * re-sign a batch of URLs so the underlying (still-present) files load again.
+ *
+ * Returns a Map of original URL → freshly signed URL. On any failure it returns
+ * an empty map so callers can fall back to the stored URL instead of breaking.
+ */
+export async function refreshDiscordUrls(urls: string[]): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token || urls.length === 0) return result;
+
+  // Discord caps refresh-urls at 50 URLs per request.
+  const CHUNK = 50;
+  for (let i = 0; i < urls.length; i += CHUNK) {
+    const batch = urls.slice(i, i + CHUNK);
+    try {
+      const resp = await fetch(`${DISCORD_API_BASE}/attachments/refresh-urls`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bot ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ attachment_urls: batch }),
+      });
+
+      if (!resp.ok) {
+        console.error(`[Discord] refresh-urls failed: ${resp.status} - ${await resp.text()}`);
+        continue;
+      }
+
+      const data = await resp.json();
+      for (const item of data.refreshed_urls ?? []) {
+        if (item?.original && item?.refreshed) {
+          result.set(item.original, item.refreshed);
+        }
+      }
+    } catch (e: any) {
+      console.error(`[Discord] refresh-urls error: ${e.message}`);
+    }
+  }
+
+  return result;
+}
