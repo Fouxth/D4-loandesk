@@ -129,6 +129,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
         username: user.username,
         tenantId: user.tenantId || 'bkj',
         tenantName: user.tenantName || 'D4-LoanDesk',
+        mustChangePassword: !!user.mustChangePassword,
         user_metadata: { full_name: user.fullName, avatar_url: user.avatarUrl }
       },
       roles
@@ -141,16 +142,31 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
 
 router.post('/change-password', authenticate, async (req: AuthRequest, res) => {
   const { currentPassword, newPassword } = req.body;
+  if (!newPassword || newPassword.length < 4) {
+    return res.status(400).json({ error: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร' });
+  }
+
   try {
     const user = await authService.getUserById(req.userId!);
-    if (!user || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
-      return res.status(401).json({ error: 'รหัสผ่านเดิมไม่ถูกต้อง' });
+    if (!user) return res.status(404).json({ error: 'ไม่พบบัญชีผู้ใช้' });
+
+    // Verify current password unless user is forced to change password
+    if (!user.mustChangePassword && currentPassword) {
+      if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
+        return res.status(401).json({ error: 'รหัสผ่านเดิมไม่ถูกต้อง' });
+      }
     }
 
     const newPasswordHash = await bcrypt.hash(newPassword, 10);
     await authService.updateUserPassword(user.id, newPasswordHash);
 
-    res.json({ success: true, message: 'เปลี่ยนรหัสผ่านสำเร็จ' });
+    const token = jwt.sign(
+      { userId: user.id, tenantId: user.tenantId || 'bkj', pwdSig: newPasswordHash.slice(-6) },
+      getJwtSecret(),
+      { expiresIn: '7d' }
+    );
+
+    res.json({ success: true, message: 'เปลี่ยนรหัสผ่านสำเร็จ', token });
   } catch (e: any) {
     console.error('Change Password Error:', e);
     res.status(500).json({ error: e.message || 'Internal Server Error' });

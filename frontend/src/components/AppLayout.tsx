@@ -11,6 +11,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
+import { ForceChangePasswordModal } from "@/components/ForceChangePasswordModal";
 
 export function AppLayout({ children }: { children?: ReactNode }) {
   const { theme, toggle } = useTheme();
@@ -81,6 +82,9 @@ export function AppLayout({ children }: { children?: ReactNode }) {
 
       {/* Mobile Bottom Navigation */}
       <BottomNav />
+
+      {/* Mandatory First-Time Password Change Guard */}
+      <ForceChangePasswordModal />
     </SidebarProvider>
   );
 }

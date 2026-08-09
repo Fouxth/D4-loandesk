@@ -17,6 +17,7 @@ const sql = postgres(DATABASE_URL, {
 export default sql;
 
 export async function testDbConnection(): Promise<void> {
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE`;
   const res = await sql`SELECT count(*) FROM users`;
   console.log('✅ DB Connected. User count:', res[0].count);
 }

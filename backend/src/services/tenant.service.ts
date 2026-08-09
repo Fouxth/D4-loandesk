@@ -59,8 +59,8 @@ export async function createTenantAutomatically(creditorName: string): Promise<G
 
     // Re-use authService with the transactional 'sql' client
     const [user] = await sql`
-      INSERT INTO users (username, password_hash, tenant_id)
-      VALUES (${username}, ${passwordHash}, ${tenantId})
+      INSERT INTO users (username, password_hash, tenant_id, must_change_password)
+      VALUES (${username}, ${passwordHash}, ${tenantId}, true)
       RETURNING id, username
     `;
 

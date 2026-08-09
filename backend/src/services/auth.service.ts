@@ -14,7 +14,7 @@ export async function getUserByUsername(username: string) {
 export async function getUserById(id: string) {
   if (!id) return null;
   const [user] = await sql`
-    SELECT u.id, u.username, u.password_hash, u.tenant_id, t.name as tenant_name, t.is_active as tenant_is_active, p.full_name, p.avatar_url
+    SELECT u.id, u.username, u.password_hash, u.tenant_id, COALESCE(u.must_change_password, false) as must_change_password, t.name as tenant_name, t.is_active as tenant_is_active, p.full_name, p.avatar_url
     FROM users u
     LEFT JOIN profiles p ON p.id = u.id
     LEFT JOIN tenants t ON t.id = u.tenant_id
@@ -89,7 +89,7 @@ export async function createUser(username: string, passwordHash: string, fullNam
 export async function updateUserPassword(id: string, passwordHash: string) {
   await sql`
     UPDATE users
-    SET password_hash = ${passwordHash}
+    SET password_hash = ${passwordHash}, must_change_password = false
     WHERE id = ${id}
   `;
 }
