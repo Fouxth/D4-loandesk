@@ -303,8 +303,8 @@ function SuperAdminPage() {
       <div className="min-h-screen bg-background text-foreground pb-12">
         {/* Header */}
         <div className="relative overflow-hidden bg-primary/5 border-b border-border py-8 px-4 sm:px-6 lg:px-8">
-          <div className="absolute top-0 right-0 h-40 w-[400px] rounded-full bg-primary/10 blur-3xl" />
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="absolute top-0 right-0 h-40 w-[400px] rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4 relative z-10">
             <div>
               <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-indigo-500 bg-clip-text text-transparent">
                 Super Admin Console

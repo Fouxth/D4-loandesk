@@ -118,9 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setRoles([]);
       localStorage.removeItem('auth_token');
       toast.success("ออกจากระบบเรียบร้อยแล้ว");
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login";
-      }
+      window.location.replace("/login");
     }
   };
 
