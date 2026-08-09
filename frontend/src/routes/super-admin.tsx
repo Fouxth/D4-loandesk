@@ -544,11 +544,17 @@ function SuperAdminPage() {
                           <td className="py-4 text-right text-xs text-muted-foreground font-mono">
                             <span className="inline-flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              {new Date(t.createdAt).toLocaleDateString("th-TH", {
-                                year: "2-digit",
-                                month: "short",
-                                day: "numeric",
-                              })}
+                              {(() => {
+                                const raw = t.createdAt || (t as any).created_at;
+                                if (!raw) return "-";
+                                const d = new Date(raw);
+                                if (isNaN(d.getTime())) return "-";
+                                return d.toLocaleDateString("th-TH", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                });
+                              })()}
                             </span>
                           </td>
                         </tr>

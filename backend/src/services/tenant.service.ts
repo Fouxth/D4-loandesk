@@ -38,8 +38,8 @@ export async function createTenantAutomatically(creditorName: string): Promise<G
 
     // 2. Insert tenant
     const [tenant] = await sql`
-      INSERT INTO tenants (id, name)
-      VALUES (${tenantId}, ${creditorName.trim()})
+      INSERT INTO tenants (id, name, created_at, updated_at)
+      VALUES (${tenantId}, ${creditorName.trim()}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING id, name
     `;
 
@@ -90,11 +90,11 @@ export async function getAllTenants() {
     SELECT 
       t.id, 
       t.name, 
-      t.is_active,
-      t.created_at,
-      (SELECT username FROM users WHERE tenant_id = t.id LIMIT 1) as owner_username,
-      (SELECT count(*) FROM customers WHERE tenant_id = t.id) as customer_count,
-      (SELECT count(*) FROM loans WHERE tenant_id = t.id) as loan_count
+      COALESCE(t.is_active, true) as "isActive",
+      COALESCE(t.created_at, CURRENT_TIMESTAMP) as "createdAt",
+      (SELECT username FROM users WHERE tenant_id = t.id LIMIT 1) as "ownerUsername",
+      (SELECT count(*) FROM customers WHERE tenant_id = t.id)::int as "customerCount",
+      (SELECT count(*) FROM loans WHERE tenant_id = t.id)::int as "loanCount"
     FROM tenants t
     ORDER BY t.created_at DESC
   `;
