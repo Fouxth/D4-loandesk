@@ -135,13 +135,13 @@ function CalendarView() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
           {/* Calendar Grid */}
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)]">
+          <div className="rounded-2xl border border-border bg-card p-2 sm:p-6 shadow-[var(--shadow-elevated)]">
             {/* Day headers */}
             <div className="grid grid-cols-7 mb-2">
               {THAI_DAYS_SHORT.map((d, i) => (
                 <div
                   key={d}
-                  className={`py-2 text-center text-[11px] font-bold uppercase tracking-widest ${
+                  className={`py-2 text-center text-[10px] sm:text-[11px] font-bold uppercase tracking-widest ${
                     i === 0 ? "text-destructive" : "text-muted-foreground"
                   }`}
                 >
@@ -154,7 +154,7 @@ function CalendarView() {
             <div className="grid grid-cols-7 gap-1">
               {grid.map((date, i) => {
                 if (!date)
-                  return <div key={`empty-${i}`} className="min-h-[80px] sm:min-h-[90px]" />;
+                  return <div key={`empty-${i}`} className="min-h-[52px] sm:min-h-[90px]" />;
 
                 const key = formatDateYMD(date);
                 const items = byDate[key] ?? [];
@@ -166,7 +166,7 @@ function CalendarView() {
                   <div
                     key={key}
                     onClick={() => setSelected(isSelected ? null : key)}
-                    className={`min-h-[80px] sm:min-h-[90px] rounded-xl border p-1.5 cursor-pointer transition-all ${
+                    className={`min-h-[52px] sm:min-h-[90px] rounded-xl border p-1 sm:p-1.5 cursor-pointer transition-all ${
                       isSelected
                         ? "border-primary bg-primary/10 ring-2 ring-primary/30"
                         : isToday

@@ -43,6 +43,8 @@ audit_*.txt
 .env
 .env.*
 *.env
+env
+**/env
 *.key
 *.pem
 *.crt

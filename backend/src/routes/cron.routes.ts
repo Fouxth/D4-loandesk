@@ -30,6 +30,31 @@ async function handleCron(req: Request, res: Response, kind: 'morning' | 'evenin
   }
 }
 
+import { runAllTenantsBackup } from '../services/backup.service';
+
+router.get('/backup', async (req: Request, res: Response) => {
+  if (!authorizeCron(req)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const results = await runAllTenantsBackup();
+    res.json({ ok: true, backupCount: results.length, timestamp: new Date().toISOString() });
+  } catch (e) {
+    handleRouteError(e, res, 'CRON backup');
+  }
+});
+router.post('/backup', async (req: Request, res: Response) => {
+  if (!authorizeCron(req)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const results = await runAllTenantsBackup();
+    res.json({ ok: true, backupCount: results.length, timestamp: new Date().toISOString() });
+  } catch (e) {
+    handleRouteError(e, res, 'CRON backup');
+  }
+});
+
 router.get('/line-notifications/morning', (req, res) => handleCron(req, res, 'morning'));
 router.get('/line-notifications/evening', (req, res) => handleCron(req, res, 'evening'));
 router.post('/line-notifications/morning', (req, res) => handleCron(req, res, 'morning'));

@@ -24,7 +24,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
+import { User } from "lucide-react";
 
 export function AppSidebar() {
   const { t, i18n } = useTranslation();
@@ -130,6 +132,20 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter className="border-t border-border p-3 bg-card/50">
+        <div className="flex items-center justify-between gap-2 px-2 py-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
+              <User className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-foreground truncate">{user?.username || user?.email || "ผู้ใช้งาน"}</p>
+              <p className="text-[10px] text-muted-foreground truncate capitalize">{roles.join(", ") || "User"}</p>
+            </div>
+          </div>
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }

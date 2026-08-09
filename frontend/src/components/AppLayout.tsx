@@ -30,13 +30,13 @@ export function AppLayout({ children }: { children?: ReactNode }) {
         <div className="flex flex-1 flex-col min-w-0">
           {/* Header */}
           <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background/80 px-3 md:px-4 backdrop-blur-md">
-            {/* Desktop: sidebar trigger */}
-            <div className="hidden md:flex">
-              <SidebarTrigger className="text-foreground" />
+            {/* Sidebar trigger for both mobile and desktop */}
+            <div className="flex items-center">
+              <SidebarTrigger className="text-foreground h-9 w-9" />
             </div>
 
             {/* Mobile: App name */}
-            <div className="flex md:hidden items-center gap-2 flex-1">
+            <div className="flex md:hidden items-center gap-2 flex-1 min-w-0">
               <span className="text-sm font-black tracking-tight text-foreground truncate">
                 {businessName || "D4-LoanDesk"}
               </span>
@@ -51,13 +51,16 @@ export function AppLayout({ children }: { children?: ReactNode }) {
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
 
-            {/* Desktop only: Logout + Language */}
-            <div className="hidden md:flex items-center gap-1">
+            {/* Desktop & Mobile Logout + Language */}
+            <div className="flex items-center gap-1">
+              <div className="p-1">
+                <LanguageSwitcher />
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
                 aria-label="Sign out"
-                className="h-9 w-9"
+                className="h-9 w-9 text-muted-foreground hover:text-destructive"
                 onClick={async () => {
                   await signOut();
                   navigate({ to: "/login" });
@@ -65,9 +68,6 @@ export function AppLayout({ children }: { children?: ReactNode }) {
               >
                 <LogOut className="h-4 w-4" />
               </Button>
-              <div className="p-1">
-                <LanguageSwitcher />
-              </div>
             </div>
           </header>
 

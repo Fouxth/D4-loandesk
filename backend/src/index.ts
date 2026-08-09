@@ -1,6 +1,7 @@
 import { createApp } from './app';
 import { testDbConnection } from './db';
 import { startLineScheduler } from './services/lineScheduler.service';
+import { startBackupScheduler } from './services/backupScheduler.service';
 import { warnIfChatMode } from './services/lineBotInfo';
 
 const app = createApp();
@@ -12,5 +13,6 @@ app.listen(PORT, () => {
     console.error('❌ DB Connection Error:', err.message);
   });
   startLineScheduler();
+  startBackupScheduler();
   warnIfChatMode().catch(() => undefined);
 });

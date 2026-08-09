@@ -37,6 +37,10 @@ const DEFAULT_TENANT_SETTINGS: Record<string, any> = {
     lateFeePerDay: 50,
     gracePeriodDays: 3,
   },
+  backup_config: {
+    enabled: true,
+    notifyDiscord: true,
+  },
 };
 
 // Get all settings for the logged-in tenant
@@ -76,6 +80,26 @@ router.get('/', async (req: AuthRequest, res) => {
     res.json(result);
   } catch (e) {
     handleRouteError(e, res, 'GET /settings');
+  }
+});
+
+import { runTenantBackup, restoreTenantBackup } from '../services/backup.service';
+
+router.post('/backup/run', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const result = await runTenantBackup(req.tenantId!);
+    res.json({ message: 'ส่งไฟล์สำรองข้อมูลเข้า Discord เรียบร้อยแล้ว', result });
+  } catch (e) {
+    handleRouteError(e, res, 'POST /settings/backup/run');
+  }
+});
+
+router.post('/backup/restore', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const result = await restoreTenantBackup(req.tenantId!, req.body);
+    res.json({ message: 'นำเข้าข้อมูลคืนสู่ PostgreSQL เรียบร้อยแล้ว', result });
+  } catch (e) {
+    handleRouteError(e, res, 'POST /settings/backup/restore');
   }
 });
 

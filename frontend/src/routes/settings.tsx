@@ -24,6 +24,8 @@ import {
   createStaff,
   deleteStaff,
   resetStaffPassword,
+  triggerDiscordBackup,
+  restoreDatabase,
 } from "@/lib/services";
 import {
   Dialog,
@@ -50,6 +52,7 @@ import {
   UserPlus,
   Trash2,
   KeyRound,
+  RefreshCw,
 } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
 import { cn } from "@/utils/utils";
@@ -95,6 +98,11 @@ function Settings() {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
 
+  // Auto-backup & restore
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(true);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+
   // Staff management
   const [staffList, setStaffList] = useState<any[]>([]);
   const [staffOpen, setStaffOpen] = useState(false);
@@ -116,6 +124,7 @@ function Settings() {
           });
         }
         if (data.lending_config) setLending(normalizeLendingConfig(data.lending_config));
+        if (data.backup_config) setAutoBackupEnabled(data.backup_config.enabled !== false);
         
         if (data.customer_limits && Array.isArray(data.customer_limits)) {
           setLimits(data.customer_limits);
@@ -485,6 +494,47 @@ function Settings() {
     }
   };
 
+  const handleDiscordBackup = async () => {
+    setBusy("discord-backup");
+    try {
+      const res = await triggerDiscordBackup();
+      toast.success(res.message || "ส่งไฟล์สำรองข้อมูลเข้า Discord เรียบร้อยแล้ว");
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "ไม่สามารถส่งข้อมูลเข้า Discord ได้");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleToggleAutoBackup = async (checked: boolean) => {
+    setAutoBackupEnabled(checked);
+    try {
+      await updateSetting("backup_config", { enabled: checked, notifyDiscord: true });
+      toast.success(checked ? "เปิดการสำรองข้อมูลอัตโนมัติประจำวันแล้ว" : "ปิดการสำรองข้อมูลอัตโนมัติแล้ว");
+    } catch (e) {
+      toast.error("ไม่สามารถบันทึกการตั้งค่าได้");
+    }
+  };
+
+  const handleRestoreSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!restoreFile) return toast.error("กรุณาเลือกไฟล์ Backup JSON");
+    setBusy("restore");
+    try {
+      const text = await restoreFile.text();
+      const payload = JSON.parse(text);
+      const res = await restoreDatabase(payload);
+      toast.success(res.message || "นำเข้าข้อมูลคืนสู่ PostgreSQL เรียบร้อยแล้ว");
+      setRestoreOpen(false);
+      setRestoreFile(null);
+      window.location.reload();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || e.message || "รูปแบบไฟล์ไม่ถูกต้อง หรือไม่สามารถนำเข้าข้อมูลได้");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!staffForm.username || !staffForm.fullName || !staffForm.password) return;
@@ -553,8 +603,28 @@ function Settings() {
         description="จัดการข้อมูลร้านค้า บัญชีผู้ใช้ และการตั้งค่าทั่วไปของระบบ" 
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
-        {/* Left Sidebar Navigation */}
+      {/* Mobile Horizontal Scrollable Navigation */}
+      <div className="md:hidden flex overflow-x-auto pb-2 gap-2 scrollbar-none sticky top-14 z-20 bg-background/95 backdrop-blur-md py-2.5 -mx-4 px-4 border-b border-border/50">
+        {navItems.map((item) => (
+          <a
+            key={item.id}
+            href={`#${item.id}`}
+            onClick={() => setActiveSection(item.id)}
+            className={cn(
+              "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all",
+              activeSection === item.id
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-muted/60 text-muted-foreground hover:bg-muted"
+            )}
+          >
+            <item.icon className="h-3.5 w-3.5" />
+            {item.label}
+          </a>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-4 md:mt-8">
+        {/* Left Sidebar Navigation — Desktop */}
         <div className="space-y-2 hidden md:block">
           <nav className="flex flex-col gap-1 sticky top-8">
             {navItems.map((item) => (
@@ -1178,28 +1248,56 @@ function Settings() {
               </div>
               <h3 className="font-black text-lg">ระบบและการสำรองข้อมูล</h3>
             </div>
-            <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm">
-               <div className="flex flex-wrap gap-3">
-                  <Button 
-                    variant="outline" 
-                    onClick={handleExportExcel}
-                    disabled={busy === "export"}
-                    className="rounded-xl font-bold h-10 px-6"
-                  >
-                    {busy === "export" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    ส่งออกข้อมูลเป็น Excel
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={handleBackup}
-                    disabled={busy === "backup"}
-                    className="rounded-xl font-bold h-10 px-6"
-                  >
-                    {busy === "backup" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    สำรองข้อมูล (Backup)
-                  </Button>
-               </div>
-               <p className="text-[11px] text-muted-foreground mt-4 italic">* แนะนำให้สำรองข้อมูลอย่างสม่ำเสมอเพื่อความปลอดภัยของข้อมูล</p>
+            <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-6">
+              {/* Auto-Backup Toggle Switch */}
+              <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50">
+                <div className="space-y-0.5">
+                  <span className="text-sm font-bold">การสำรองข้อมูลอัตโนมัติประจำวัน (Auto-Backup to Discord)</span>
+                  <p className="text-[11px] text-muted-foreground">สำรองข้อมูลเฉพาะของร้านค้านี้ลง Discord Channel ทุกวันเวลา 00:00 น. (0 MB Disk Usage)</p>
+                </div>
+                <Switch
+                  checked={autoBackupEnabled}
+                  onCheckedChange={handleToggleAutoBackup}
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Button 
+                  variant="outline" 
+                  onClick={handleExportExcel}
+                  disabled={busy === "export"}
+                  className="rounded-xl font-bold h-10 px-6"
+                >
+                  {busy === "export" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  ส่งออกข้อมูลเป็น Excel
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleBackup}
+                  disabled={busy === "backup"}
+                  className="rounded-xl font-bold h-10 px-6"
+                >
+                  {busy === "backup" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  ดาวน์โหลดไฟล์ Backup (JSON)
+                </Button>
+                <Button 
+                  className="rounded-xl font-bold h-10 px-6 bg-[#5865F2] hover:bg-[#4752C4] text-white shadow-md shadow-[#5865F2]/20 gap-2"
+                  onClick={handleDiscordBackup}
+                  disabled={busy === "discord-backup"}
+                >
+                  {busy === "discord-backup" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+                  ส่ง Backup เข้า Discord ทันที
+                </Button>
+                <Button
+                  variant="outline"
+                  className="rounded-xl font-bold h-10 px-6 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 gap-2"
+                  onClick={() => setRestoreOpen(true)}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  นำเข้าข้อมูลจากไฟล์ Backup (Restore DB)
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground italic">* ข้อมูลการสำรองจะถูกแยกตาม Tenant ของร้านค้าอย่างเป็นอิสระ สามารถนำเข้าไฟล์ JSON กลับคืนสู่ PostgreSQL ได้ทุกเมื่อ</p>
             </div>
           </section>
 
@@ -1358,6 +1456,52 @@ function Settings() {
               ยืนยันรีเซ็ต
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Restore Database Dialog */}
+      <Dialog open={restoreOpen} onOpenChange={setRestoreOpen}>
+        <DialogContent className="rounded-2xl max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="font-black text-xl flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <RefreshCw className="h-5 w-5" />
+              นำเข้าข้อมูลจากไฟล์ Backup
+            </DialogTitle>
+            <DialogDescription className="text-xs font-medium text-muted-foreground pt-1">
+              🚨 **คำเตือน**: การนำเข้าข้อมูลจากไฟล์ Backup จะเขียนทับข้อมูลสัญญา ลูกค้า และการชำระเงินของร้านค้านี้ด้วยข้อมูลในไฟล์ JSON
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleRestoreSubmit} className="space-y-4 py-3">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+                เลือกไฟล์ Backup (.json)
+              </Label>
+              <Input
+                type="file"
+                accept=".json,application/json"
+                onChange={(e) => setRestoreFile(e.target.files?.[0] ?? null)}
+                className="rounded-xl h-11 bg-muted/20 text-xs"
+              />
+              {restoreFile && (
+                <p className="text-xs font-bold text-primary mt-1">
+                  ไฟล์ที่เลือก: {restoreFile.name} ({(restoreFile.size / 1024).toFixed(1)} KB)
+                </p>
+              )}
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="ghost" className="rounded-xl font-bold h-11" onClick={() => setRestoreOpen(false)} disabled={busy === "restore"}>
+                ยกเลิก
+              </Button>
+              <Button
+                type="submit"
+                className="rounded-xl font-black h-11 px-8 bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/20"
+                disabled={busy === "restore" || !restoreFile}
+              >
+                {busy === "restore" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                ยืนยันการนำเข้าข้อมูล
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

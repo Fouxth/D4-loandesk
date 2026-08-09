@@ -265,7 +265,7 @@ function LoanDetail() {
       />
 
       {/* ─── MOBILE STICKY ACTION BAR ─────────────────────── */}
-      <div className="fixed bottom-[64px] left-0 right-0 z-40 md:hidden px-4 pb-3">
+      <div className="fixed bottom-[calc(3.8rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 md:hidden px-4 pb-2">
         <div className="flex gap-3 rounded-2xl bg-background/90 backdrop-blur-xl border border-border shadow-2xl p-3">
           <Dialog open={openMobile} onOpenChange={setOpenMobile}>
             <DialogTrigger asChild>
