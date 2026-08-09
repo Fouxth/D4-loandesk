@@ -8,11 +8,9 @@ const app = createApp();
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`✅ Backend running on http://localhost:${PORT}`);
   testDbConnection().catch((err) => {
     console.error('❌ DB Connection Error:', err.message);
   });
   startLineScheduler();
   startBackupScheduler();
-  warnIfChatMode().catch(() => undefined);
 });

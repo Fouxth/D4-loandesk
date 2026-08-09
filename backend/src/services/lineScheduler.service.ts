@@ -37,7 +37,6 @@ export function startLineScheduler() {
   if (process.env.DISABLE_LINE_CRON === 'true') return;
   if (process.env.VERCEL) return;
 
-  console.log('[LINE Cron] Scheduler started (Asia/Bangkok)');
   setInterval(() => {
     tick().catch((err) => console.error('[LINE Cron] tick error:', err));
   }, 60_000);

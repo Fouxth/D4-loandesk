@@ -25,16 +25,9 @@ async function tick() {
 }
 
 export function startBackupScheduler() {
-  if (process.env.DISABLE_BACKUP_CRON === 'true') {
-    console.log('[Backup Cron] Scheduler disabled via DISABLE_BACKUP_CRON');
-    return;
-  }
-  if (process.env.VERCEL) {
-    console.log('[Backup Cron] Vercel environment detected — relying on Vercel cron endpoints.');
-    return;
-  }
+  if (process.env.DISABLE_BACKUP_CRON === 'true') return;
+  if (process.env.VERCEL) return;
 
-  console.log('[Backup Cron] Scheduler started (Asia/Bangkok — Daily at 00:00)');
   setInterval(() => {
     tick().catch((err) => console.error('[Backup Cron] tick error:', err));
   }, 60_000);

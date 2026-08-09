@@ -21,16 +21,5 @@ export async function fetchLineBotInfo(): Promise<LineBotInfo | null> {
 }
 
 export async function warnIfChatMode() {
-  const info = await fetchLineBotInfo();
-  if (!info) return;
-
-  if (info.chatMode === 'chat') {
-    console.warn('');
-    console.warn('⚠️  [LINE] Bot อยู่โหมด "chat" — Bot ตอบกลับไม่ได้!');
-    console.warn('    ไป manager.line.biz → ตั้งค่า → การตอบกลับ → เลือก "Webhook (Bot)"');
-    console.warn(`    Account: ${info.displayName} (${info.basicId})`);
-    console.warn('');
-  } else {
-    console.log(`[LINE] Bot mode OK (${info.basicId}, mode=${info.chatMode})`);
-  }
+  // Silent startup check — errors logged only on action failure
 }
