@@ -111,11 +111,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       await api.post("/auth/logout");
+    } catch (e) {
+      console.error("Logout error", e);
+    } finally {
       setUser(null);
       setRoles([]);
       localStorage.removeItem('auth_token');
-    } catch (e) {
-      console.error("Logout error", e);
+      toast.success("ออกจากระบบเรียบร้อยแล้ว");
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
     }
   };
 

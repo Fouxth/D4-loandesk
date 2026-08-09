@@ -1,10 +1,10 @@
-import { type ReactNode } from "react";
-import { Outlet, useNavigate } from "@tanstack/react-router";
+import { type ReactNode, useState } from "react";
+import { Outlet } from "@tanstack/react-router";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, LogOut } from "lucide-react";
+import { Moon, Sun, LogOut, Loader2 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -17,7 +17,7 @@ export function AppLayout({ children }: { children?: ReactNode }) {
   const { signOut } = useAuth();
   const { business } = useSettings();
   const { i18n } = useTranslation();
-  const navigate = useNavigate();
+  const [signingOut, setSigningOut] = useState(false);
 
   const businessName = i18n.language === "th" ? business.nameTH : business.nameEN;
 
@@ -60,13 +60,14 @@ export function AppLayout({ children }: { children?: ReactNode }) {
                 variant="ghost"
                 size="icon"
                 aria-label="Sign out"
-                className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                disabled={signingOut}
+                className="h-9 w-9 text-muted-foreground hover:text-destructive active:scale-95 transition-all cursor-pointer"
                 onClick={async () => {
+                  setSigningOut(true);
                   await signOut();
-                  navigate({ to: "/login" });
                 }}
               >
-                <LogOut className="h-4 w-4" />
+                {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
               </Button>
             </div>
           </header>

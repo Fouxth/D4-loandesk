@@ -173,6 +173,7 @@ function SuperAdminPage() {
   // Confirmation modal state
   const [confirmTarget, setConfirmTarget] = useState<TenantInfo | null>(null);
   const [toggling, setToggling] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   const loadTenantsList = async () => {
     try {
@@ -321,11 +322,19 @@ function SuperAdminPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={signOut}
-                className="text-xs font-bold text-red-500 hover:bg-red-500/10 hover:text-red-600 gap-1.5 h-9 rounded-xl px-4 border border-red-500/20 shadow-sm bg-card"
+                disabled={signingOut}
+                onClick={async () => {
+                  setSigningOut(true);
+                  await signOut();
+                }}
+                className="text-xs font-bold text-red-500 hover:bg-red-500/10 hover:text-red-600 active:scale-95 transition-all gap-1.5 h-9 rounded-xl px-4 border border-red-500/20 shadow-sm bg-card cursor-pointer"
               >
-                <LogOut className="h-3.5 w-3.5" />
-                ออกจากระบบ
+                {signingOut ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <LogOut className="h-3.5 w-3.5" />
+                )}
+                {signingOut ? "กำลังออกจากระบบ..." : "ออกจากระบบ"}
               </Button>
             </div>
           </div>
