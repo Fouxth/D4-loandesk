@@ -117,7 +117,7 @@ function findTenantForUser(userId: string) {
       (value->>'userId') = ${userId}
       OR COALESCE(value->'userIds', '[]'::jsonb) @> ${jsonArr}::jsonb
     )
-    LIMIT 1
+    LIMIT 2
   `;
 }
 
@@ -159,6 +159,18 @@ export async function handleBotCommand(text: string, userId: string, replyToken:
     ]);
     return;
   }
+
+  // Finding 8: Detect ambiguous matches when LINE ID belongs to multiple tenants
+  if (settings.length > 1) {
+    await deliverMessages(userId, replyToken, [
+      {
+        type: 'text',
+        text: '⚠️ พบว่า User ID นี้ถูกผูกไว้กับมากกว่า 1 ร้านค้าในระบบ กรุณาแจ้งผู้ดูแลระบบเพื่อระบุร้านค้าให้ถูกต้องก่อนใช้งานครับ',
+      },
+    ]);
+    return;
+  }
+
   const tenantId = settings[0].tenantId;
 
   try {

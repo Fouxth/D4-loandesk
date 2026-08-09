@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import sql from '../db';
+import * as authService from '../services/auth.service';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 import { handleRouteError } from '../utils/apiError';
 import { DEFAULT_LINE_EVENTS } from '../services/lineConfig';
@@ -9,33 +10,46 @@ const router = Router();
 
 router.use(authenticate);
 
+// Finding 7: Restrict setting updates to tenant admin users
+async function requireAdmin(req: AuthRequest, res: any, next: any) {
+  try {
+    const roles = await authService.getUserRoles(req.userId!);
+    if (!roles.includes('admin')) {
+      return res.status(403).json({ error: 'เฉพาะผู้ดูแลระบบเท่านั้นที่มีสิทธิ์แก้ไขการตั้งค่า' });
+    }
+    next();
+  } catch (e) {
+    handleRouteError(e, res, 'requireAdmin');
+  }
+}
+
+const DEFAULT_TENANT_SETTINGS: Record<string, any> = {
+  business_profile: { nameTH: '', nameEN: '', phone: '', address: '', logoUrl: '' },
+  line_notify: {
+    enabled: false,
+    token: '',
+    userId: '',
+    userIds: [],
+    events: { ...DEFAULT_LINE_EVENTS },
+  },
+  lending_config: {
+    defaultInterestRate: 10,
+    lateFeePerDay: 50,
+    gracePeriodDays: 3,
+  },
+};
+
 // Get all settings for the logged-in tenant
 router.get('/', async (req: AuthRequest, res) => {
   try {
     let settings = await sql`SELECT * FROM settings WHERE tenant_id = ${req.tenantId!}`;
     
-    // Auto-seed default settings if this is a newly generated tenant with no settings
+    // Finding 9: Seed explicit default settings from application constants rather than copying raw bkj DB rows
     if (settings.length === 0 && req.tenantId! !== 'bkj') {
-      const defaultSettings = await sql`SELECT * FROM settings WHERE tenant_id = 'bkj'`;
-      for (const ds of defaultSettings) {
-        // Adjust default name to D4-LoanDesk for general defaults, or keep it generic
-        let val = ds.value;
-        if (ds.key === 'business_profile') {
-          // Reset business name to empty or default for the new tenant to customize
-          val = { ...ds.value, nameTH: '', nameEN: '', phone: '', address: '' };
-        } else if (ds.key === 'line_notify') {
-          // Reset LINE Notify credentials to prevent leakage
-          val = {
-            enabled: false,
-            token: '',
-            userId: '',
-            userIds: [],
-            events: { ...DEFAULT_LINE_EVENTS },
-          };
-        }
+      for (const [key, val] of Object.entries(DEFAULT_TENANT_SETTINGS)) {
         await sql`
           INSERT INTO settings (tenant_id, key, value, updated_at)
-          VALUES (${req.tenantId!}, ${ds.key}, ${val}, CURRENT_TIMESTAMP)
+          VALUES (${req.tenantId!}, ${key}, ${val}, CURRENT_TIMESTAMP)
           ON CONFLICT (tenant_id, key) DO NOTHING
         `;
       }
@@ -43,8 +57,20 @@ router.get('/', async (req: AuthRequest, res) => {
       settings = await sql`SELECT * FROM settings WHERE tenant_id = ${req.tenantId!}`;
     }
 
+    // Finding 1: Check user role and redact sensitive credentials for non-admin staff users
+    const roles = await authService.getUserRoles(req.userId!);
+    const isAdmin = roles.includes('admin');
+
     const result = settings.reduce((acc: any, curr) => {
-      acc[curr.key] = curr.value;
+      let val = curr.value;
+      if (!isAdmin && curr.key === 'line_notify' && val && typeof val === 'object') {
+        val = {
+          ...val,
+          token: val.token ? '••••••••' : '',
+          channelSecret: val.channelSecret ? '••••••••' : '',
+        };
+      }
+      acc[curr.key] = val;
       return acc;
     }, {});
     res.json(result);
@@ -53,7 +79,7 @@ router.get('/', async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/line-notify/test', async (req: AuthRequest, res) => {
+router.post('/line-notify/test', requireAdmin, async (req: AuthRequest, res) => {
   try {
     await sendLineTestNotification(req.tenantId!);
     res.json({ message: 'ส่งข้อความทดสอบแล้ว' });
@@ -63,7 +89,7 @@ router.post('/line-notify/test', async (req: AuthRequest, res) => {
 });
 
 // Update specific setting for the logged-in tenant
-router.post('/:key', async (req: AuthRequest, res) => {
+router.post('/:key', requireAdmin, async (req: AuthRequest, res) => {
   const { key } = req.params;
   const { value } = req.body;
   

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
+import sql from '../db';
 import * as financeService from '../services/finance.service';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 import { handleRouteError } from '../utils/apiError';
@@ -36,6 +37,18 @@ router.post('/payments', upload.single('slip'), async (req: AuthRequest, res) =>
   }
   try {
     const body: any = { ...req.body };
+    if (!body.loanId) {
+      return res.status(400).json({ error: 'กรุณาระบุสัญญาเงินกู้' });
+    }
+
+    // Finding 6: Validate loan ownership BEFORE triggering external Discord upload
+    const [loan] = await sql`
+      SELECT id FROM loans WHERE id = ${body.loanId} AND tenant_id = ${req.tenantId!}
+    `;
+    if (!loan) {
+      return res.status(404).json({ error: 'ไม่พบข้อมูลสัญญา หรือคุณไม่มีสิทธิ์เข้าถึงสัญญานี้' });
+    }
+
     if (req.file) {
       body.slipUrl = await uploadFileToDiscord(
         req.tenantId!,

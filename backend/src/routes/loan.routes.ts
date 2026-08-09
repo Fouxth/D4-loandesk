@@ -99,16 +99,17 @@ router.delete('/:id', async (req: AuthRequest, res) => {
 });
 
 // Attachments
-router.post('/:id/attachments', upload.single('file'), async (req: any, res) => {
+router.post('/:id/attachments', upload.single('file'), async (req: AuthRequest, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
     // Fetch loan & customer info to build a rich message
     const loan = await loanService.getLoanById(req.params.id as string, req.tenantId!);
-    let customizedMessage = `📎 อัปโหลดรูปภาพหลักฐานจากระบบของ **${req.tenantId!}**`;
-    if (loan) {
-      customizedMessage = `📸 **มีรูปหลักฐานใหม่ถูกแนบเข้าระบบ!**\n👤 **ลูกค้า:** \`${loan.customerName}\`\n📝 **เลขที่สัญญา:** \`${loan.loanNumber}\`\n📂 **ไฟล์ต้นทาง:** \`${req.file.originalname}\`\n⏰ **เวลาอัปโหลด:** ${new Date().toLocaleString('th-TH')}`;
+    if (!loan) {
+      return res.status(404).json({ error: 'ไม่พบข้อมูลสัญญา หรือไม่มีสิทธิ์เข้าถึง' });
     }
+
+    const customizedMessage = `📸 **มีรูปหลักฐานใหม่ถูกแนบเข้าระบบ!**\n👤 **ลูกค้า:** \`${loan.customerName}\`\n📝 **เลขที่สัญญา:** \`${loan.loanNumber}\`\n📂 **ไฟล์ต้นทาง:** \`${req.file.originalname}\`\n⏰ **เวลาอัปโหลด:** ${new Date().toLocaleString('th-TH')}`;
     
     // 1. Upload to Discord and retrieve dynamic CDN link
     const discordUrl = await uploadFileToDiscord(
@@ -120,20 +121,20 @@ router.post('/:id/attachments', upload.single('file'), async (req: any, res) => 
     );
     
     // 2. Add to database attachments table with full url as file_path
-    const result = await uploadService.dbAddAttachment(req.params.id as string, discordUrl, req.file.originalname);
+    const result = await uploadService.dbAddAttachment(req.params.id as string, discordUrl, req.file.originalname, req.tenantId!);
     res.json(result);
   } catch (e) {
     handleRouteError(e, res, 'POST /loans/:id/attachments');
   }
 });
 
-router.get('/:id/attachments', async (req, res) => {
-  try { res.json(await uploadService.dbGetAttachments(req.params.id as string)); }
+router.get('/:id/attachments', async (req: AuthRequest, res) => {
+  try { res.json(await uploadService.dbGetAttachments(req.params.id as string, req.tenantId!)); }
   catch (e) { handleRouteError(e, res, 'GET /loans/:id/attachments'); }
 });
 
-router.delete('/attachments/:id', async (req, res) => {
-  try { res.json(await uploadService.dbDeleteAttachment(req.params.id as string)); }
+router.delete('/attachments/:id', async (req: AuthRequest, res) => {
+  try { res.json(await uploadService.dbDeleteAttachment(req.params.id as string, req.tenantId!)); }
   catch (e) { handleRouteError(e, res, 'DELETE /loans/attachments/:id'); }
 });
 

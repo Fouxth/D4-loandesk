@@ -34,6 +34,10 @@ test_*.js
 find_*.js
 inspect_*.js
 *.xlsx
+*.csv
+audit_*.csv
+audit_*.txt
+*.report.txt
 
 # Secrets and sensitive files
 .env

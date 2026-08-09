@@ -50,10 +50,11 @@ router.post('/:id/attachments', upload.single('file'), async (req: AuthRequest, 
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
     const customer = await customerService.dbGetCustomerById(req.params.id as string, req.tenantId!);
-    let customizedMessage = `📎 อัปโหลดเอกสารลูกค้าจากระบบของ ${req.tenantId!}`;
-    if (customer) {
-      customizedMessage = `📎 **มีเอกสารลูกค้าใหม่ถูกแนบเข้าระบบ!**\n👤 **ลูกค้า:** \`${customer.fullName}\`\n📂 **ไฟล์ต้นทาง:** \`${req.file.originalname}\`\n⏰ **เวลาอัปโหลด:** ${new Date().toLocaleString('th-TH')}`;
+    if (!customer) {
+      return res.status(404).json({ error: 'ไม่พบข้อมูลลูกค้า หรือไม่มีสิทธิ์เข้าถึง' });
     }
+
+    const customizedMessage = `📎 **มีเอกสารลูกค้าใหม่ถูกแนบเข้าระบบ!**\n👤 **ลูกค้า:** \`${customer.fullName}\`\n📂 **ไฟล์ต้นทาง:** \`${req.file.originalname}\`\n⏰ **เวลาอัปโหลด:** ${new Date().toLocaleString('th-TH')}`;
 
     const discordUrl = await uploadFileToDiscord(
       req.tenantId!,
@@ -63,7 +64,7 @@ router.post('/:id/attachments', upload.single('file'), async (req: AuthRequest, 
       customizedMessage,
     );
 
-    const result = await uploadService.dbAddCustomerAttachment(req.params.id as string, discordUrl, req.file.originalname);
+    const result = await uploadService.dbAddCustomerAttachment(req.params.id as string, discordUrl, req.file.originalname, req.tenantId!);
     res.json(result);
   } catch (e) {
     handleRouteError(e, res, 'POST /customers/:id/attachments');
@@ -71,12 +72,12 @@ router.post('/:id/attachments', upload.single('file'), async (req: AuthRequest, 
 });
 
 router.get('/:id/attachments', async (req: AuthRequest, res) => {
-  try { res.json(await uploadService.dbGetCustomerAttachments(req.params.id as string)); }
+  try { res.json(await uploadService.dbGetCustomerAttachments(req.params.id as string, req.tenantId!)); }
   catch (e) { handleRouteError(e, res, 'GET /customers/:id/attachments'); }
 });
 
 router.delete('/attachments/:id', async (req: AuthRequest, res) => {
-  try { res.json(await uploadService.dbDeleteCustomerAttachment(req.params.id as string)); }
+  try { res.json(await uploadService.dbDeleteCustomerAttachment(req.params.id as string, req.tenantId!)); }
   catch (e) { handleRouteError(e, res, 'DELETE /customers/attachments/:id'); }
 });
 

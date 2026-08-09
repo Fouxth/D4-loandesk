@@ -26,7 +26,10 @@ async function withFreshUrls(rows: any[]): Promise<any[]> {
   }));
 }
 
-export async function dbAddAttachment(loanId: string, filePath: string, fileName: string) {
+export async function dbAddAttachment(loanId: string, filePath: string, fileName: string, tenantId: string) {
+  const [loan] = await sql`SELECT id FROM loans WHERE id = ${loanId} AND tenant_id = ${tenantId}`;
+  if (!loan) throw new Error('Loan not found or access denied');
+
   return await sql`
     INSERT INTO loan_attachments (loan_id, file_path, file_name)
     VALUES (${loanId}, ${filePath}, ${fileName})
@@ -34,16 +37,25 @@ export async function dbAddAttachment(loanId: string, filePath: string, fileName
   `;
 }
 
-export async function dbGetAttachments(loanId: string) {
+export async function dbGetAttachments(loanId: string, tenantId: string) {
   const rows = await sql`
-    SELECT * FROM loan_attachments WHERE loan_id = ${loanId} ORDER BY created_at DESC
+    SELECT a.* 
+    FROM loan_attachments a
+    JOIN loans l ON a.loan_id = l.id
+    WHERE a.loan_id = ${loanId} AND l.tenant_id = ${tenantId} 
+    ORDER BY a.created_at DESC
   `;
   return await withFreshUrls(rows as any[]);
 }
 
-export async function dbDeleteAttachment(id: string) {
-  const [attachment] = await sql`SELECT * FROM loan_attachments WHERE id = ${id}`;
-  if (!attachment) throw new Error("Attachment not found");
+export async function dbDeleteAttachment(id: string, tenantId: string) {
+  const [attachment] = await sql`
+    SELECT a.* 
+    FROM loan_attachments a
+    JOIN loans l ON a.loan_id = l.id
+    WHERE a.id = ${id} AND l.tenant_id = ${tenantId}
+  `;
+  if (!attachment) throw new Error("Attachment not found or access denied");
 
   // If it's a Discord URL, skip local disk removal
   if (attachment.filePath.startsWith('http://') || attachment.filePath.startsWith('https://')) {
@@ -63,7 +75,10 @@ export async function dbDeleteAttachment(id: string) {
   return await sql`DELETE FROM loan_attachments WHERE id = ${id}`;
 }
 
-export async function dbAddCustomerAttachment(customerId: string, filePath: string, fileName: string) {
+export async function dbAddCustomerAttachment(customerId: string, filePath: string, fileName: string, tenantId: string) {
+  const [customer] = await sql`SELECT id FROM customers WHERE id = ${customerId} AND tenant_id = ${tenantId}`;
+  if (!customer) throw new Error('Customer not found or access denied');
+
   return await sql`
     INSERT INTO customer_attachments (customer_id, file_path, file_name)
     VALUES (${customerId}, ${filePath}, ${fileName})
@@ -71,16 +86,25 @@ export async function dbAddCustomerAttachment(customerId: string, filePath: stri
   `;
 }
 
-export async function dbGetCustomerAttachments(customerId: string) {
+export async function dbGetCustomerAttachments(customerId: string, tenantId: string) {
   const rows = await sql`
-    SELECT * FROM customer_attachments WHERE customer_id = ${customerId} ORDER BY created_at DESC
+    SELECT a.* 
+    FROM customer_attachments a
+    JOIN customers c ON a.customer_id = c.id
+    WHERE a.customer_id = ${customerId} AND c.tenant_id = ${tenantId} 
+    ORDER BY a.created_at DESC
   `;
   return await withFreshUrls(rows as any[]);
 }
 
-export async function dbDeleteCustomerAttachment(id: string) {
-  const [attachment] = await sql`SELECT * FROM customer_attachments WHERE id = ${id}`;
-  if (!attachment) throw new Error("Attachment not found");
+export async function dbDeleteCustomerAttachment(id: string, tenantId: string) {
+  const [attachment] = await sql`
+    SELECT a.* 
+    FROM customer_attachments a
+    JOIN customers c ON a.customer_id = c.id
+    WHERE a.id = ${id} AND c.tenant_id = ${tenantId}
+  `;
+  if (!attachment) throw new Error("Attachment not found or access denied");
 
   // If it's a Discord URL, skip local disk removal
   if (attachment.filePath.startsWith('http://') || attachment.filePath.startsWith('https://')) {

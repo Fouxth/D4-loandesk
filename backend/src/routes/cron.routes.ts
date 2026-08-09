@@ -6,12 +6,15 @@ const router = Router();
 
 function authorizeCron(req: Request) {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return process.env.NODE_ENV !== 'production';
+  if (!secret) {
+    // Finding 6: Fail closed whenever CRON_SECRET is absent
+    return false;
+  }
 
   const auth = String(req.headers.authorization ?? '');
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : '';
   const headerSecret = String(req.headers['x-cron-secret'] ?? '');
-  return bearer === secret || headerSecret === secret;
+  return (bearer !== '' && bearer === secret) || (headerSecret !== '' && headerSecret === secret);
 }
 
 async function handleCron(req: Request, res: Response, kind: 'morning' | 'evening') {

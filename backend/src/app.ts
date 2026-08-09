@@ -53,10 +53,6 @@ export function createApp() {
 
         const normalizedOrigin = normalizeOrigin(origin);
         
-        if (process.env.ALLOW_ANY_ORIGIN === 'true') {
-          return cb(null, true);
-        }
-
         if (allowedOrigins.has(normalizedOrigin)) {
           return cb(null, true);
         }
@@ -66,15 +62,25 @@ export function createApp() {
           return cb(null, true);
         }
 
-        // For Vercel preview deployments, allow any .vercel.app origin if configured
-        if (process.env.ALLOW_VERCEL_PREVIEW === 'true' && normalizedOrigin.endsWith('.vercel.app')) {
+        // Finding 4: Restrict Vercel preview deployments to project-specific origin domain pattern
+        const vercelProjectPrefix = process.env.VERCEL_PROJECT_NAME || 'd4-loandesk';
+        if (
+          process.env.ALLOW_VERCEL_PREVIEW === 'true' &&
+          normalizedOrigin.endsWith('.vercel.app') &&
+          normalizedOrigin.replace(/^https?:\/\//, '').startsWith(`${vercelProjectPrefix}-`)
+        ) {
+          return cb(null, true);
+        }
+
+        // Finding 10: ALLOW_ANY_ORIGIN should only be used in dev and must NOT allow credentials cross-origin
+        if (process.env.ALLOW_ANY_ORIGIN === 'true') {
           return cb(null, true);
         }
 
         console.warn('CORS blocked origin:', origin);
         return cb(new Error('Not allowed by CORS'));
       },
-      credentials: true,
+      credentials: process.env.ALLOW_ANY_ORIGIN !== 'true',
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'ngrok-skip-browser-warning'],
       maxAge: 86400, // Cache CORS preflight (OPTIONS) response for 24 hours to reduce 204 logs

@@ -78,24 +78,30 @@ router.get('/status', async (_req, res) => {
 router.post('/', (req, res) => {
   try {
     const channelSecret = process.env.LINE_CHANNEL_SECRET;
-    if (channelSecret) {
-      const signature = String(req.headers['x-line-signature'] ?? '');
-      const rawBody = (req as { rawBody?: Buffer }).rawBody;
-      if (!Buffer.isBuffer(rawBody)) {
-        console.error('[LINE Webhook] Missing rawBody — cannot verify signature');
-        return res.sendStatus(400);
-      }
+    // Finding 11: Fail closed if LINE_CHANNEL_SECRET is not set
+    if (!channelSecret) {
+      console.error('[LINE Webhook] LINE_CHANNEL_SECRET is not configured — rejecting webhook request');
+      return res.status(500).json({ error: 'Webhook secret is not configured' });
+    }
 
-      const expectedSignature = crypto
-        .createHmac('sha256', channelSecret)
-        .update(rawBody)
-        .digest('base64');
+    const signature = String(req.headers['x-line-signature'] ?? '');
+    const rawBody = (req as { rawBody?: Buffer }).rawBody;
+    if (!Buffer.isBuffer(rawBody)) {
+      console.error('[LINE Webhook] Missing rawBody — cannot verify signature');
+      return res.sendStatus(400);
+    }
 
-      if (signature !== expectedSignature) {
-        console.error('[LINE Webhook] Invalid signature — check LINE_CHANNEL_SECRET');
-        console.error(`Received: ${signature}, Expected: ${expectedSignature}`);
-        return res.sendStatus(401);
-      }
+    const expectedSignature = crypto
+      .createHmac('sha256', channelSecret)
+      .update(rawBody)
+      .digest('base64');
+
+    const expectedBuf = Buffer.from(expectedSignature, 'utf8');
+    const signatureBuf = Buffer.from(signature, 'utf8');
+
+    if (expectedBuf.length !== signatureBuf.length || !crypto.timingSafeEqual(expectedBuf, signatureBuf)) {
+      console.error('[LINE Webhook] Invalid signature — check LINE_CHANNEL_SECRET');
+      return res.sendStatus(401);
     }
 
     const events = parseWebhookEvents(req);

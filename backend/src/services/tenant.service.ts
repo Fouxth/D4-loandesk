@@ -1,5 +1,6 @@
 import sql from '../db';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { transliterateThai } from '../utils/transliterate';
 import * as authService from './auth.service';
 
@@ -51,8 +52,8 @@ export async function createTenantAutomatically(creditorName: string): Promise<G
       username = `${tenantId}-${userCounter++}`;
     }
 
-    // 4. Create Owner user with default password 'admin1234'
-    const defaultPassword = 'admin1234';
+    // Finding 8: Generate cryptographically random default password for initial tenant owner
+    const defaultPassword = crypto.randomBytes(6).toString('hex');
     const passwordHash = await bcrypt.hash(defaultPassword, 10);
     const fullName = `ผู้จัดการ (${creditorName.trim()})`;
 

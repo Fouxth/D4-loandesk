@@ -30,17 +30,16 @@ router.post('/login', async (req: any, res) => {
       return res.status(403).json({ error: 'บัญชีร้านค้าถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบเพื่อปลดล็อก' });
     }
 
-    const token = jwt.sign({ userId: user.id, tenantId: user.tenantId || 'bkj' }, getJwtSecret(), { expiresIn: '7d' });
+    const pwdSig = user.passwordHash ? user.passwordHash.slice(-6) : '';
+    const token = jwt.sign({ userId: user.id, tenantId: user.tenantId || 'bkj', pwdSig }, getJwtSecret(), { expiresIn: '7d' });
     
-    // Auto-detect if we should use Secure/SameSite=None
-    // In production/HTTPS, we MUST use SameSite=None to support mobile and cross-site access
+    // Finding 5: Use SameSite=Lax for cookie session protection against CSRF
     const useSecure = isHttps || (process.env.NODE_ENV === 'production');
-    const sameSiteValue = useSecure ? 'none' : 'lax';
 
     res.cookie('session', token, {
       httpOnly: true,
       secure: useSecure,
-      sameSite: sameSiteValue,
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
     });
@@ -60,22 +59,27 @@ router.post('/login', async (req: any, res) => {
   }
 });
 
+// Finding 2: Disable public signup to prevent unauthenticated access into shared default tenant 'bkj'
 router.post('/signup', async (req, res) => {
+  if (process.env.ALLOW_PUBLIC_SIGNUP !== 'true') {
+    return res.status(403).json({
+      error: 'Public registration is disabled. Please contact your administrator to create a store account.'
+    });
+  }
   const { username, password, fullName } = req.body;
   try {
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await authService.createUser(username, passwordHash, fullName);
 
-    const token = jwt.sign({ userId: user.id, tenantId: user.tenantId || 'bkj' }, getJwtSecret(), { expiresIn: '7d' });
+    const token = jwt.sign({ userId: user.id, tenantId: user.tenantId || 'bkj', pwdSig: passwordHash.slice(-6) }, getJwtSecret(), { expiresIn: '7d' });
     
     const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
     const useSecure = isHttps || (process.env.NODE_ENV === 'production');
-    const sameSiteValue = useSecure ? 'none' : 'lax';
 
     res.cookie('session', token, {
       httpOnly: true,
       secure: useSecure,
-      sameSite: sameSiteValue,
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
     });
@@ -97,12 +101,11 @@ router.post('/signup', async (req, res) => {
 router.post('/logout', (req, res) => {
   const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
   const useSecure = isHttps || (process.env.NODE_ENV === 'production');
-  const sameSiteValue = useSecure ? 'none' : 'lax';
 
   res.clearCookie('session', {
     httpOnly: true,
     secure: useSecure,
-    sameSite: sameSiteValue,
+    sameSite: 'lax',
     path: '/',
   });
   res.json({ success: true });

@@ -65,6 +65,13 @@ export async function getOrCreateTenantChannel(tenantId: string): Promise<string
         name: channelName,
         type: 0, // Text Channel
         topic: `Storage channel for tenant ${tenantId}`,
+        permission_overwrites: [
+          {
+            id: guildId, // @everyone role ID is the guild ID in Discord
+            type: 0, // role
+            deny: '1024', // VIEW_CHANNEL flag (0x400 = 1024)
+          },
+        ],
       }),
     });
 

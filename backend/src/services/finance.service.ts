@@ -32,6 +32,14 @@ export async function dbGetPaymentsByLoan(loanId: string, tenantId: string) {
 }
 
 export async function dbCreatePayment(data: any, userId: string, tenantId: string) {
+  // Finding 4: Verify that the target loan belongs to the caller tenant before inserting payment
+  const targetLoans = await sql`
+    SELECT id FROM loans WHERE id = ${data.loanId} AND tenant_id = ${tenantId}
+  `;
+  if (targetLoans.length === 0) {
+    throw new Error('ไม่พบข้อมูลสัญญา หรือคุณไม่มีสิทธิ์เข้าถึงสัญญานี้');
+  }
+
   const result = await sql`
     INSERT INTO payments ${sql({ ...data, createdBy: userId, tenantId })}
     RETURNING *
