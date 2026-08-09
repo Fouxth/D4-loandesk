@@ -12,6 +12,7 @@ const sql = postgres(DATABASE_URL, {
   connect_timeout: 10,
   max: 10,
   idle_timeout: 20,
+  onnotice: () => {},
 });
 
 export default sql;
