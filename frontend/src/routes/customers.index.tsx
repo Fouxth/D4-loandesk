@@ -350,6 +350,19 @@ function CustomerForm({ editing, existingCustomers = [], onDone, onSubmit }: { e
         }
         setUploading(false);
       }
+      if (!editing) {
+        setForm({
+          fullName: "",
+          phone: "",
+          idCard: "",
+          address: "",
+          notes: "",
+          riskLevel: "low",
+          category: "new",
+        });
+        setNewFiles([]);
+        setAttachments([]);
+      }
       onDone();
     } finally {
       setBusy(false);

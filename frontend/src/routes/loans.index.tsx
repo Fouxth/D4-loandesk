@@ -279,6 +279,23 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
         }
       }
       
+      setForm({
+        customerId: "",
+        principal: 10000,
+        interestRate: 20,
+        installmentsCount: 30,
+        paymentType: "daily",
+        startDate: getThaiDateStr(),
+        notes: "",
+        isInterestOnly: false,
+        isIndefinite: false,
+        isPrincipalInterestAtEnd: false,
+        isPawn: false,
+        pawnItem: "",
+      });
+      setIsZeroInterestDebt(false);
+      setApplyDocumentFee(false);
+      setApplyAdvanceFee(false);
       toast.success(t('common.save_success', 'บันทึกเรียบร้อยแล้ว'));
       onDone();
     } catch (error: any) {
