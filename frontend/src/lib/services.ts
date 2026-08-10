@@ -97,3 +97,4 @@ export const getStaff = () => api.get('/auth/users').then(r => r.data);
 export const createStaff = (data: { username: string; password: string; fullName: string }) => api.post('/auth/users', data).then(r => r.data);
 export const deleteStaff = (id: string) => api.delete(`/auth/users/${id}`).then(r => r.data);
 export const resetStaffPassword = (id: string, newPassword: string) => api.patch(`/auth/users/${id}/password`, { newPassword }).then(r => r.data);
+export const updateStaffName = (id: string, fullName: string) => api.patch(`/auth/users/${id}/name`, { fullName }).then(r => r.data);

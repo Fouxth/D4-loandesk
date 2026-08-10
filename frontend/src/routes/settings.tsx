@@ -24,6 +24,7 @@ import {
   createStaff,
   deleteStaff,
   resetStaffPassword,
+  updateStaffName,
   triggerDiscordBackup,
   restoreDatabase,
 } from "@/lib/services";
@@ -52,6 +53,7 @@ import {
   UserPlus,
   Trash2,
   KeyRound,
+  Pencil,
   RefreshCw,
 } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -108,6 +110,23 @@ function Settings() {
   const [staffBusy, setStaffBusy] = useState(false);
   const [resetTarget, setResetTarget] = useState<any>(null);
   const [resetPassword, setResetPassword] = useState("");
+  const [editNameTarget, setEditNameTarget] = useState<any>(null);
+  const [editNameInput, setEditNameInput] = useState("");
+
+  const handleSaveStaffName = async () => {
+    if (!editNameTarget || !editNameInput.trim()) return;
+    setStaffBusy(true);
+    try {
+      await updateStaffName(editNameTarget.id, editNameInput.trim());
+      toast.success("อัปเดตชื่อแสดงผลเรียบร้อยแล้ว");
+      setEditNameTarget(null);
+      getStaff().then(setStaffList).catch(() => {});
+    } catch (e: any) {
+      toast.error(e.message || "อัปเดตชื่อไม่สำเร็จ");
+    } finally {
+      setStaffBusy(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -798,36 +817,47 @@ function Settings() {
                             {s.role === 'admin' ? 'Admin' : 'Staff'}
                           </span>
                         </div>
-                        {s.id !== user?.id && (
-                          <div className="flex items-center gap-2 shrink-0 ml-4">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground"
-                              title="รีเซ็ตรหัสผ่าน"
-                              onClick={() => { setResetTarget(s); setResetPassword(""); }}
-                            >
-                              <KeyRound className="h-4 w-4" />
-                            </Button>
-                            <ConfirmDelete
-                              onConfirm={() => handleDeleteStaff(s.id)}
-                              title="ยืนยันการลบบัญชี"
-                              description={`คุณแน่ใจหรือไม่ว่าต้องการลบบัญชี "${s.fullName || s.username}" ออกจากระบบ?`}
-                            >
+                        <div className="flex items-center gap-1.5 shrink-0 ml-4">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground"
+                            title="แก้ไขชื่อแสดงผล"
+                            onClick={() => { setEditNameTarget(s); setEditNameInput(s.fullName || s.username); }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          {s.id !== user?.id && (
+                            <>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 rounded-xl text-destructive hover:bg-destructive/10"
-                                title="ลบบัญชี"
+                                className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground"
+                                title="รีเซ็ตรหัสผ่าน"
+                                onClick={() => { setResetTarget(s); setResetPassword(""); }}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <KeyRound className="h-4 w-4" />
                               </Button>
-                            </ConfirmDelete>
-                          </div>
-                        )}
-                        {s.id === user?.id && (
-                          <span className="text-[10px] font-bold text-muted-foreground ml-4 shrink-0">คุณ</span>
-                        )}
+                              <ConfirmDelete
+                                onConfirm={() => handleDeleteStaff(s.id)}
+                                title="ยืนยันการลบบัญชี"
+                                description={`คุณแน่ใจหรือไม่ว่าต้องการลบบัญชี "${s.fullName || s.username}" ออกจากระบบ?`}
+                              >
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-xl text-destructive hover:bg-destructive/10"
+                                  title="ลบบัญชี"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </ConfirmDelete>
+                            </>
+                          )}
+                          {s.id === user?.id && (
+                            <span className="text-[10px] font-bold text-muted-foreground shrink-0 ml-1">คุณ</span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1429,6 +1459,45 @@ function Settings() {
             >
               {staffBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               ยืนยันรีเซ็ต
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Display Name Dialog */}
+      <Dialog open={!!editNameTarget} onOpenChange={(o) => !o && setEditNameTarget(null)}>
+        <DialogContent className="rounded-2xl max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="font-black text-xl flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-primary" />
+              แก้ไขชื่อแสดงผล
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground pt-1">
+              เปลี่ยนชื่อแสดงผลของบัญชี @{editNameTarget?.username}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ชื่อแสดงผล (Full Name)</Label>
+              <Input
+                value={editNameInput}
+                onChange={(e) => setEditNameInput(e.target.value)}
+                placeholder="ระบุชื่อแสดงผล..."
+                className="rounded-xl h-11 bg-muted/20 font-medium text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" className="rounded-xl font-bold h-11" onClick={() => setEditNameTarget(null)}>
+              ยกเลิก
+            </Button>
+            <Button
+              className="rounded-xl font-black h-11 px-8"
+              onClick={handleSaveStaffName}
+              disabled={staffBusy || !editNameInput.trim()}
+            >
+              {staffBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              บันทึกชื่อใหม่
             </Button>
           </DialogFooter>
         </DialogContent>

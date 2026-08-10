@@ -237,4 +237,16 @@ router.patch('/users/:id/password', authenticate, requireAdmin, async (req: Auth
   } catch (e) { handleRouteError(e, res, 'PATCH /auth/users/:id/password'); }
 });
 
+router.patch('/users/:id/name', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  const targetId = req.params.id as string;
+  const { fullName } = req.body;
+  if (!fullName || !fullName.trim()) {
+    return res.status(400).json({ error: 'กรุณาระบุชื่อแสดงผล' });
+  }
+  try {
+    await sql`UPDATE profiles SET full_name = ${fullName.trim()} WHERE id = ${targetId}`;
+    res.json({ success: true, fullName: fullName.trim() });
+  } catch (e) { handleRouteError(e, res, 'PATCH /auth/users/:id/name'); }
+});
+
 export default router;
