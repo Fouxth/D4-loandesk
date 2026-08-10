@@ -62,10 +62,28 @@ const ENTITY_LABEL: Record<string, string> = {
   user:     "ผู้ใช้",
 };
 
-function formatRelative(dateStr: any): string {
+function formatExactDateTime(dateStr: any): string {
   if (!dateStr) return "ก่อนหน้านี้";
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return "ก่อนหน้านี้";
+  
+  const thaiDate = date.toLocaleDateString("th-TH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+  const thaiTime = date.toLocaleTimeString("th-TH", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return `${thaiDate} ${thaiTime} น.`;
+}
+
+function formatRelative(dateStr: any): string {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "";
   const now = new Date();
   const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
   if (diff < 0) return "เมื่อกี้";
@@ -73,7 +91,7 @@ function formatRelative(dateStr: any): string {
   if (diff < 3600) return `${Math.floor(diff / 60)} นาทีที่แล้ว`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} ชั่วโมงที่แล้ว`;
   if (diff < 604800) return `${Math.floor(diff / 86400)} วันที่แล้ว`;
-  return date.toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return "";
 }
 
 function ActivityPage() {
@@ -140,9 +158,16 @@ function ActivityPage() {
                       <p className="font-semibold text-sm text-foreground">
                         {cfg.label}
                       </p>
-                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                        {formatRelative(log.createdAt || log.created_at)}
-                      </span>
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground whitespace-nowrap">
+                        <span className="font-semibold text-foreground/80">
+                          {formatExactDateTime(log.createdAt || log.created_at)}
+                        </span>
+                        {formatRelative(log.createdAt || log.created_at) && (
+                          <span className="text-muted-foreground font-normal">
+                            ({formatRelative(log.createdAt || log.created_at)})
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
