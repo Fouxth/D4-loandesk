@@ -97,8 +97,79 @@ export async function getOrCreateTenantChannel(tenantId: string): Promise<string
   return targetChannel.id;
 }
 
+export async function getOrCreateChannelByName(channelName: string, topic?: string): Promise<string> {
+  const guildId = process.env.DISCORD_GUILD_ID;
+  if (!guildId) {
+    throw new Error('Missing DISCORD_GUILD_ID in environment settings');
+  }
+
+  const normName = channelName.toLowerCase().replace(/[^a-z0-9-_]/g, '');
+  const settingsKey = `discord_channel_id_${normName}`;
+  const cachedSettings = await sql`
+    SELECT value FROM settings WHERE tenant_id = 'system' AND key = ${settingsKey}
+  `;
+
+  if (cachedSettings && cachedSettings.length > 0 && cachedSettings[0].value?.channelId) {
+    return cachedSettings[0].value.channelId;
+  }
+
+  console.log(`[Discord] Checking channels in guild ${guildId} for name: ${normName}`);
+  
+  const channelsResponse = await fetch(`${DISCORD_API_BASE}/guilds/${guildId}/channels`, {
+    method: 'GET',
+    headers: getDiscordHeaders(),
+  });
+
+  if (!channelsResponse.ok) {
+    const errorText = await channelsResponse.text();
+    throw new Error(`Failed to fetch Discord channels: ${channelsResponse.status} - ${errorText}`);
+  }
+
+  const channels = await channelsResponse.json();
+  let targetChannel = channels.find((c: any) => c.name === normName && c.type === 0);
+
+  if (!targetChannel) {
+    console.log(`[Discord] Channel #${normName} not found. Creating one...`);
+    const createResponse = await fetch(`${DISCORD_API_BASE}/guilds/${guildId}/channels`, {
+      method: 'POST',
+      headers: getDiscordHeaders(),
+      body: JSON.stringify({
+        name: normName,
+        type: 0, // Text Channel
+        topic: topic || `Storage channel for ${normName}`,
+        permission_overwrites: [
+          {
+            id: guildId,
+            type: 0,
+            deny: '1024', // VIEW_CHANNEL flag
+          },
+        ],
+      }),
+    });
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      throw new Error(`Failed to create Discord channel: ${createResponse.status} - ${errorText}`);
+    }
+
+    targetChannel = await createResponse.json();
+    console.log(`[Discord] Successfully created channel #${normName} with ID ${targetChannel.id}`);
+  } else {
+    console.log(`[Discord] Found existing channel #${normName} with ID ${targetChannel.id}`);
+  }
+
+  await sql`
+    INSERT INTO settings (tenant_id, key, value, updated_at)
+    VALUES ('system', ${settingsKey}, ${JSON.stringify({ channelId: targetChannel.id })}, CURRENT_TIMESTAMP)
+    ON CONFLICT (tenant_id, key) DO UPDATE 
+    SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+  `;
+
+  return targetChannel.id;
+}
+
 /**
- * Uploads a file (Buffer) to the tenant's dedicated Discord channel
+ * Uploads a file (Buffer) to the tenant's dedicated Discord channel or a named channel
  * @returns The CDN URL of the uploaded image
  */
 export async function uploadFileToDiscord(
@@ -106,9 +177,12 @@ export async function uploadFileToDiscord(
   fileBuffer: Buffer, 
   fileName: string, 
   mimeType: string,
-  customizedMessage?: string
+  customizedMessage?: string,
+  targetChannelName?: string
 ): Promise<string> {
-  const channelId = await getOrCreateTenantChannel(tenantId);
+  const channelId = targetChannelName
+    ? await getOrCreateChannelByName(targetChannelName, `Dedicated storage channel for ${targetChannelName}`)
+    : await getOrCreateTenantChannel(tenantId);
   console.log(`[Discord] Uploading file ${fileName} (${mimeType}) to channel ${channelId}`);
 
   // We need to construct a multipart/form-data request manually or using FormData

@@ -97,6 +97,7 @@ export async function runTenantBackup(targetTenantId: string): Promise<BackupRes
       fileName,
       'application/json',
       messageText,
+      'auto-backup'
     );
   } catch (err: any) {
     console.error(`[Backup] Failed to upload backup for ${targetTenantId} to Discord:`, err.message);
