@@ -477,6 +477,44 @@ export function parsePawnSheet(rows: Row[], sheetName: string): ParseResult {
   return { loans, skipped };
 }
 
+/** ยอดติด (ยอดหนี้ค้างชำระ ดอกเบี้ย 0%) */
+export function parseDebtBalanceSheet(rows: Row[], sheetName: string): ParseResult {
+  const loans: ParsedLoan[] = [];
+  const skipped: ParseResult['skipped'] = [];
+
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r] || [];
+    const name = normalizeName(String(row[0] ?? ''));
+    const principal = toNumber(row[1]);
+
+    if (!name || SKIP_NAMES.has(name) || name === 'คงเหลือ') continue;
+    if (principal == null || principal <= 0) continue;
+
+    loans.push({
+      customerName: name,
+      sourceSheet: sheetName,
+      principal,
+      installmentAmount: 0,
+      installmentsCount: 0,
+      paymentType: 'monthly',
+      interestRate: 0,
+      interestAmount: 0,
+      totalPayable: principal,
+      startDate: '2025-01-01',
+      dueDate: null,
+      status: 'active',
+      notes: `นำเข้าจาก ${sheetName} (ยอดติดค้างชำระเดิม)`,
+      isInterestOnly: false,
+      isIndefinite: true,
+      isPawn: false,
+      pawnItem: null,
+      payments: [],
+    });
+  }
+
+  return { loans, skipped };
+}
+
 const SHEET_PARSERS: Record<string, (rows: Row[], tpConfig?: TpConfig) => ParseResult> = {
   'รายวัน 3-5-7 วัน': (rows) => parseDaily357Sheet(rows, 'รายวัน 3-5-7 วัน'),
   'รายวัน14วัน': (rows, tp) => parseDailyGridSheet(rows, 'รายวัน14วัน', 14, tp),
@@ -484,6 +522,7 @@ const SHEET_PARSERS: Record<string, (rows: Row[], tpConfig?: TpConfig) => ParseR
   'รายเดือน': (rows) => parseMonthlySheet(rows, 'รายเดือน'),
   'ดอกลอย': (rows) => parseInterestOnlySheet(rows, 'ดอกลอย'),
   'รับจำนำ': (rows) => parsePawnSheet(rows, 'รับจำนำ'),
+  'ยอดติด': (rows) => parseDebtBalanceSheet(rows, 'ยอดติด'),
 };
 
 export function parseWorkbook(

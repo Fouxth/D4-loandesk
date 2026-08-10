@@ -218,6 +218,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
     isPawn: false,
     pawnItem: "",
   });
+  const [isZeroInterestDebt, setIsZeroInterestDebt] = useState(false);
   const [applyDocumentFee, setApplyDocumentFee] = useState(false);
   const [documentFee, setDocumentFee] = useState(lending.documentFeeAmount);
   const [applyAdvanceFee, setApplyAdvanceFee] = useState(false);
@@ -375,6 +376,33 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
             />
             <Label htmlFor="isPawn" className="text-sm font-bold text-foreground cursor-pointer">จำนำสิ่งของ</Label>
+          </div>
+
+          <div className="flex items-center space-x-2 pt-1">
+            <input 
+              type="checkbox" 
+              id="isZeroInterestDebt" 
+              checked={isZeroInterestDebt} 
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setIsZeroInterestDebt(checked);
+                if (checked) {
+                  setForm({
+                    ...form,
+                    interestRate: 0,
+                    isInterestOnly: false,
+                    isPrincipalInterestAtEnd: false,
+                    isIndefinite: true,
+                    isPawn: false,
+                    notes: form.notes ? form.notes : "ยอดติดค้างชำระเดิม",
+                  });
+                }
+              }}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <Label htmlFor="isZeroInterestDebt" className="text-sm font-bold text-foreground cursor-pointer">
+              ยอดติดค้างชำระเดิม (ดอกเบี้ย 0% / ทยอยชำระคืน)
+            </Label>
           </div>
 
           {form.isPawn && (
