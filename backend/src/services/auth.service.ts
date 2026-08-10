@@ -96,11 +96,20 @@ export async function updateUserPassword(id: string, passwordHash: string) {
 
 export async function getUsersByTenant(tenantId: string) {
   return await sql`
-    SELECT u.id, u.username, p.full_name, ur.role, u.created_at
+    SELECT 
+      u.id, 
+      u.username, 
+      p.full_name as "fullName", 
+      COALESCE(
+        CASE WHEN bool_or(ur.role = 'admin') THEN 'admin' ELSE 'staff' END, 
+        'staff'
+      ) as role, 
+      u.created_at as "createdAt"
     FROM users u
     LEFT JOIN profiles p ON p.id = u.id
     LEFT JOIN user_roles ur ON ur.user_id = u.id
     WHERE u.tenant_id = ${tenantId}
+    GROUP BY u.id, p.full_name
     ORDER BY u.created_at ASC
   `;
 }
