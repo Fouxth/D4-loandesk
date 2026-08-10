@@ -17,7 +17,7 @@ router.get('/', async (req: any, res) => {
         a.entity_type,
         a.entity_id,
         a.details,
-        COALESCE(a.created_at, CURRENT_TIMESTAMP) as created_at,
+        a.created_at,
         COALESCE(NULLIF(p.full_name, ''), NULLIF(u.username, ''), 'ผู้ดูแลระบบ') as user_name
       FROM activity_logs a
       LEFT JOIN profiles p ON p.id::text = a.user_id
@@ -32,7 +32,7 @@ router.get('/', async (req: any, res) => {
       entityType: l.entityType || l.entity_type,
       entityId: l.entityId || l.entity_id,
       details: l.details,
-      createdAt: l.createdAt || l.created_at,
+      createdAt: l.createdAt || l.created_at || null,
       userName: l.userName || l.user_name || 'ผู้ดูแลระบบ'
     }));
     res.json(formatted);

@@ -63,14 +63,17 @@ const ENTITY_LABEL: Record<string, string> = {
 };
 
 function formatRelative(dateStr: any): string {
+  if (!dateStr) return "ก่อนหน้านี้";
   const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "ก่อนหน้านี้";
   const now = new Date();
   const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (diff < 0) return "เมื่อกี้";
   if (diff < 60) return "เมื่อกี้";
   if (diff < 3600) return `${Math.floor(diff / 60)} นาทีที่แล้ว`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} ชั่วโมงที่แล้ว`;
   if (diff < 604800) return `${Math.floor(diff / 86400)} วันที่แล้ว`;
-  return date.toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" });
+  return date.toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function ActivityPage() {
