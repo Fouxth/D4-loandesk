@@ -217,6 +217,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
     installmentsCount: 30,
     paymentType: "daily" as "daily" | "weekly" | "monthly",
     startDate: getThaiDateStr(),
+    promiseDate: "",
     notes: "",
     isInterestOnly: false,
     isIndefinite: false,
@@ -268,6 +269,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
         paymentType: form.paymentType,
         startDate: form.startDate,
         dueDate: isIndefiniteLoan ? null : (calc.due ? calc.due.toISOString().split("T")[0] : null),
+        promiseDate: form.promiseDate || (form.isPrincipalInterestAtEnd && calc.due ? calc.due.toISOString().split("T")[0] : null),
         notes: form.notes,
         isInterestOnly: form.isInterestOnly,
         isIndefinite: isIndefiniteLoan,
@@ -294,6 +296,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
         installmentsCount: 30,
         paymentType: "daily",
         startDate: getThaiDateStr(),
+        promiseDate: "",
         notes: "",
         isInterestOnly: false,
         isIndefinite: false,
@@ -353,10 +356,21 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2 col-span-1 sm:col-span-2">
+          <div className={form.isPrincipalInterestAtEnd ? "space-y-2 col-span-1" : "space-y-2 col-span-1 sm:col-span-2"}>
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">วันที่เริ่มสัญญา</Label>
             <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className="bg-muted/20" />
           </div>
+          {form.isPrincipalInterestAtEnd && (
+            <div className="space-y-2 col-span-1">
+              <Label className="text-xs font-bold uppercase tracking-wider text-primary">วันนัดจ่าย (วันครบกำหนด)</Label>
+              <Input 
+                type="date" 
+                value={form.promiseDate || (calc.due ? calc.due.toISOString().split("T")[0] : "")} 
+                onChange={(e) => setForm({ ...form, promiseDate: e.target.value })} 
+                className="bg-primary/10 border-primary/30 font-bold" 
+              />
+            </div>
+          )}
           <div className="flex items-center space-x-2 pt-2">
             <input 
               type="checkbox" 

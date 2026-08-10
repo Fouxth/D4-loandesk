@@ -6,7 +6,7 @@ import { dbLogActivity } from './activity.service';
 const LOAN_CREATE_ALLOWED = new Set([
   'customerId', 'principal', 'interestRate', 'interestAmount', 'totalPayable',
   'installmentsCount', 'installmentAmount', 'paymentType',
-  'startDate', 'dueDate', 'status', 'notes',
+  'startDate', 'dueDate', 'promiseDate', 'status', 'notes',
   'isInterestOnly', 'isIndefinite', 'isPrincipalInterestAtEnd', 'isPawn', 'pawnItem', 'pawnStatus',
   'documentFee', 'advanceFee',
 ]);
@@ -14,7 +14,7 @@ const LOAN_CREATE_ALLOWED = new Set([
 const LOAN_UPDATE_ALLOWED = new Set([
   'principal', 'interestRate', 'interestAmount', 'totalPayable',
   'installmentsCount', 'installmentAmount', 'paymentType',
-  'startDate', 'dueDate', 'status', 'notes',
+  'startDate', 'dueDate', 'promiseDate', 'status', 'notes',
   'isInterestOnly', 'isIndefinite', 'isPrincipalInterestAtEnd', 'isPawn', 'pawnItem', 'pawnStatus',
 ]);
 

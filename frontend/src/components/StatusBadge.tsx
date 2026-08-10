@@ -46,7 +46,7 @@ export function getLoanNextDueDate(l: any): string | null {
 
   const isPrincipalInterestAtEnd = l.isPrincipalInterestAtEnd ?? l.is_principal_interest_at_end;
   if (isPrincipalInterestAtEnd) {
-    const rawDue = l.dueDate || l.due_date;
+    const rawDue = l.promiseDate || l.promise_date || l.dueDate || l.due_date;
     return rawDue ? String(rawDue).substring(0, 10) : null;
   }
 

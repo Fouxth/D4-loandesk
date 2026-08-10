@@ -19,6 +19,7 @@ import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { useSettings } from "@/contexts/SettingsContext";
 import { resolveLateFee } from "@/utils/lateFee";
 import { LateFeeEditor } from "@/components/LateFeeEditor";
+import { PromiseDateEditor } from "@/components/PromiseDateEditor";
 import { getLoanCategory } from "@/utils/loanType";
 import {
   calcLoanPaidTotal,
@@ -467,9 +468,20 @@ function LoanDetail() {
               </dd>
             </div>
             <div className="flex justify-between items-center">
+              <dt className="text-muted-foreground">วันนัดจ่าย (วันนัดชำระ)</dt>
+              <dd className="text-xs font-bold text-primary flex items-center gap-1.5 flex-wrap justify-end">
+                {loan.promiseDate || loan.promise_date ? (
+                  <span>{formatDate(loan.promiseDate || loan.promise_date)}</span>
+                ) : (
+                  <span className="text-muted-foreground font-normal">ยังไม่ได้ระบุ</span>
+                )}
+                <PromiseDateEditor loanId={loanId} loan={loan} onSaved={load} />
+              </dd>
+            </div>
+            <div className="flex justify-between items-center">
               <dt className="text-muted-foreground">รอบชำระถัดไป</dt>
               <dd className="text-xs font-bold text-primary">
-                {loan.dueDate ? formatDate(loan.dueDate) : (
+                {getLoanNextDueDate(loan) ? formatDate(getLoanNextDueDate(loan)) : (
                   loan.paymentType === 'monthly' ? `วันที่ ${new Date(loan.startDate || loan.start_date).getDate() || 1} ของเดือนถัดไป` : 'ไม่มีกำหนด'
                 )}
               </dd>
