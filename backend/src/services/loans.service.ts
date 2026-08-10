@@ -2,6 +2,7 @@ import sql from '../db';
 import { sendLineNotify } from './line.service';
 import { ApiError } from '../utils/apiError';
 import { dbLogActivity } from './activity.service';
+import { getBangkokDateStr } from './lineConfig';
 
 const LOAN_CREATE_ALLOWED = new Set([
   'customerId', 'principal', 'interestRate', 'interestAmount', 'totalPayable',
@@ -16,7 +17,17 @@ const LOAN_UPDATE_ALLOWED = new Set([
   'installmentsCount', 'installmentAmount', 'paymentType',
   'startDate', 'dueDate', 'promiseDate', 'status', 'notes',
   'isInterestOnly', 'isIndefinite', 'isPrincipalInterestAtEnd', 'isPawn', 'pawnItem', 'pawnStatus',
+  'documentFee', 'advanceFee',
 ]);
+
+function toDateStr(d: any): string {
+  if (!d) return '';
+  if (typeof d === 'string') return d.substring(0, 10);
+  if (d instanceof Date) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  return String(d).substring(0, 10);
+}
 
 function pickFields(data: any, allowed: Set<string>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
@@ -129,15 +140,86 @@ function getLogicalDateStr(d: Date): string {
 }
 
 export async function getOverdueNotifications(tenantId: string) {
-  const today = getLogicalDateStr(new Date());
-  return await sql`
-    SELECT l.id, l.loan_number, l.due_date, l.total_payable, l.status, c.full_name as customer_name
-    FROM loans l
-    JOIN customers c ON l.customer_id = c.id
-    WHERE l.status IN ('active', 'overdue') AND l.due_date IS NOT NULL AND l.due_date <= ${today} AND l.is_indefinite IS NOT TRUE AND l.tenant_id = ${tenantId}
-    ORDER BY l.due_date ASC
-    LIMIT 15
-  `;
+  const today = getBangkokDateStr();
+  const [loans, payments] = await Promise.all([
+    sql`
+      SELECT l.*, c.full_name as customer_name
+      FROM loans l
+      JOIN customers c ON l.customer_id = c.id
+      WHERE l.tenant_id = ${tenantId}
+    `,
+    sql`SELECT loan_id, amount, payment_date FROM payments WHERE tenant_id = ${tenantId}`
+  ]);
+
+  const list: any[] = [];
+  for (const l of loans) {
+    const rawStatus = (l.status || 'active').toLowerCase();
+    if (['completed', 'closed', 'deleted', 'cancelled', 'refinanced', 'forfeited'].includes(rawStatus)) {
+      continue;
+    }
+
+    const isIndefinite = l.isIndefinite ?? l.is_indefinite;
+    const notes = l.notes ?? '';
+    const interestRate = Number(l.interestRate ?? l.interest_rate ?? 0);
+    const isZeroDebt = notes.includes('ยอดติด') || notes.includes('ยอดติดค้างชำระ') || (interestRate === 0 && (l.installmentsCount === 1 || !l.paymentType));
+
+    if (isIndefinite || isZeroDebt) continue;
+
+    const isPrincipalInterestAtEnd = l.isPrincipalInterestAtEnd ?? l.is_principal_interest_at_end;
+    let nextDue: string | null = null;
+
+    if (isPrincipalInterestAtEnd) {
+      const promiseDateStr = toDateStr(l.promiseDate || l.promise_date);
+      const dueDateStr = toDateStr(l.dueDate || l.due_date);
+      nextDue = promiseDateStr || dueDateStr;
+    } else {
+      const paidCount = payments.filter((p: any) => (p.loanId || p.loan_id) === l.id).length;
+      const startDateStr = toDateStr(l.startDate || l.start_date);
+      if (startDateStr) {
+        const startParts = startDateStr.split('-').map(Number);
+        if (startParts.length === 3 && !startParts.some(isNaN)) {
+          const [y, m, d] = startParts;
+          const paymentType = l.paymentType || l.payment_type || 'daily';
+          const nextDate = new Date(y, m - 1, d);
+          if (paymentType === 'daily') nextDate.setDate(nextDate.getDate() + paidCount);
+          else if (paymentType === 'weekly') nextDate.setDate(nextDate.getDate() + paidCount * 7);
+          else if (paymentType === 'monthly') nextDate.setMonth(nextDate.getMonth() + paidCount);
+
+          const nextDueDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+          const finalDueDateStr = toDateStr(l.dueDate || l.due_date);
+          nextDue = (finalDueDateStr && nextDueDateStr > finalDueDateStr) ? finalDueDateStr : nextDueDateStr;
+        }
+      }
+      if (!nextDue) {
+        nextDue = toDateStr(l.dueDate || l.due_date) || null;
+      }
+    }
+
+    if (!nextDue) continue;
+
+    let status = 'active';
+    if (nextDue < today) status = 'overdue';
+    else if (nextDue === today) status = 'due_today';
+    else continue;
+
+    list.push({
+      id: l.id,
+      loanNumber: l.loanNumber || l.loan_number,
+      customerName: l.customerName || l.customer_name,
+      dueDate: nextDue,
+      totalPayable: Number(l.installmentAmount || l.installment_amount || l.totalPayable || l.total_payable || 0),
+      status
+    });
+  }
+
+  // Sort overdue first, then due today
+  list.sort((a, b) => {
+    if (a.status === 'overdue' && b.status !== 'overdue') return -1;
+    if (a.status !== 'overdue' && b.status === 'overdue') return 1;
+    return a.dueDate.localeCompare(b.dueDate);
+  });
+
+  return list;
 }
 
 export async function getLoansByCustomerId(customerId: string, tenantId: string) {
