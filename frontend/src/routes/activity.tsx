@@ -40,6 +40,7 @@ const ACTION_CONFIG: Record<
   delete_customer:  { label: "ลบข้อมูลลูกค้า",           icon: Trash2,    color: "text-destructive", bg: "bg-destructive/10" },
   create_loan:      { label: "สร้างสัญญาเงินกู้",        icon: FileText,  color: "text-primary",     bg: "bg-primary/10" },
   update_loan:      { label: "แก้ไขสัญญาเงินกู้",        icon: Edit2,     color: "text-warning",     bg: "bg-warning/10" },
+  update_loan_promise_date: { label: "เลื่อน / กำหนดวันนัดจ่าย", icon: Edit2, color: "text-primary", bg: "bg-primary/10" },
   delete_loan:      { label: "ลบสัญญาเงินกู้",          icon: Trash2,    color: "text-destructive", bg: "bg-destructive/10" },
   refinance_loan:   { label: "ต่อสัญญา / เพิ่มต้น",      icon: Edit2,     color: "text-primary",     bg: "bg-primary/10" },
   adjust_late_fee:  { label: "ปรับแต่งค่าปรับ",         icon: Edit2,     color: "text-warning",     bg: "bg-warning/10" },
