@@ -79,7 +79,7 @@ export const deleteExpense = (id: string) => api.delete(`/finance/expenses/${id}
 
 // Reports
 export const getDashboardData = () => api.get('/reports/dashboard').then(r => r.data);
-export const getReportData = () => api.get('/reports/reports').then(r => r.data);
+export const getReportData = (monthStart?: string) => api.get('/reports/reports', { params: { monthStart } }).then(r => r.data);
 
 // Activity
 export const logActivity = (data: any) => api.post('/activity', data).then(r => r.data);

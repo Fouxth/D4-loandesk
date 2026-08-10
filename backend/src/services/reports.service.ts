@@ -179,13 +179,25 @@ export async function fetchReportRawData(tenantId: string, ms?: string) {
   const lendingConfig = settingsRes[0]?.value || {};
   const tpConfig = tpConfigFromSettings(lendingConfig);
 
+  const [mYear, mMonth] = monthStart.split('-').map(Number);
+  const lastDay = new Date(mYear, mMonth, 0).getDate();
+  const monthEnd = `${mYear}-${String(mMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
   // Monthly income (payments in this month)
   const monthlyIncome = allPayments
-    .filter((p: any) => toDateStr(p.paymentDate) >= monthStart)
+    .filter((p: any) => {
+      const d = toDateStr(p.paymentDate || p.payment_date);
+      return d >= monthStart && d <= monthEnd;
+    })
     .reduce((a: number, p: any) => a + Number(p.amount), 0);
 
   // Monthly expenses
-  const monthlyExp = allExpenses.reduce((a: number, e: any) => a + Number(e.amount), 0);
+  const monthlyExp = allExpenses
+    .filter((e: any) => {
+      const d = toDateStr(e.expenseDate || e.expense_date);
+      return d >= monthStart && d <= monthEnd;
+    })
+    .reduce((a: number, e: any) => a + Number(e.amount), 0);
 
   // Outstanding balance (active/overdue loans)
   const activeLoans = allLoans.filter((l: any) => l.status === 'active' || l.status === 'overdue');
