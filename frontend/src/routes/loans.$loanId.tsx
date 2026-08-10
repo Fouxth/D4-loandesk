@@ -448,6 +448,28 @@ function LoanDetail() {
               <dd className="font-bold">{formatTHB(loan.installmentAmount)} ({loan.paymentType === 'daily' ? 'รายวัน' : loan.paymentType === 'weekly' ? 'รายสัปดาห์' : 'รายเดือน'})</dd>
             </div>
             <div className="flex justify-between items-center">
+              <dt className="text-muted-foreground">กำหนดวันเก็บเงิน</dt>
+              <dd className="text-xs font-bold text-foreground">
+                {loan.paymentType === 'monthly' ? (
+                  `ทุกวันที่ ${new Date(loan.startDate || loan.start_date).getDate() || 1} ของทุกเดือน`
+                ) : loanCategory === 'ยอดติด' ? (
+                  'ทยอยชำระคืน'
+                ) : loan.paymentType === 'weekly' ? (
+                  'ทุกสัปดาห์'
+                ) : (
+                  'รายวัน'
+                )}
+              </dd>
+            </div>
+            <div className="flex justify-between items-center">
+              <dt className="text-muted-foreground">รอบชำระถัดไป</dt>
+              <dd className="text-xs font-bold text-primary">
+                {loan.dueDate ? formatDate(loan.dueDate) : (
+                  loan.paymentType === 'monthly' ? `วันที่ ${new Date(loan.startDate || loan.start_date).getDate() || 1} ของเดือนถัดไป` : 'ไม่มีกำหนด'
+                )}
+              </dd>
+            </div>
+            <div className="flex justify-between items-center">
               <dt className="text-muted-foreground">ระยะเวลาสัญญา</dt>
               <dd className="text-xs">
                 {loan.isIndefinite ? (

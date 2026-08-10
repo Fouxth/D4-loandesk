@@ -487,7 +487,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
 
         <div className="rounded-xl bg-primary/10 border border-primary/20 p-4 shadow-sm">
           <h4 className="text-[11px] font-bold uppercase tracking-widest text-primary mb-3">สรุปยอดเบื้องต้น</h4>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">ดอกเบี้ย</p>
               <p className="text-sm font-bold text-primary">{formatTHB(calc.interest)}</p>
@@ -499,6 +499,20 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
             <div>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{form.isPrincipalInterestAtEnd ? 'ยอดปิด' : 'ต่องวด'}</p>
               <p className="text-sm font-bold text-primary">{formatTHB(calc.installment)}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">กำหนดวันเก็บเงิน</p>
+              <p className="text-sm font-bold text-primary">
+                {form.paymentType === 'monthly' ? (
+                  `ทุกวันที่ ${new Date(form.startDate).getDate() || 1} ของเดือน`
+                ) : isZeroInterestDebt ? (
+                  'ทยอยชำระคืน'
+                ) : form.paymentType === 'weekly' ? (
+                  'ทุกสัปดาห์'
+                ) : (
+                  'รายวัน'
+                )}
+              </p>
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">สิ้นสุดวันที่</p>
