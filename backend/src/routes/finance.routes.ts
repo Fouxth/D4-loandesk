@@ -43,19 +43,33 @@ router.post('/payments', upload.single('slip'), async (req: AuthRequest, res) =>
 
     // Finding 6: Validate loan ownership BEFORE triggering external Discord upload
     const [loan] = await sql`
-      SELECT id FROM loans WHERE id = ${body.loanId} AND tenant_id = ${req.tenantId!}
+      SELECT l.id, l.loan_number, c.full_name as customer_name
+      FROM loans l
+      LEFT JOIN customers c ON c.id = l.customer_id
+      WHERE l.id = ${body.loanId} AND l.tenant_id = ${req.tenantId!}
     `;
     if (!loan) {
       return res.status(404).json({ error: 'ไม่พบข้อมูลสัญญา หรือคุณไม่มีสิทธิ์เข้าถึงสัญญานี้' });
     }
 
     if (req.file) {
+      const nowStr = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+      const formattedAmount = Number(body.amount).toLocaleString('th-TH');
+      const customizedMessage = [
+        `💳 **มีสลิปการชำระเงินใหม่ถูกอัปเข้าระบบ!**`,
+        `👤 **ลูกค้า:** \`${loan.customer_name || 'ไม่ระบุ'}\``,
+        `🏷 **สัญญา:** \`${loan.loan_number || body.loanId}\``,
+        `💸 **ยอดชำระ:** \`${formattedAmount} บาท\``,
+        `📂 **ไฟล์ต้นทาง:** \`${req.file.originalname}\``,
+        `⏰ **เวลาอัปโหลด:** ${nowStr}`,
+      ].join('\n');
+
       body.slipUrl = await uploadFileToDiscord(
         req.tenantId!,
         req.file.buffer,
         req.file.originalname,
         req.file.mimetype,
-        `สลิปการชำระเงิน ${body.loanId || ''} ${Number(body.amount).toLocaleString('th-TH')} บาท`,
+        customizedMessage,
       );
       body.slipFileName = req.file.originalname;
     }
