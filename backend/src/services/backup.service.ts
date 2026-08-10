@@ -190,7 +190,7 @@ export async function restoreTenantBackup(targetTenantId: string, backupPayload:
           total_payable, installments_count, installment_amount, payment_type, is_interest_only,
           is_principal_interest_at_end, is_pawn, pawn_item, pawn_status, is_indefinite,
           document_fee, advance_fee, late_fee_mode, late_fee_amount, late_fee_note, status,
-          start_date, due_date, notes, created_at, updated_at
+          start_date, due_date, promise_date, notes, created_at, updated_at
         ) VALUES (
           ${l.id}, ${targetTenantId}, ${l.customerId ?? l.customer_id}, ${l.loanNumber ?? l.loan_number},
           ${Number(l.principal)}, ${Number(l.interestRate ?? l.interest_rate)}, ${Number(l.interestAmount ?? l.interest_amount)},
@@ -201,7 +201,7 @@ export async function restoreTenantBackup(targetTenantId: string, backupPayload:
           ${l.isIndefinite ?? l.is_indefinite ?? false}, ${Number(l.documentFee ?? l.document_fee ?? 0)},
           ${Number(l.advanceFee ?? l.advance_fee ?? 0)}, ${l.lateFeeMode ?? l.late_fee_mode ?? 'auto'},
           ${Number(l.lateFeeAmount ?? l.late_fee_amount ?? 0)}, ${(l.lateFeeNote ?? l.late_fee_note) || null},
-          ${l.status ?? 'active'}, ${l.startDate ?? l.start_date}, ${l.dueDate ?? l.due_date},
+          ${l.status ?? 'active'}, ${l.startDate ?? l.start_date}, ${l.dueDate ?? l.due_date}, ${(l.promiseDate ?? l.promise_date) || null},
           ${l.notes || null}, ${l.createdAt ?? l.created_at ?? new Date()}, ${l.updatedAt ?? l.updated_at ?? new Date()}
         )
         ON CONFLICT (id) DO UPDATE SET
