@@ -407,6 +407,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
                   setForm({
                     ...form,
                     interestRate: 0,
+                    installmentsCount: 1,
                     isInterestOnly: false,
                     isPrincipalInterestAtEnd: false,
                     isIndefinite: true,

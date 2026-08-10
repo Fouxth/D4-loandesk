@@ -54,6 +54,22 @@ export async function dbCreateLoan(data: any, loanNumber: string, userId: string
   `;
   if (!customer) throw new ApiError(400, 'ไม่พบลูกค้าในระบบ');
 
+  // Sanitize empty strings ("") or NaN into valid numeric/fallback values for PostgreSQL
+  const toNum = (val: any, fallback = 0) => {
+    if (val === null || val === undefined || val === '') return fallback;
+    const n = Number(val);
+    return isNaN(n) ? fallback : n;
+  };
+
+  safeData.principal = toNum(safeData.principal, 0);
+  safeData.interestRate = toNum(safeData.interestRate, 0);
+  safeData.interestAmount = toNum(safeData.interestAmount, 0);
+  safeData.totalPayable = toNum(safeData.totalPayable, safeData.principal as number);
+  safeData.installmentsCount = toNum(safeData.installmentsCount, 1);
+  safeData.installmentAmount = toNum(safeData.installmentAmount, safeData.totalPayable as number);
+  safeData.documentFee = toNum(safeData.documentFee, 0);
+  safeData.advanceFee = toNum(safeData.advanceFee, 0);
+
   const result = await sql`
     INSERT INTO loans ${sql({ ...safeData, loanNumber, createdBy: userId, tenantId })}
     RETURNING *
