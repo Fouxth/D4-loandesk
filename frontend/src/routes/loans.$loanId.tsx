@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel } from "@/components/StatusBadge";
+import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel, getLoanNextDueDate } from "@/components/StatusBadge";
 import { ArrowLeft, Plus, Trash2, Camera, Image as ImageIcon, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatTHB, formatDate, daysBetween, getThaiDateStr } from "@/utils/format";
@@ -103,18 +103,20 @@ function LoanDetail() {
 
   const paidInstallments = regularPayments.length + tpCount;
 
+  const loanWithPayments = { ...loan, paidInstallmentsCount: payments.length };
+  const nextDueDateStr = getLoanNextDueDate(loanWithPayments) || loan.dueDate;
   const today = getThaiDateStr();
-  const diff = loan.dueDate ? daysBetween(today, loan.dueDate) : 0;
+  const diff = nextDueDateStr ? daysBetween(today, nextDueDateStr) : 0;
   const skipContractLateFee = shouldSkipContractLateFee(loan);
   const rawDaysOverdue =
-    !skipContractLateFee && loan.dueDate && (loan.status === 'active' || loan.status === 'overdue')
+    !skipContractLateFee && nextDueDateStr && (getEffectiveStatus(loanWithPayments) === 'active' || getEffectiveStatus(loanWithPayments) === 'overdue' || getEffectiveStatus(loanWithPayments) === 'due_today')
       ? Math.max(diff, 0)
       : 0;
   const { autoFee, effectiveFee, daysOverdue, hoursOverdue, mode: lateFeeMode } = resolveLateFee(
     lending,
     loan,
     rawDaysOverdue,
-    loan.dueDate,
+    nextDueDateStr,
   );
   const lateFeeUnitParts = [
     daysOverdue > 0 ? `${daysOverdue} วัน` : null,

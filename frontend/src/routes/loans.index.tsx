@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel } from "@/components/StatusBadge";
+import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel, getLoanNextDueDate } from "@/components/StatusBadge";
 import { Plus, Search, Calendar, User, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { calcLoan } from "@/utils/loanCalc";
@@ -136,7 +136,7 @@ function Loans() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">{formatTHB(l.principal)}</TableCell>
                 <TableCell className="font-bold">{formatTHB(l.totalPayable)}</TableCell>
-                <TableCell className="text-muted-foreground text-xs">{formatDate(l.dueDate)}</TableCell>
+                <TableCell className="text-muted-foreground text-xs">{formatDate(getLoanNextDueDate(l) || l.dueDate)}</TableCell>
                 <TableCell className="text-center">
                   <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
                     {getLoanStatusLabel(l, t)}

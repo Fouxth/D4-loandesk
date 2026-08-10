@@ -28,6 +28,58 @@ export function StatusBadge({ children, tone = "muted", className }: StatusBadge
   );
 }
 
+export function getLoanNextDueDate(l: any): string | null {
+  if (!l) return null;
+  const rawStatus = (l.status ?? '').toLowerCase();
+  if (['completed', 'cancelled', 'forfeited', 'refinanced'].includes(rawStatus)) {
+    return null;
+  }
+
+  const isIndefinite = l.isIndefinite ?? l.is_indefinite;
+  if (isIndefinite) {
+    if (l.dueDate || l.due_date) {
+      return String(l.dueDate || l.due_date).substring(0, 10);
+    }
+    const start = l.startDate || l.start_date;
+    return start ? String(start).substring(0, 10) : null;
+  }
+
+  const paidCount = Number(l.paidInstallmentsCount ?? l.paid_installments_count ?? l.paidInstallments ?? 0);
+  const startDateStr = l.startDate || l.start_date;
+  if (!startDateStr) {
+    const rawDue = l.dueDate || l.due_date;
+    return rawDue ? String(rawDue).substring(0, 10) : null;
+  }
+
+  const startParts = String(startDateStr).substring(0, 10).split('-').map(Number);
+  if (startParts.length !== 3 || startParts.some(isNaN)) {
+    const rawDue = l.dueDate || l.due_date;
+    return rawDue ? String(rawDue).substring(0, 10) : null;
+  }
+
+  const [y, m, d] = startParts;
+  const paymentType = l.paymentType || l.payment_type || 'monthly';
+
+  const nextDate = new Date(y, m - 1, d);
+
+  if (paymentType === 'daily') {
+    nextDate.setDate(nextDate.getDate() + paidCount);
+  } else if (paymentType === 'weekly') {
+    nextDate.setDate(nextDate.getDate() + paidCount * 7);
+  } else if (paymentType === 'monthly') {
+    nextDate.setMonth(nextDate.getMonth() + paidCount);
+  }
+
+  const nextDueDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+  
+  const finalDueDateStr = l.dueDate || l.due_date ? String(l.dueDate || l.due_date).substring(0, 10) : null;
+  if (finalDueDateStr && nextDueDateStr > finalDueDateStr) {
+    return finalDueDateStr;
+  }
+
+  return nextDueDateStr;
+}
+
 export function getEffectiveStatus(l: any): string {
   if (!l) return 'active';
   const rawStatus = (l.status ?? '').toLowerCase();
@@ -35,8 +87,7 @@ export function getEffectiveStatus(l: any): string {
     return rawStatus;
   }
   const todayStr = getThaiDateStr();
-  const dueDate = l.dueDate ?? l.due_date;
-  const dueStr = dueDate ? String(dueDate).substring(0, 10) : '';
+  const dueStr = getLoanNextDueDate(l);
   if (dueStr && dueStr < todayStr) return 'overdue';
   if (dueStr && dueStr === todayStr) return 'due_today';
   return 'active';
