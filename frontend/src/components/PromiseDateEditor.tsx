@@ -37,13 +37,10 @@ export function PromiseDateEditor({ loanId, loan, onSaved }: Props) {
   }, [open, loan]);
 
   const save = async () => {
-    if (!promiseDate) {
-      toast.error("กรุณาระบุวันนัดจ่าย");
-      return;
-    }
+    const targetPromiseDate = promiseDate || (loan?.dueDate || loan?.due_date ? String(loan.dueDate || loan.due_date).substring(0, 10) : null);
     setBusy(true);
     try {
-      await updateLoan(loanId, { promiseDate });
+      await updateLoan(loanId, { promiseDate: targetPromiseDate });
       try {
         await logActivity({
           action: "update_loan_promise_date",
