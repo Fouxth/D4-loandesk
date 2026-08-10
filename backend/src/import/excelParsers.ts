@@ -55,6 +55,19 @@ function calcLoanAmounts(principal: number, installment: number, installments: n
   return { totalPayable, interestAmount, interestRate: Math.round(interestRate * 100) / 100 };
 }
 
+export function parsePaymentDateFromNote(noteText: string): string | null {
+  if (!noteText) return null;
+  const str = String(noteText).trim();
+  if (!str) return null;
+
+  const match = str.match(/จ่าย(?:วันที่)?\s*([0-9]{1,2}[\s\-]*[^\s\-0-9]+[\s\-]*[0-9]{2,4})/i);
+  if (match) {
+    const parsed = parseThaiDate(match[1]);
+    if (parsed) return parsed;
+  }
+  return parseThaiDate(str);
+}
+
 function inferStatus(
   paidCount: number,
   installmentsCount: number,
@@ -194,7 +207,13 @@ export function parseDaily357Sheet(rows: Row[], sheetName: string): ParseResult 
       const installmentAmount = Math.round(totalPayable / installments);
       const { interestAmount, interestRate } = calcLoanAmounts(principal, installmentAmount, installments, false);
       const dueDate = endDate ?? addDays(startDate, installments > 0 ? installments - 1 : 0);
-      const completed = totalPaid != null && totalPaid > 0;
+
+      const noteVal = row[block.startCol + 5] ?? row[block.startCol + 6] ?? row[block.startCol + 7];
+      const noteText = String(noteVal ?? '').trim();
+      const actualPaymentDate = parsePaymentDateFromNote(noteText);
+
+      const completed = (totalPaid != null && totalPaid > 0) || Boolean(actualPaymentDate);
+      const finalPaymentDate = actualPaymentDate ?? dueDate ?? startDate;
 
       loans.push({
         customerName: name,
@@ -209,13 +228,13 @@ export function parseDaily357Sheet(rows: Row[], sheetName: string): ParseResult 
         startDate,
         dueDate,
         status: inferStatus(completed ? installments : 0, installments, dueDate, completed),
-        notes: `นำเข้าจาก ${sheetName} (${installments} วัน)`,
+        notes: [`นำเข้าจาก ${sheetName} (${installments} วัน)`, noteText].filter(Boolean).join('; '),
         isInterestOnly: false,
         isIndefinite: false,
         isPawn: false,
         pawnItem: null,
         payments: completed
-          ? [{ paymentDate: dueDate ?? startDate, amount: totalPayable, installmentNumber: 1 }]
+          ? [{ paymentDate: finalPaymentDate, amount: totalPayable, installmentNumber: 1, notes: noteText || undefined }]
           : [],
       });
     }

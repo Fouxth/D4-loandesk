@@ -68,24 +68,13 @@ export function parseThaiDate(value: unknown): string | null {
     if (month) return padDate(year, month, day);
   }
 
-  // DD-MMM-YY Thai month with dots e.g. 12-ก.ค.-67
-  const thDashMatch = raw.match(/^(\d{1,2})-(.+?)-(\d{2,4})$/);
-  if (thDashMatch) {
-    const day = parseInt(thDashMatch[1], 10);
-    const monthKey = thDashMatch[2].trim();
+  // Flexible Thai Date: D MMM YY e.g. 29 พ.ค.2569, 27มิ.ย.2569, 12-ก.ค.-67, 9 พ.ค. 69
+  const thFlexMatch = raw.match(/^(\d{1,2})[\s\-]*([^\s\-0-9]+?)[\s\-]*(\d{2,4})$/);
+  if (thFlexMatch) {
+    const day = parseInt(thFlexMatch[1], 10);
+    const monthKey = thFlexMatch[2].trim();
     const month = lookupThaiMonth(monthKey);
-    const yearPart = parseInt(thDashMatch[3], 10);
-    const year = yearPart > 2400 ? yearPart - 543 : beShortToCe(yearPart);
-    if (month) return padDate(year, month, day);
-  }
-
-  // D MMM YY with spaces e.g. 9 พ.ค. 69
-  const thSpaceMatch = raw.match(/^(\d{1,2})\s+(.+?)\s+(\d{2,4})$/);
-  if (thSpaceMatch) {
-    const day = parseInt(thSpaceMatch[1], 10);
-    const monthKey = thSpaceMatch[2].trim();
-    const month = lookupThaiMonth(monthKey);
-    const yearPart = parseInt(thSpaceMatch[3], 10);
+    const yearPart = parseInt(thFlexMatch[3], 10);
     const year = yearPart > 2400 ? yearPart - 543 : beShortToCe(yearPart);
     if (month) return padDate(year, month, day);
   }
