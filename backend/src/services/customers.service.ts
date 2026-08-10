@@ -24,6 +24,21 @@ export async function dbGetCustomerById(id: string, tenantId: string) {
 
 export async function dbCreateCustomer(data: any, userId: string, tenantId: string) {
   const safeData = pickFields(data, CUSTOMER_ALLOWED);
+  const fullName = String(safeData.fullName ?? '').trim();
+  if (!fullName) {
+    throw new ApiError(400, 'กรุณาระบุชื่อ-นามสกุลลูกค้า');
+  }
+
+  // Check for duplicate customer name within the same tenant
+  const [existing] = await sql`
+    SELECT id, full_name FROM customers 
+    WHERE tenant_id = ${tenantId} AND LOWER(TRIM(full_name)) = LOWER(${fullName})
+    LIMIT 1
+  `;
+  if (existing) {
+    throw new ApiError(409, `พบรายชื่อลูกค้า "${fullName}" มีอยู่ในระบบแล้ว`);
+  }
+
   return await sql`
     INSERT INTO customers ${sql({ ...safeData, createdBy: userId, tenantId })}
     RETURNING *
@@ -33,6 +48,20 @@ export async function dbCreateCustomer(data: any, userId: string, tenantId: stri
 export async function dbUpdateCustomer(id: string, updates: any, tenantId: string) {
   const safeData = pickFields(updates, CUSTOMER_ALLOWED);
   if (Object.keys(safeData).length === 0) throw new ApiError(400, 'ไม่มีข้อมูลที่อัปเดต');
+
+  if (safeData.fullName) {
+    const fullName = String(safeData.fullName).trim();
+    const [existing] = await sql`
+      SELECT id FROM customers 
+      WHERE tenant_id = ${tenantId} 
+        AND id != ${id} 
+        AND LOWER(TRIM(full_name)) = LOWER(${fullName})
+      LIMIT 1
+    `;
+    if (existing) {
+      throw new ApiError(409, `พบรายชื่อลูกค้า "${fullName}" มีอยู่ในระบบแล้ว`);
+    }
+  }
 
   const [customer] = await sql`
     UPDATE customers SET ${sql(safeData)}

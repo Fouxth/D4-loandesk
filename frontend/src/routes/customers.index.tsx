@@ -1,6 +1,6 @@
 import { logActivity, getCustomers, createCustomer, updateCustomer, deleteCustomer, getCustomerAttachments, uploadCustomerAttachment, deleteCustomerAttachment } from "@/lib/services";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -124,7 +124,7 @@ function Customers() {
                 <Plus className="mr-2 h-5 w-5" />{t('customers.add_new')}
               </Button>
             </DialogTrigger>
-            <CustomerForm editing={editing} onDone={() => { setOpen(false); load(); }} onSubmit={submit} />
+            <CustomerForm editing={editing} existingCustomers={rows} onDone={() => { setOpen(false); load(); }} onSubmit={submit} />
           </Dialog>
         }
       />
@@ -254,7 +254,7 @@ function Customers() {
   );
 }
 
-function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null; onDone: () => void; onSubmit: (data: any) => Promise<any> }) {
+function CustomerForm({ editing, existingCustomers = [], onDone, onSubmit }: { editing: Customer | null; existingCustomers?: Customer[]; onDone: () => void; onSubmit: (data: any) => Promise<any> }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({
     fullName: editing?.fullName ?? "",
@@ -269,6 +269,14 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
   const [attachments, setAttachments] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  const isDuplicateName = useMemo(() => {
+    const name = form.fullName.trim().toLowerCase();
+    if (!name) return false;
+    return existingCustomers.some(
+      (c) => c.id !== editing?.id && c.fullName.trim().toLowerCase() === name
+    );
+  }, [form.fullName, existingCustomers, editing]);
 
   useEffect(() => {
     setNewFiles([]);
@@ -319,6 +327,10 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDuplicateName) {
+      toast.error(`พบรายชื่อลูกค้า "${form.fullName.trim()}" มีอยู่ในระบบแล้ว`);
+      return;
+    }
     const rawIdCard = form.idCard.replace(/\D/g, '');
     if (rawIdCard.length > 0 && rawIdCard.length < 13) {
       toast.error("รหัสบัตรประชาชนต้องมี 13 หลัก");
@@ -384,7 +396,17 @@ function CustomerForm({ editing, onDone, onSubmit }: { editing: Customer | null;
       <form onSubmit={handleSubmit} className="space-y-4 pt-2">
         <div className="space-y-2">
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t('customers.table.name')}</Label>
-          <Input required value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="bg-muted/20" />
+          <Input 
+            required 
+            value={form.fullName} 
+            onChange={(e) => setForm({ ...form, fullName: e.target.value })} 
+            className={`bg-muted/20 ${isDuplicateName ? "border-destructive focus-visible:ring-destructive" : ""}`} 
+          />
+          {isDuplicateName && (
+            <p className="text-xs font-bold text-destructive flex items-center gap-1 mt-1">
+              ⚠️ พบรายชื่อลูกค้านี้มีอยู่ในระบบแล้ว (ไม่สามารถสร้างชื่อซ้ำกันได้)
+            </p>
+          )}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
