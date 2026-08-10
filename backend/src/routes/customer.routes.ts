@@ -54,7 +54,13 @@ router.post('/:id/attachments', upload.single('file'), async (req: AuthRequest, 
       return res.status(404).json({ error: 'ไม่พบข้อมูลลูกค้า หรือไม่มีสิทธิ์เข้าถึง' });
     }
 
-    const customizedMessage = `📎 **มีเอกสารลูกค้าใหม่ถูกแนบเข้าระบบ!**\n👤 **ลูกค้า:** \`${customer.fullName}\`\n📂 **ไฟล์ต้นทาง:** \`${req.file.originalname}\`\n⏰ **เวลาอัปโหลด:** ${new Date().toLocaleString('th-TH')}`;
+    const nowStr = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+    const customizedMessage = [
+      `📎 **มีเอกสารลูกค้าใหม่ถูกแนบเข้าระบบ!**`,
+      `👤 **ลูกค้า:** \`${customer.fullName}\``,
+      `📂 **ไฟล์ต้นทาง:** \`${req.file.originalname}\``,
+      `⏰ **เวลาอัปโหลด:** ${nowStr}`,
+    ].join('\n');
 
     const discordUrl = await uploadFileToDiscord(
       req.tenantId!,

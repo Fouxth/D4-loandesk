@@ -109,7 +109,14 @@ router.post('/:id/attachments', upload.single('file'), async (req: AuthRequest, 
       return res.status(404).json({ error: 'ไม่พบข้อมูลสัญญา หรือไม่มีสิทธิ์เข้าถึง' });
     }
 
-    const customizedMessage = `📸 **มีรูปหลักฐานใหม่ถูกแนบเข้าระบบ!**\n👤 **ลูกค้า:** \`${loan.customerName}\`\n📝 **เลขที่สัญญา:** \`${loan.loanNumber}\`\n📂 **ไฟล์ต้นทาง:** \`${req.file.originalname}\`\n⏰ **เวลาอัปโหลด:** ${new Date().toLocaleString('th-TH')}`;
+    const nowStr = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+    const customizedMessage = [
+      `📸 **มีรูปหลักฐานใหม่ถูกแนบเข้าระบบ!**`,
+      `👤 **ลูกค้า:** \`${loan.customerName || 'ไม่ระบุ'}\``,
+      `📝 **เลขที่สัญญา:** \`${loan.loanNumber || req.params.id}\``,
+      `📂 **ไฟล์ต้นทาง:** \`${req.file.originalname}\``,
+      `⏰ **เวลาอัปโหลด:** ${nowStr}`,
+    ].join('\n');
     
     // 1. Upload to Discord and retrieve dynamic CDN link
     const discordUrl = await uploadFileToDiscord(
