@@ -59,10 +59,8 @@ import { cn } from "@/utils/utils";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import {
   DEFAULT_LENDING_CONFIG,
-  LENDING_RATE_CATEGORIES,
   normalizeLendingConfig,
   type LendingConfig,
-  type LendingRateKey,
 } from "@/utils/lendingConfig";
 
 export const Route = createFileRoute("/settings")({
@@ -835,42 +833,7 @@ function Settings() {
               <h3 className="font-black text-lg">ตั้งค่าเงินกู้</h3>
             </div>
             <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-6">
-              <div className="space-y-3">
-                <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                  อัตราดอกเบี้ยตามประเภทสัญญา (%)
-                </Label>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {LENDING_RATE_CATEGORIES.map(({ key, label }) => (
-                    <div key={key} className="space-y-2">
-                      <Label className="text-xs font-bold text-foreground">{label}</Label>
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          min={0}
-                          step={0.1}
-                          value={lending.categoryRates[key as LendingRateKey]}
-                          onChange={(e) =>
-                            setLending({
-                              ...lending,
-                              categoryRates: {
-                                ...lending.categoryRates,
-                                [key]: Number(e.target.value),
-                              },
-                            })
-                          }
-                          className="h-11 rounded-xl bg-muted/20 pr-10 font-bold"
-                        />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">%</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  ใช้เป็นค่าเริ่มต้นเมื่อสร้างสัญญาแต่ละประเภท
-                </p>
-              </div>
-
-              <div className="space-y-4 border-t border-border/50 pt-6">
+              <div className="space-y-4 pt-2">
                 <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50">
                   <div className="space-y-0.5">
                     <span className="text-sm font-bold">คิดค่าปรับล่าช้า</span>
