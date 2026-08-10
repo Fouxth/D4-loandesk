@@ -10,9 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, TrendingDown } from "lucide-react";
+import { Plus, Trash2, TrendingDown, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import { formatTHB, formatDate } from "@/utils/format";
+import { formatTHB, formatDate, getThaiDateStr } from "@/utils/format";
 import { getExpenses, createExpense, deleteExpense } from "@/lib/services";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 
@@ -28,9 +28,20 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: "อื่นๆ",
 };
 
+function formatMonthYearTH(monthKey: string): string {
+  if (monthKey === 'all') return 'ทุกเดือน (ทั้งหมด)';
+  const parts = monthKey.split('-').map(Number);
+  if (parts.length !== 2 || parts.some(isNaN)) return monthKey;
+  const [y, m] = parts;
+  const date = new Date(y, m - 1, 1);
+  return date.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+}
+
 function Expenses() {
   const [rows, setRows] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
+  const currentMonthKey = getThaiDateStr().substring(0, 7);
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthKey);
   
   const load = async () => { 
     const data = await getExpenses(); 
@@ -39,7 +50,42 @@ function Expenses() {
   
   useEffect(() => { load(); }, []);
 
-  const total = rows.reduce((a, e) => a + Number(e.amount), 0);
+  const availableMonths = Array.from(
+    new Set([
+      currentMonthKey,
+      ...rows.map((r) => String(r.expenseDate || r.expense_date || "").substring(0, 7)).filter(Boolean)
+    ])
+  ).sort().reverse();
+
+  const handlePrevMonth = () => {
+    if (selectedMonth === 'all') return;
+    const parts = selectedMonth.split('-').map(Number);
+    if (parts.length !== 2) return;
+    let [y, m] = parts;
+    m -= 1;
+    if (m < 1) { m = 12; y -= 1; }
+    const prevKey = `${y}-${String(m).padStart(2, '0')}`;
+    setSelectedMonth(prevKey);
+  };
+
+  const handleNextMonth = () => {
+    if (selectedMonth === 'all') return;
+    const parts = selectedMonth.split('-').map(Number);
+    if (parts.length !== 2) return;
+    let [y, m] = parts;
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+    const nextKey = `${y}-${String(m).padStart(2, '0')}`;
+    setSelectedMonth(nextKey);
+  };
+
+  const filteredRows = rows.filter((r) => {
+    if (selectedMonth === 'all') return true;
+    const dateStr = String(r.expenseDate || r.expense_date || '').substring(0, 7);
+    return dateStr === selectedMonth;
+  });
+
+  const totalFiltered = filteredRows.reduce((a, e) => a + Number(e.amount), 0);
 
   const remove = async (id: string) => { 
     try {
@@ -51,11 +97,13 @@ function Expenses() {
     }
   };
 
+  const monthLabelText = selectedMonth === 'all' ? 'ทุกเดือน' : formatMonthYearTH(selectedMonth);
+
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 space-y-4">
       <PageHeader 
         title="ค่าใช้จ่าย" 
-        description={`ทั้งหมด ${rows.length} รายการ · รวม ${formatTHB(total)}`} 
+        description={`ประจำเดือน: ${monthLabelText} · ทั้งหมด ${filteredRows.length} รายการ · รวม ${formatTHB(totalFiltered)}`} 
         actions={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -67,6 +115,53 @@ function Expenses() {
           </Dialog>
         } 
       />
+
+      {/* Month Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card border border-border p-3 rounded-2xl shadow-sm">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-10 w-10 shrink-0 rounded-xl"
+            onClick={handlePrevMonth}
+            disabled={selectedMonth === 'all'}
+            title="เดือนก่อนหน้า"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="h-10 min-w-[200px] bg-muted/20 rounded-xl font-bold border-border">
+              <Calendar className="mr-2 h-4 w-4 text-primary" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">🗓️ ทุกเดือน (ทั้งหมด)</SelectItem>
+              {availableMonths.map((mKey) => (
+                <SelectItem key={mKey} value={mKey}>
+                  📅 {formatMonthYearTH(mKey)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-10 w-10 shrink-0 rounded-xl"
+            onClick={handleNextMonth}
+            disabled={selectedMonth === 'all'}
+            title="เดือนถัดไป"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-between sm:justify-end gap-3 px-3 py-1.5 bg-muted/30 border border-border/50 rounded-xl">
+          <span className="text-xs font-bold text-muted-foreground">ยอดรวมเดือนนี้:</span>
+          <span className="text-base font-black text-destructive">{formatTHB(totalFiltered)}</span>
+        </div>
+      </div>
 
       <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-elevated)] overflow-hidden">
         {/* Desktop Table */}
@@ -82,7 +177,7 @@ function Expenses() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((e) => (
+              {filteredRows.map((e) => (
                 <TableRow key={e.id} className="hover:bg-muted/20 transition-colors">
                   <TableCell className="text-muted-foreground whitespace-nowrap text-xs">{formatDate(e.expenseDate)}</TableCell>
                   <TableCell className="font-medium whitespace-nowrap">
@@ -109,7 +204,7 @@ function Expenses() {
 
         {/* Mobile View */}
         <div className="md:hidden divide-y divide-border/50">
-          {rows.map((e) => (
+          {filteredRows.map((e) => (
             <div key={e.id} className="p-4 flex items-center justify-between hover:bg-muted/10 transition-colors">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-xl bg-destructive/5 flex items-center justify-center text-destructive">
@@ -144,8 +239,10 @@ function Expenses() {
           ))}
         </div>
 
-        {rows.length === 0 && (
-          <div className="py-12 text-center text-muted-foreground">ไม่มีรายการค่าใช้จ่าย</div>
+        {filteredRows.length === 0 && (
+          <div className="py-12 text-center text-muted-foreground">
+            ไม่มีรายการค่าใช้จ่ายประจำ{monthLabelText}
+          </div>
         )}
       </div>
     </div>
