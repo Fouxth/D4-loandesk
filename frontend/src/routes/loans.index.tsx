@@ -246,7 +246,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.customerId) return toast.error("กรุณาเลือกลูกค้า");
+    if (!form.customerId && !form.isPawn) return toast.error("กรุณาเลือกลูกค้า");
     setBusy(true);
     try {
       const data = await createLoan({

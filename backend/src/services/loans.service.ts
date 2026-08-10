@@ -27,9 +27,9 @@ function pickFields(data: any, allowed: Set<string>): Record<string, unknown> {
 
 export async function getAllLoans(tenantId: string) {
   return await sql`
-    SELECT l.*, c.full_name as customer_name 
+    SELECT l.*, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name 
     FROM loans l
-    JOIN customers c ON l.customer_id = c.id
+    LEFT JOIN customers c ON l.customer_id = c.id
     WHERE l.tenant_id = ${tenantId}
     ORDER BY l.created_at DESC
   `;
@@ -37,9 +37,9 @@ export async function getAllLoans(tenantId: string) {
 
 export async function getLoanById(id: string, tenantId: string) {
   const [loan] = await sql`
-    SELECT l.*, c.full_name as customer_name, c.phone as customer_phone
+    SELECT l.*, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name, c.phone as customer_phone
     FROM loans l
-    JOIN customers c ON l.customer_id = c.id
+    LEFT JOIN customers c ON l.customer_id = c.id
     WHERE l.id = ${id} AND l.tenant_id = ${tenantId}
   `;
   return loan;
@@ -48,11 +48,23 @@ export async function getLoanById(id: string, tenantId: string) {
 export async function dbCreateLoan(data: any, loanNumber: string, userId: string, tenantId: string) {
   const safeData = pickFields(data, LOAN_CREATE_ALLOWED);
 
-  if (!safeData.customerId) throw new ApiError(400, 'กรุณาระบุลูกค้า');
-  const [customer] = await sql`
-    SELECT id FROM customers WHERE id = ${safeData.customerId as string} AND tenant_id = ${tenantId}
-  `;
-  if (!customer) throw new ApiError(400, 'ไม่พบลูกค้าในระบบ');
+  if (!safeData.customerId && !safeData.isPawn) {
+    throw new ApiError(400, 'กรุณาระบุลูกค้า');
+  }
+
+  let customerName = 'จำนำไม่ระบุชื่อ';
+  if (safeData.customerId) {
+    const [customer] = await sql`
+      SELECT id, full_name FROM customers WHERE id = ${safeData.customerId as string} AND tenant_id = ${tenantId}
+    `;
+    if (!customer) throw new ApiError(400, 'ไม่พบลูกค้าในระบบ');
+    customerName = customer.fullName || customer.full_name;
+  } else {
+    safeData.customerId = null;
+    if (safeData.pawnItem) {
+      customerName = `จำนำ: ${safeData.pawnItem}`;
+    }
+  }
 
   // Sanitize empty strings ("") or NaN into valid numeric/fallback values for PostgreSQL
   const toNum = (val: any, fallback = 0) => {
@@ -77,28 +89,24 @@ export async function dbCreateLoan(data: any, loanNumber: string, userId: string
   
   if (result.length > 0) {
     const loan = result[0];
-    const customers = await sql`SELECT full_name FROM customers WHERE id = ${loan.customerId} AND tenant_id = ${tenantId}`;
-    if (customers.length > 0) {
-      const customer = customers[0];
-      const formattedPrincipal = Number(loan.principal).toLocaleString('en-US', {minimumFractionDigits: 2});
-      const formattedInstallment = Number(loan.installmentAmount).toLocaleString('en-US', {minimumFractionDigits: 2});
-      const dueDate = loan.is_indefinite ? 'ไม่มีกำหนด' : new Date(loan.dueDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
-      
-      const message = `📝 แจ้งเตือนเปิดสัญญาใหม่\n👤 ลูกค้า: ${customer.fullName}\n🏷 สัญญา: ${loan.loanNumber}\n💸 ยอดจัด: ${formattedPrincipal} บาท\n📅 ครบกำหนด: ${dueDate}`;
-      
-      sendLineNotify(message, 'loan', {
-        title: '📝 เปิดสัญญาใหม่',
-        accentColor: '#0ea5e9',
-        items: [
-          { label: 'ลูกค้า', value: customer.fullName },
-          { label: 'เลขที่สัญญา', value: loan.loanNumber },
-          { label: 'ยอดเงินต้น', value: `${formattedPrincipal} บาท`, color: '#0ea5e9' },
-          { label: 'ยอดชำระ/งวด', value: `${formattedInstallment} บาท` },
-          { label: 'วันที่ครบกำหนด', value: dueDate, color: '#f59e0b' }
-        ],
-        footer: 'อนุมัติและบันทึกเข้าระบบแล้ว'
-      }, tenantId);
-    }
+    const formattedPrincipal = Number(loan.principal).toLocaleString('en-US', {minimumFractionDigits: 2});
+    const formattedInstallment = Number(loan.installmentAmount).toLocaleString('en-US', {minimumFractionDigits: 2});
+    const dueDate = loan.is_indefinite ? 'ไม่มีกำหนด' : new Date(loan.dueDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+    
+    const message = `📝 แจ้งเตือนเปิดสัญญาใหม่\n👤 ลูกค้า: ${customerName}\n🏷 สัญญา: ${loan.loanNumber}\n💸 ยอดจัด: ${formattedPrincipal} บาท\n📅 ครบกำหนด: ${dueDate}`;
+    
+    sendLineNotify(message, 'loan', {
+      title: '📝 เปิดสัญญาใหม่',
+      accentColor: '#0ea5e9',
+      items: [
+        { label: 'ลูกค้า', value: customerName },
+        { label: 'เลขที่สัญญา', value: loan.loanNumber },
+        { label: 'ยอดเงินต้น', value: `${formattedPrincipal} บาท`, color: '#0ea5e9' },
+        { label: 'ยอดชำระ/งวด', value: `${formattedInstallment} บาท` },
+        { label: 'วันที่ครบกำหนด', value: dueDate, color: '#f59e0b' }
+      ],
+      footer: 'อนุมัติและบันทึกเข้าระบบแล้ว'
+    }, tenantId);
   }
   
   return result;
