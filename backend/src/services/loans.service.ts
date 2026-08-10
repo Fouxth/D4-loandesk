@@ -117,7 +117,7 @@ export async function getOverdueNotifications(tenantId: string) {
     SELECT l.id, l.loan_number, l.due_date, l.total_payable, l.status, c.full_name as customer_name
     FROM loans l
     JOIN customers c ON l.customer_id = c.id
-    WHERE l.status IN ('active', 'overdue') AND l.due_date <= ${today} AND l.tenant_id = ${tenantId}
+    WHERE l.status IN ('active', 'overdue') AND l.due_date IS NOT NULL AND l.due_date <= ${today} AND l.is_indefinite IS NOT TRUE AND l.tenant_id = ${tenantId}
     ORDER BY l.due_date ASC
     LIMIT 15
   `;

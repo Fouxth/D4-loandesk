@@ -44,8 +44,8 @@ export async function fetchDashboardRawData(tenantId: string, monthStartStr?: st
   const custCount = parseInt(custCountRes[0].count);
 
   const activeLoans = loans.filter((l: any) => l.status === 'active' || l.status === 'overdue');
-  const dueToday = loans.filter((l: any) => toDateStr(l.dueDate) === today && (l.status === 'active' || l.status === 'overdue'));
-  const overdue = loans.filter((l: any) => toDateStr(l.dueDate) < today && (l.status === 'active' || l.status === 'overdue'));
+  const dueToday = loans.filter((l: any) => !l.is_indefinite && !l.isIndefinite && toDateStr(l.dueDate) === today && (l.status === 'active' || l.status === 'overdue'));
+  const overdue = loans.filter((l: any) => !l.is_indefinite && !l.isIndefinite && toDateStr(l.dueDate) && toDateStr(l.dueDate) < today && (l.status === 'active' || l.status === 'overdue'));
 
   const tpConfig = tpConfigFromSettings(lendingConfig);
 
@@ -132,8 +132,9 @@ export async function fetchDashboardRawData(tenantId: string, monthStartStr?: st
     let effectiveStatus = raw;
     if (raw === 'active' || raw === 'overdue') {
       const dueStr = toDateStr(l.dueDate);
-      if (dueStr < today) effectiveStatus = 'overdue';
-      else if (dueStr === today) effectiveStatus = 'due_today';
+      const isIndefinite = l.is_indefinite || l.isIndefinite;
+      if (!isIndefinite && dueStr && dueStr < today) effectiveStatus = 'overdue';
+      else if (!isIndefinite && dueStr && dueStr === today) effectiveStatus = 'due_today';
       else effectiveStatus = 'active';
     }
     statusMap[effectiveStatus] = (statusMap[effectiveStatus] || 0) + 1;
