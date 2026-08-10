@@ -24,28 +24,61 @@ export async function fetchDueTodayLoans(tenantId: string, limit = DIGEST_LIMIT)
 
 export async function fetchOverdueLoans(tenantId: string, limit = DIGEST_LIMIT) {
   const today = getBangkokDateStr();
-  return sql`
-    SELECT l.loan_number, l.due_date, l.installment_amount, c.full_name as customer_name
+  const loans = await sql`
+    SELECT l.*, c.full_name as customer_name
     FROM loans l
     JOIN customers c ON l.customer_id = c.id
     WHERE l.tenant_id = ${tenantId}
-      AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled'))
-      AND l.due_date < ${today}
-    ORDER BY l.due_date ASC
-    LIMIT ${limit}
+      AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled', 'refinanced'))
   `;
+
+  const overdueList: any[] = [];
+
+  for (const l of loans) {
+    const isIndefinite = l.isIndefinite || l.is_indefinite;
+    const notes = l.notes || '';
+    const interestRate = Number(l.interestRate ?? l.interest_rate ?? 0);
+    const isZeroDebt = notes.includes('ยอดติด') || notes.includes('ยอดติดค้างชำระ') || (interestRate === 0 && (l.installmentsCount === 1 || !l.paymentType));
+
+    if (isIndefinite || isZeroDebt) continue;
+
+    const [p] = await sql`SELECT COUNT(*)::int as count FROM payments WHERE loan_id = ${l.id} AND tenant_id = ${tenantId}`;
+    const paidCount = Number(p?.count || 0);
+
+    const startDateStr = l.startDate ? l.startDate.toISOString().substring(0, 10) : (l.start_date ? String(l.start_date).substring(0, 10) : null);
+    if (!startDateStr) continue;
+
+    const startParts = startDateStr.split('-').map(Number);
+    const [y, m, d] = startParts;
+    const paymentType = l.paymentType || l.payment_type || 'daily';
+
+    const nextDate = new Date(y, m - 1, d);
+    if (paymentType === 'daily') {
+      nextDate.setDate(nextDate.getDate() + paidCount);
+    } else if (paymentType === 'weekly') {
+      nextDate.setDate(nextDate.getDate() + paidCount * 7);
+    } else if (paymentType === 'monthly') {
+      nextDate.setMonth(nextDate.getMonth() + paidCount);
+    }
+
+    const nextDueDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+
+    if (nextDueDateStr < today) {
+      overdueList.push({
+        loanNumber: l.loanNumber || l.loan_number,
+        customerName: l.customerName || l.customer_name,
+        dueDate: nextDueDateStr,
+        installmentAmount: l.installmentAmount || l.installment_amount
+      });
+    }
+  }
+
+  return overdueList.slice(0, limit);
 }
 
 export async function countOverdueLoans(tenantId: string) {
-  const today = getBangkokDateStr();
-  const [row] = await sql`
-    SELECT COUNT(*)::int as count
-    FROM loans l
-    WHERE l.tenant_id = ${tenantId}
-      AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled'))
-      AND l.due_date < ${today}
-  `;
-  return Number(row?.count ?? 0);
+  const overdueList = await fetchOverdueLoans(tenantId, 1000);
+  return overdueList.length;
 }
 
 export async function fetchPendingCollectionToday(tenantId: string, limit = DIGEST_LIMIT) {

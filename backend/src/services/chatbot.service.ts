@@ -209,12 +209,11 @@ export async function handleBotCommand(text: string, userId: string, replyToken:
  * Command: สรุป
  */
 async function handleSummary(userId: string, replyToken: string, tenantId: string) {
-  // Get today's logical date in local timezone
   const today = getBangkokDateStr();
 
   const [[payments], [loans], [expenses]] = await Promise.all([
     sql`SELECT COALESCE(SUM(amount::numeric), 0) as total FROM payments WHERE payment_date = ${today} AND tenant_id = ${tenantId}`,
-    sql`SELECT COALESCE(SUM(principal::numeric), 0) as total FROM loans WHERE DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Bangkok') = ${today} AND tenant_id = ${tenantId}`,
+    sql`SELECT COALESCE(SUM(principal::numeric), 0) as total FROM loans WHERE (start_date = ${today} OR DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Bangkok') = ${today}) AND tenant_id = ${tenantId}`,
     sql`SELECT COALESCE(SUM(amount::numeric), 0) as total FROM expenses WHERE expense_date = ${today} AND tenant_id = ${tenantId}`
   ]);
 
@@ -304,7 +303,7 @@ async function handleCustomerSearch(
     const loans = await sql`
       SELECT * FROM loans 
       WHERE customer_id = ${customer.id} 
-        AND (status IS NULL OR LOWER(status) NOT IN ('completed', 'closed', 'deleted', 'cancelled')) 
+        AND (status IS NULL OR LOWER(status) NOT IN ('completed', 'closed', 'deleted', 'cancelled', 'refinanced')) 
         AND tenant_id = ${tenantId}
     `;
 
@@ -324,11 +323,17 @@ async function handleCustomerSearch(
       
       totalRemaining += remaining;
       
+      const isIndefinite = loan.isIndefinite || loan.is_indefinite;
+      const notes = loan.notes || '';
+      const isZeroDebt = notes.includes('ยอดติด') || notes.includes('ยอดติดค้างชำระ');
+
+      const labelText = isZeroDebt ? '📌 ยอดติดเดิม' : (isIndefinite ? '📌 ดอกลอย' : `📝 ${loan.loanNumber || loan.loan_number}`);
+
       loanDetails.push({
         type: 'box',
         layout: 'horizontal',
         contents: [
-          { type: 'text', text: `📝 ${loan.loanNumber || loan.loan_number}`, size: 'xs', color: '#8c8c8c', flex: 2 },
+          { type: 'text', text: labelText, size: 'xs', color: isZeroDebt ? '#f59e0b' : '#8c8c8c', flex: 2 },
           { type: 'text', text: `${remaining.toLocaleString('en-US', {minimumFractionDigits: 2})} ฿`, size: 'xs', color: '#ef4444', align: 'end', weight: 'bold', flex: 3 }
         ]
       });
@@ -375,34 +380,72 @@ async function handleCustomerSearch(
  */
 async function handleOverdue(userId: string, replyToken: string, tenantId: string) {
   const today = getBangkokDateStr();
-  
-  const overdueLoans = await sql`
+  const loans = await sql`
     SELECT l.*, c.full_name as customer_name
     FROM loans l
     JOIN customers c ON l.customer_id = c.id
-    WHERE (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled')) 
-      AND l.due_date IS NOT NULL AND l.due_date < ${today} 
-      AND l.tenant_id = ${tenantId}
-    ORDER BY l.due_date ASC
-    LIMIT 10
+    WHERE l.tenant_id = ${tenantId}
+      AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled', 'refinanced'))
   `;
 
-  if (overdueLoans.length === 0) {
+  const overdueList: any[] = [];
+
+  for (const l of loans) {
+    const isIndefinite = l.isIndefinite || l.is_indefinite;
+    const notes = l.notes || '';
+    const interestRate = Number(l.interestRate ?? l.interest_rate ?? 0);
+    const isZeroDebt = notes.includes('ยอดติด') || notes.includes('ยอดติดค้างชำระ') || (interestRate === 0 && (l.installmentsCount === 1 || !l.paymentType));
+
+    // Skip indefinite / 'ยอดติด' for daily overdue count
+    if (isIndefinite || isZeroDebt) continue;
+
+    const [p] = await sql`SELECT COUNT(*)::int as count FROM payments WHERE loan_id = ${l.id} AND tenant_id = ${tenantId}`;
+    const paidCount = Number(p?.count || 0);
+
+    const startDateStr = l.startDate ? l.startDate.toISOString().substring(0, 10) : (l.start_date ? String(l.start_date).substring(0, 10) : null);
+    if (!startDateStr) continue;
+
+    const startParts = startDateStr.split('-').map(Number);
+    const [y, m, d] = startParts;
+    const paymentType = l.paymentType || l.payment_type || 'daily';
+
+    const nextDate = new Date(y, m - 1, d);
+    if (paymentType === 'daily') {
+      nextDate.setDate(nextDate.getDate() + paidCount);
+    } else if (paymentType === 'weekly') {
+      nextDate.setDate(nextDate.getDate() + paidCount * 7);
+    } else if (paymentType === 'monthly') {
+      nextDate.setMonth(nextDate.getMonth() + paidCount);
+    }
+
+    const nextDueDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+
+    if (nextDueDateStr < today) {
+      const days = Math.floor((new Date(today).getTime() - nextDate.getTime()) / (1000 * 60 * 60 * 24));
+      overdueList.push({
+        customerName: l.customerName || l.customer_name,
+        loanNumber: l.loanNumber || l.loan_number,
+        daysOverdue: days,
+        installmentAmount: l.installmentAmount || l.installment_amount
+      });
+    }
+  }
+
+  if (overdueList.length === 0) {
     await deliverMessages(userId, replyToken, [
       { type: 'text', text: '🎉 เยี่ยมมาก! วันนี้ไม่มีลูกค้าค้างชำระเลยครับ' },
     ]);
     return;
   }
 
-  const items = overdueLoans.map(loan => {
-    const daysOverdue = Math.floor((new Date(today).getTime() - new Date(loan.dueDate).getTime()) / (1000 * 60 * 60 * 24));
+  const items = overdueList.map(loan => {
     return {
       type: 'box',
       layout: 'horizontal',
       margin: 'sm',
       contents: [
         { type: 'text', text: `👤 ${loan.customerName}`, size: 'xs', color: '#333333', flex: 3, wrap: true },
-        { type: 'text', text: `${daysOverdue} วัน`, size: 'xs', color: '#ef4444', align: 'end', weight: 'bold', flex: 2 }
+        { type: 'text', text: `ค้าง ${loan.daysOverdue} วัน`, size: 'xs', color: '#ef4444', align: 'end', weight: 'bold', flex: 2 }
       ]
     };
   });
@@ -418,7 +461,7 @@ async function handleOverdue(userId: string, replyToken: string, tenantId: strin
         layout: 'vertical',
         backgroundColor: '#ef4444',
         contents: [
-          { type: 'text', text: `🚨 ค้างชำระ (${overdueLoans.length} รายการ)`, weight: 'bold', color: '#ffffff', size: 'sm' }
+          { type: 'text', text: `🚨 ค้างชำระ (${overdueList.length} รายการ)`, weight: 'bold', color: '#ffffff', size: 'sm' }
         ]
       },
       body: {
@@ -439,22 +482,70 @@ async function handleOverdue(userId: string, replyToken: string, tenantId: strin
 async function handleCollectToday(userId: string, replyToken: string, tenantId: string) {
   const today = getBangkokDateStr();
   
-  // Find active loans that haven't paid today
-  const pendingLoans = await sql`
+  const loans = await sql`
     SELECT l.*, c.full_name as customer_name
     FROM loans l
     JOIN customers c ON l.customer_id = c.id
-    WHERE (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled')) 
-      AND l.tenant_id = ${tenantId}
-      AND NOT EXISTS (
-        SELECT 1 FROM payments p 
-        WHERE p.loan_id = l.id AND p.payment_date = ${today} AND p.tenant_id = ${tenantId}
-      )
-    ORDER BY l.created_at ASC
-    LIMIT 20
+    WHERE l.tenant_id = ${tenantId}
+      AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled', 'refinanced'))
   `;
 
-  if (pendingLoans.length === 0) {
+  const pendingList: any[] = [];
+
+  for (const l of loans) {
+    const isIndefinite = l.isIndefinite || l.is_indefinite;
+    const notes = l.notes || '';
+    const interestRate = Number(l.interestRate ?? l.interest_rate ?? 0);
+    const isZeroDebt = notes.includes('ยอดติด') || notes.includes('ยอดติดค้างชำระ') || (interestRate === 0 && (l.installmentsCount === 1 || !l.paymentType));
+
+    // Exclude 'ยอดติด' / indefinite loans per user request
+    if (isIndefinite || isZeroDebt) continue;
+
+    // Check if paid today
+    const [pToday] = await sql`
+      SELECT 1 FROM payments 
+      WHERE loan_id = ${l.id} AND payment_date = ${today} AND tenant_id = ${tenantId}
+      LIMIT 1
+    `;
+    if (pToday) continue; // Already paid today
+
+    const [p] = await sql`SELECT COUNT(*)::int as count FROM payments WHERE loan_id = ${l.id} AND tenant_id = ${tenantId}`;
+    const paidCount = Number(p?.count || 0);
+
+    const startDateStr = l.startDate ? l.startDate.toISOString().substring(0, 10) : (l.start_date ? String(l.start_date).substring(0, 10) : null);
+    if (!startDateStr) continue;
+
+    const startParts = startDateStr.split('-').map(Number);
+    const [y, m, d] = startParts;
+    const paymentType = l.paymentType || l.payment_type || 'daily';
+
+    const nextDate = new Date(y, m - 1, d);
+    if (paymentType === 'daily') {
+      nextDate.setDate(nextDate.getDate() + paidCount);
+    } else if (paymentType === 'weekly') {
+      nextDate.setDate(nextDate.getDate() + paidCount * 7);
+    } else if (paymentType === 'monthly') {
+      nextDate.setMonth(nextDate.getMonth() + paidCount);
+    }
+
+    const nextDueDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+
+    if (nextDueDateStr <= today) {
+      const installmentsCount = Number(l.installmentsCount || l.installments_count || 24);
+      const remainingInstallments = Math.max(installmentsCount - paidCount, 0);
+
+      pendingList.push({
+        customerName: l.customerName || l.customer_name,
+        loanNumber: l.loanNumber || l.loan_number,
+        installmentAmount: Number(l.installmentAmount || l.installment_amount || 0),
+        remainingInstallments,
+        installmentsCount,
+        paymentType
+      });
+    }
+  }
+
+  if (pendingList.length === 0) {
     await deliverMessages(userId, replyToken, [
       { type: 'text', text: '🎉 ยอดเยี่ยม! วันนี้เก็บเงินครบทุกรายการแล้วครับ' },
     ]);
@@ -462,28 +553,8 @@ async function handleCollectToday(userId: string, replyToken: string, tenantId: 
   }
 
   const items = [];
-  
-  for (const loan of pendingLoans) {
-    // Calculate total paid to find remaining installments
-    const allPayments = await sql`SELECT amount FROM payments WHERE loan_id = ${loan.id} AND tenant_id = ${tenantId}`;
-    const totalPaid = allPayments.reduce((acc: number, p: any) => acc + Number(p.amount), 0);
-    
-    let typeText = '';
-    let remainingText = '';
-    
-    if (loan.isIndefinite) {
-      typeText = 'ดอกลอย';
-      const remainingBalance = Math.max(Number(loan.principal) - totalPaid, 0);
-      remainingText = `ต้นคงเหลือ ${remainingBalance.toLocaleString('en-US', {minimumFractionDigits: 0})} ฿`;
-    } else {
-      typeText = `${loan.installmentsCount || '-'} วัน`;
-      const installmentAmt = Number(loan.installmentAmount) || 1;
-      const paidInstallments = Math.floor(totalPaid / installmentAmt);
-      const remainingInstallments = Math.max(Number(loan.installmentsCount) - paidInstallments, 0);
-      remainingText = `เหลือ ${remainingInstallments} งวด`;
-    }
-
-    const formattedInstallment = Number(loan.installmentAmount).toLocaleString('en-US', {minimumFractionDigits: 0});
+  for (const item of pendingList) {
+    const formattedInstallment = item.installmentAmount.toLocaleString('en-US', { minimumFractionDigits: 0 });
 
     items.push({
       type: 'box',
@@ -493,15 +564,15 @@ async function handleCollectToday(userId: string, replyToken: string, tenantId: 
         { 
           type: 'box', layout: 'horizontal', 
           contents: [
-            { type: 'text', text: `👤 ${loan.customerName}`, size: 'sm', color: '#333333', weight: 'bold', flex: 2 },
+            { type: 'text', text: `👤 ${item.customerName}`, size: 'sm', color: '#333333', weight: 'bold', flex: 2 },
             { type: 'text', text: `${formattedInstallment} ฿`, size: 'sm', color: '#10b981', align: 'end', weight: 'bold', flex: 1 }
           ]
         },
         { 
           type: 'box', layout: 'horizontal', margin: 'xs', 
           contents: [
-            { type: 'text', text: `📌 ${typeText}`, size: 'xs', color: '#8c8c8c', flex: 1 },
-            { type: 'text', text: `🎯 ${remainingText}`, size: 'xs', color: '#0ea5e9', align: 'end', weight: 'bold', flex: 1 }
+            { type: 'text', text: `📝 ${item.loanNumber}`, size: 'xs', color: '#8c8c8c', flex: 1 },
+            { type: 'text', text: `🎯 เหลือ ${item.remainingInstallments} งวด`, size: 'xs', color: '#0ea5e9', align: 'end', weight: 'bold', flex: 1 }
           ]
         }
       ]
@@ -523,7 +594,7 @@ async function handleCollectToday(userId: string, replyToken: string, tenantId: 
         layout: 'vertical',
         backgroundColor: '#10b981',
         contents: [
-          { type: 'text', text: `📋 ต้องเก็บวันนี้ (${pendingLoans.length} รายการ)`, weight: 'bold', color: '#ffffff', size: 'sm' }
+          { type: 'text', text: `📋 ต้องเก็บวันนี้ (${pendingList.length} รายการ)`, weight: 'bold', color: '#ffffff', size: 'sm' }
         ]
       },
       body: {
