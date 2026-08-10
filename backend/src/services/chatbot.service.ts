@@ -109,9 +109,9 @@ function isTokenRequest(lowerCmd: string): boolean {
   );
 }
 
-function findTenantForUser(userId: string) {
+async function findTenantForUser(userId: string) {
   const jsonArr = JSON.stringify([userId]);
-  return sql`
+  const matched = await sql`
     SELECT tenant_id, value FROM settings 
     WHERE key = 'line_notify' AND (
       (value->>'userId') = ${userId}
@@ -119,6 +119,16 @@ function findTenantForUser(userId: string) {
     )
     LIMIT 2
   `;
+
+  if (matched.length > 0) return matched;
+
+  // Fallback: If only 1 non-system tenant exists in the database
+  const allTenants = await sql`SELECT DISTINCT tenant_id FROM settings WHERE key = 'line_notify' AND tenant_id NOT IN ('system', 'test')`;
+  if (allTenants.length === 1) {
+    return allTenants;
+  }
+
+  return [];
 }
 
 /**
