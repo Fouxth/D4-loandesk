@@ -16,8 +16,8 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts";
-import { StatusBadge, loanStatusTone } from "@/components/StatusBadge";
-import { formatDate, getThaiDateStr } from "@/utils/format";
+import { StatusBadge, loanStatusTone, getEffectiveStatus } from "@/components/StatusBadge";
+import { formatDate } from "@/utils/format";
 
 export const Route = createFileRoute("/")({
   component: IndexRouteComponent,
@@ -53,6 +53,7 @@ interface Summary {
 
 const STATUS_COLORS: Record<string, string> = {
   active: "hsl(220 80% 60%)",
+  due_today: "hsl(40 90% 55%)",
   completed: "hsl(150 60% 50%)",
   overdue: "hsl(15 75% 55%)",
   cancelled: "hsl(220 10% 60%)",
@@ -60,14 +61,7 @@ const STATUS_COLORS: Record<string, string> = {
   refinanced: "hsl(42 85% 55%)",
 };
 
-function getEffectiveStatus(l: any): string {
-  if (l.status === 'completed' || l.status === 'cancelled' || l.status === 'forfeited' || l.status === 'refinanced') return l.status;
-  const todayStr = getThaiDateStr();
-  const dueStr = l.dueDate ? l.dueDate.substring(0, 10) : '';
-  if (dueStr < todayStr) return 'overdue';
-  if (dueStr === todayStr) return 'due_today';
-  return 'active';
-}
+
 
 function Dashboard() {
   const { t } = useTranslation();
@@ -87,10 +81,26 @@ function Dashboard() {
         setSummary(data.summary as Summary);
         setMonthly(data.monthly);
         setTrend(data.trend);
-        setStatusBreakdown(data.statusBreakdown.map((item: any) => ({
-          ...item,
-          name: t(`loans.status.${item.name}`, item.name)
-        })));
+        const validBreakdown = (data.statusBreakdown ?? [])
+          .filter((item: any) => item && Boolean(item.name) && item.name !== 'null' && item.name !== 'undefined')
+          .map((item: any) => {
+            const rawKey = String(item.name).toLowerCase();
+            const label =
+              rawKey === 'active' ? 'ปกติ' :
+              rawKey === 'due_today' ? 'ครบกำหนดวันนี้' :
+              rawKey === 'overdue' ? 'เกินกำหนด' :
+              rawKey === 'completed' ? 'เสร็จสิ้น' :
+              rawKey === 'forfeited' ? 'หลุดจำนำ' :
+              rawKey === 'refinanced' ? 'ต่อดอกใหม่' :
+              rawKey === 'cancelled' ? 'ยกเลิก' :
+              t(`loans.status.${rawKey}`, rawKey);
+            return {
+              ...item,
+              rawKey,
+              name: label,
+            };
+          });
+        setStatusBreakdown(validBreakdown);
 
         // Due today + overdue loans for quick list
         const todayAndOverdue = (loans ?? []).filter((l: any) => {
@@ -272,9 +282,9 @@ function Dashboard() {
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <PieChart>
                   <Pie data={statusBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={5}>
-                    {statusBreakdown.map((entry, index) => {
-                      const key = Object.keys(STATUS_COLORS).find(k => t(`loans.status.${k}`) === entry.name) || 'active';
-                      return <Cell key={index} fill={STATUS_COLORS[key] ?? "var(--chart-muted)"} stroke="none" />;
+                    {statusBreakdown.map((entry: any, index) => {
+                      const color = STATUS_COLORS[entry.rawKey] || STATUS_COLORS[Object.keys(STATUS_COLORS).find(k => t(`loans.status.${k}`) === entry.name) || 'active'] || "var(--chart-muted)";
+                      return <Cell key={index} fill={color} stroke="none" />;
                     })}
                   </Pie>
                   <Tooltip contentStyle={{ background: "var(--chart-card-bg)", border: "1px solid var(--chart-border)", borderRadius: 12, color: 'var(--foreground)' }} labelStyle={{ color: 'var(--chart-text)' }} />

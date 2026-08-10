@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { StatusBadge, loanStatusTone } from "@/components/StatusBadge";
+import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel } from "@/components/StatusBadge";
 import { Plus, Search, Calendar, User, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { calcLoan } from "@/utils/loanCalc";
@@ -23,14 +23,7 @@ export const Route = createFileRoute("/loans/")({
   component: () => (<ProtectedRoute><AppLayout><Loans /></AppLayout></ProtectedRoute>),
 });
 
-function getEffectiveStatus(l: any): string {
-  if (l.status === 'completed' || l.status === 'cancelled' || l.status === 'forfeited' || l.status === 'refinanced') return l.status;
-  const todayStr = getThaiDateStr();
-  const dueStr = l.dueDate ? l.dueDate.substring(0, 10) : '';
-  if (dueStr < todayStr) return 'overdue';
-  if (dueStr === todayStr) return 'due_today';
-  return 'active';
-}
+
 
 function Loans() {
   const { t } = useTranslation();
@@ -145,10 +138,7 @@ function Loans() {
                 <TableCell className="text-muted-foreground text-xs">{formatDate(l.dueDate)}</TableCell>
                 <TableCell className="text-center">
                   <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
-                    {getEffectiveStatus(l) === 'completed' && l.isPawn ? 'ไถ่ถอนแล้ว' : 
-                     getEffectiveStatus(l) === 'forfeited' ? 'หลุดจำนำ' : 
-                     getEffectiveStatus(l) === 'refinanced' ? 'ต่อดอกใหม่' :
-                     t(`loans.status.${getEffectiveStatus(l)}`)}
+                    {getLoanStatusLabel(l, t)}
                   </StatusBadge>
                 </TableCell>
               </TableRow>
@@ -178,10 +168,7 @@ function Loans() {
                 <StatusBadge tone="info">{getLoanCategory(l)}</StatusBadge>
               </div>
               <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
-                {getEffectiveStatus(l) === 'completed' && l.isPawn ? 'ไถ่ถอนแล้ว' : 
-                 getEffectiveStatus(l) === 'forfeited' ? 'หลุดจำนำ' : 
-                 getEffectiveStatus(l) === 'refinanced' ? 'ต่อดอกใหม่' :
-                 t(`loans.status.${getEffectiveStatus(l)}`)}
+                {getLoanStatusLabel(l, t)}
               </StatusBadge>
             </div>
             

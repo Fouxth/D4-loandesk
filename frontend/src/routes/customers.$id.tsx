@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PageHeader } from "@/components/PageHeader";
-import { StatusBadge, loanStatusTone } from "@/components/StatusBadge";
+import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel } from "@/components/StatusBadge";
 import { formatTHB, formatDate } from "@/utils/format";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -117,8 +117,8 @@ function Detail() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-black text-foreground">{formatTHB(l.totalPayable)}</p>
-                  <StatusBadge tone={loanStatusTone(l.status)}>
-                    {l.status === 'active' ? 'ปกติ' : l.status === 'overdue' ? 'เกินกำหนด' : l.status === 'completed' ? 'เสร็จสิ้น' : 'ยกเลิก'}
+                  <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
+                    {getLoanStatusLabel(l)}
                   </StatusBadge>
                 </div>
               </Link>

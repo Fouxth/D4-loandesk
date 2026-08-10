@@ -128,8 +128,9 @@ export async function fetchDashboardRawData(tenantId: string, monthStartStr?: st
   // Status breakdown
   const statusMap: Record<string, number> = {};
   loans.forEach((l: any) => {
-    let effectiveStatus = l.status;
-    if (l.status === 'active' || l.status === 'overdue') {
+    const raw = (l.status || 'active').toLowerCase();
+    let effectiveStatus = raw;
+    if (raw === 'active' || raw === 'overdue') {
       const dueStr = toDateStr(l.dueDate);
       if (dueStr < today) effectiveStatus = 'overdue';
       else if (dueStr === today) effectiveStatus = 'due_today';
@@ -137,7 +138,9 @@ export async function fetchDashboardRawData(tenantId: string, monthStartStr?: st
     }
     statusMap[effectiveStatus] = (statusMap[effectiveStatus] || 0) + 1;
   });
-  const statusBreakdown = Object.entries(statusMap).map(([name, value]) => ({ name, value }));
+  const statusBreakdown = Object.entries(statusMap)
+    .filter(([name]) => Boolean(name) && name !== 'null' && name !== 'undefined')
+    .map(([name, value]) => ({ name, value }));
 
   return {
     summary: {

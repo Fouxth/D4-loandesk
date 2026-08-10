@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { StatusBadge, loanStatusTone } from "@/components/StatusBadge";
+import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel } from "@/components/StatusBadge";
 import { ArrowLeft, Plus, Trash2, Camera, Image as ImageIcon, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatTHB, formatDate, daysBetween, getThaiDateStr } from "@/utils/format";
@@ -302,12 +302,8 @@ function LoanDetail() {
             <div className="flex justify-between items-center">
               <dt className="text-muted-foreground">สถานะ</dt>
               <dd>
-                <StatusBadge tone={loanStatusTone(loan.status)}>
-                  {loan.status === 'active' ? 'ปกติ' : 
-                   loan.status === 'overdue' ? 'เกินกำหนด' : 
-                   loan.status === 'completed' ? (loan.isPawn ? 'ไถ่ถอนแล้ว' : 'เสร็จสิ้น') : 
-                   loan.status === 'forfeited' ? 'หลุดจำนำ' : 
-                   loan.status === 'refinanced' ? 'ต่อดอกใหม่' : 'ยกเลิก'}
+                <StatusBadge tone={loanStatusTone(getEffectiveStatus(loan))}>
+                  {getLoanStatusLabel(loan)}
                 </StatusBadge>
                 {loan.isInterestOnly && (
                   <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-primary/20 text-primary">
@@ -376,7 +372,7 @@ function LoanDetail() {
                 )}
                 <div className="flex justify-between items-center">
                   <dt className="text-muted-foreground pl-4 font-bold">└ ยอดที่จ่ายลูกค้าจริง</dt>
-                  <dd className="font-bold text-success-foreground">
+                  <dd className="font-bold text-success">
                     {formatTHB(Math.max(Number(loan.principal) - Number(loan.documentFee) - Number(loan.advanceFee), 0))}
                   </dd>
                 </div>
@@ -517,7 +513,7 @@ function LoanDetail() {
                       <> · <span className="text-success">{formatTHB(p.amount)}</span></>
                     )}
                     {p.category === 'interest' && <span className="ml-2 text-[11px] font-bold text-primary uppercase bg-primary/10 px-1 rounded">ดอกเบี้ย</span>}
-                    {p.category === 'principal' && <span className="ml-2 text-[11px] font-bold text-success-foreground uppercase bg-success/10 px-1 rounded">เงินต้น</span>}
+                    {p.category === 'principal' && <span className="ml-2 text-[11px] font-bold text-success uppercase bg-success/10 px-1 rounded">เงินต้น</span>}
                   </p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     {formatDate(p.paymentDate)} · {METHOD_LABELS[p.method] || p.method}

@@ -1,4 +1,5 @@
 import { cn } from "@/utils/utils";
+import { getThaiDateStr } from "@/utils/format";
 
 interface StatusBadgeProps {
   children: React.ReactNode;
@@ -27,6 +28,20 @@ export function StatusBadge({ children, tone = "muted", className }: StatusBadge
   );
 }
 
+export function getEffectiveStatus(l: any): string {
+  if (!l) return 'active';
+  const rawStatus = (l.status ?? '').toLowerCase();
+  if (['completed', 'cancelled', 'forfeited', 'refinanced'].includes(rawStatus)) {
+    return rawStatus;
+  }
+  const todayStr = getThaiDateStr();
+  const dueDate = l.dueDate ?? l.due_date;
+  const dueStr = dueDate ? String(dueDate).substring(0, 10) : '';
+  if (dueStr && dueStr < todayStr) return 'overdue';
+  if (dueStr && dueStr === todayStr) return 'due_today';
+  return 'active';
+}
+
 export function loanStatusTone(status: string): any {
   switch (status?.toLowerCase()) {
     case 'active': return 'primary';
@@ -38,4 +53,18 @@ export function loanStatusTone(status: string): any {
     case 'cancelled': return 'muted';
     default: return 'muted';
   }
+}
+
+export function getLoanStatusLabel(l: any, t?: (key: string) => string): string {
+  const eff = getEffectiveStatus(l);
+  const isPawn = l?.isPawn ?? l?.is_pawn;
+  if (eff === 'completed' && isPawn) return 'ไถ่ถอนแล้ว';
+  if (eff === 'completed') return 'เสร็จสิ้น';
+  if (eff === 'forfeited') return 'หลุดจำนำ';
+  if (eff === 'refinanced') return 'ต่อดอกใหม่';
+  if (eff === 'cancelled') return 'ยกเลิก';
+  if (eff === 'overdue') return 'เกินกำหนด';
+  if (eff === 'due_today') return 'ครบกำหนดวันนี้';
+  if (eff === 'active') return 'ปกติ';
+  return t ? t(`loans.status.${eff}`) : eff;
 }
