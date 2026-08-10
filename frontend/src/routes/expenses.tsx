@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PageHeader } from "@/components/PageHeader";
@@ -50,12 +50,22 @@ function Expenses() {
   
   useEffect(() => { load(); }, []);
 
-  const availableMonths = Array.from(
-    new Set([
+  const availableMonths = useMemo(() => {
+    const monthsSet = new Set<string>([
       currentMonthKey,
+      selectedMonth,
       ...rows.map((r) => String(r.expenseDate || r.expense_date || "").substring(0, 7)).filter(Boolean)
-    ])
-  ).sort().reverse();
+    ]);
+    
+    const now = new Date();
+    for (let i = -12; i <= 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      monthsSet.add(mKey);
+    }
+
+    return Array.from(monthsSet).filter(m => m !== 'all').sort().reverse();
+  }, [currentMonthKey, selectedMonth, rows]);
 
   const handlePrevMonth = () => {
     if (selectedMonth === 'all') return;
