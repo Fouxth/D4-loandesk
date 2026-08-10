@@ -562,7 +562,7 @@ function LoanDetail() {
                   title="ยืนยันการลบประวัติการชำระเงิน"
                   description={`คุณแน่ใจหรือไม่ว่าต้องการลบประวัติการชำระเงินนี้?\nการดำเนินการนี้ไม่สามารถกู้คืนได้`}
                 >
-                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </ConfirmDelete>
@@ -627,7 +627,7 @@ function LoanDetail() {
                     variant="destructive" 
                     size="icon" 
                     onClick={() => removeAttachment(att.id)}
-                    className="absolute top-2 right-2 h-7 w-7 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                    className="absolute top-2 right-2 h-7 w-7 rounded-full shadow-lg"
                   >
                     <X className="h-4 w-4" />
                   </Button>
