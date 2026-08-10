@@ -34,7 +34,7 @@ export async function fetchDashboardRawData(tenantId: string, monthStartStr?: st
 
   const [custCountRes, loans, payments, expenses, settingsRes] = await Promise.all([
     sql`SELECT count(*) as count FROM customers WHERE tenant_id = ${tenantId}`,
-    sql`SELECT id, status, total_payable, due_date, principal, installment_amount, payment_type, is_interest_only, is_indefinite, late_fee_mode, late_fee_amount FROM loans WHERE tenant_id = ${tenantId}`,
+    sql`SELECT id, status, total_payable, start_date, due_date, promise_date, principal, installment_amount, payment_type, installments_count, notes, interest_rate, is_interest_only, is_indefinite, is_principal_interest_at_end, late_fee_mode, late_fee_amount FROM loans WHERE tenant_id = ${tenantId}`,
     sql`SELECT loan_id, amount, payment_date, category FROM payments WHERE tenant_id = ${tenantId}`,
     sql`SELECT amount, expense_date FROM expenses WHERE expense_date >= ${monthStart} AND tenant_id = ${tenantId}`,
     sql`SELECT value FROM settings WHERE key = 'lending_config' AND tenant_id = ${tenantId}`
@@ -43,9 +43,66 @@ export async function fetchDashboardRawData(tenantId: string, monthStartStr?: st
   const lendingConfig = settingsRes[0]?.value || {};
   const custCount = parseInt(custCountRes[0].count);
 
-  const activeLoans = loans.filter((l: any) => l.status === 'active' || l.status === 'overdue');
-  const dueToday = loans.filter((l: any) => !l.is_indefinite && !l.isIndefinite && toDateStr(l.dueDate) === today && (l.status === 'active' || l.status === 'overdue'));
-  const overdue = loans.filter((l: any) => !l.is_indefinite && !l.isIndefinite && toDateStr(l.dueDate) && toDateStr(l.dueDate) < today && (l.status === 'active' || l.status === 'overdue'));
+  function getLoanDynamicNextDueDate(l: any): string | null {
+    const rawStatus = (l.status || 'active').toLowerCase();
+    if (['completed', 'closed', 'deleted', 'cancelled', 'refinanced', 'forfeited'].includes(rawStatus)) {
+      return null;
+    }
+
+    const isIndefinite = l.isIndefinite ?? l.is_indefinite;
+    const notes = l.notes ?? '';
+    const interestRate = Number(l.interestRate ?? l.interest_rate ?? 0);
+    const isZeroDebt = notes.includes('ยอดติด') || notes.includes('ยอดติดค้างชำระ') || (interestRate === 0 && (l.installmentsCount === 1 || !l.paymentType));
+
+    if (isIndefinite || isZeroDebt) {
+      return null;
+    }
+
+    const isPrincipalInterestAtEnd = l.isPrincipalInterestAtEnd ?? l.is_principal_interest_at_end;
+    if (isPrincipalInterestAtEnd) {
+      const promiseDateStr = toDateStr(l.promiseDate || l.promise_date);
+      const dueDateStr = toDateStr(l.dueDate || l.due_date);
+      return promiseDateStr || dueDateStr;
+    }
+
+    const paidCount = payments.filter((p: any) => (p.loanId || p.loan_id) === l.id).length;
+    const startDateStr = toDateStr(l.startDate || l.start_date);
+    if (!startDateStr) {
+      return toDateStr(l.dueDate || l.due_date) || null;
+    }
+
+    const startParts = startDateStr.split('-').map(Number);
+    if (startParts.length !== 3 || startParts.some(isNaN)) {
+      return toDateStr(l.dueDate || l.due_date) || null;
+    }
+
+    const [y, m, d] = startParts;
+    const paymentType = l.paymentType || l.payment_type || 'daily';
+
+    const nextDate = new Date(y, m - 1, d);
+    if (paymentType === 'daily') nextDate.setDate(nextDate.getDate() + paidCount);
+    else if (paymentType === 'weekly') nextDate.setDate(nextDate.getDate() + paidCount * 7);
+    else if (paymentType === 'monthly') nextDate.setMonth(nextDate.getMonth() + paidCount);
+
+    const nextDueDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+    const finalDueDateStr = toDateStr(l.dueDate || l.due_date);
+    if (finalDueDateStr && nextDueDateStr > finalDueDateStr) {
+      return finalDueDateStr;
+    }
+
+    return nextDueDateStr;
+  }
+
+  const activeLoans = loans.filter((l: any) => {
+    const raw = (l.status || '').toLowerCase();
+    return !['completed', 'closed', 'deleted', 'cancelled', 'refinanced', 'forfeited'].includes(raw);
+  });
+
+  const dueToday = activeLoans.filter((l: any) => getLoanDynamicNextDueDate(l) === today);
+  const overdue = activeLoans.filter((l: any) => {
+    const d = getLoanDynamicNextDueDate(l);
+    return Boolean(d) && d! < today;
+  });
 
   const tpConfig = tpConfigFromSettings(lendingConfig);
 
@@ -129,14 +186,17 @@ export async function fetchDashboardRawData(tenantId: string, monthStartStr?: st
   const statusMap: Record<string, number> = {};
   loans.forEach((l: any) => {
     const raw = (l.status || 'active').toLowerCase();
-    let effectiveStatus = raw;
-    if (raw === 'active' || raw === 'overdue') {
-      const dueStr = toDateStr(l.dueDate);
-      const isIndefinite = l.is_indefinite || l.isIndefinite;
-      if (!isIndefinite && dueStr && dueStr < today) effectiveStatus = 'overdue';
-      else if (!isIndefinite && dueStr && dueStr === today) effectiveStatus = 'due_today';
-      else effectiveStatus = 'active';
+    if (['completed', 'closed', 'deleted', 'cancelled', 'refinanced', 'forfeited'].includes(raw)) {
+      statusMap[raw] = (statusMap[raw] || 0) + 1;
+      return;
     }
+
+    const dueStr = getLoanDynamicNextDueDate(l);
+    let effectiveStatus = 'active';
+    if (dueStr && dueStr < today) effectiveStatus = 'overdue';
+    else if (dueStr && dueStr === today) effectiveStatus = 'due_today';
+    else effectiveStatus = 'active';
+
     statusMap[effectiveStatus] = (statusMap[effectiveStatus] || 0) + 1;
   });
   const statusBreakdown = Object.entries(statusMap)
