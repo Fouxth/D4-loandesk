@@ -40,8 +40,14 @@ const ACTION_CONFIG: Record<
   delete_customer:  { label: "ลบข้อมูลลูกค้า",           icon: Trash2,    color: "text-destructive", bg: "bg-destructive/10" },
   create_loan:      { label: "สร้างสัญญาเงินกู้",        icon: FileText,  color: "text-primary",     bg: "bg-primary/10" },
   update_loan:      { label: "แก้ไขสัญญาเงินกู้",        icon: Edit2,     color: "text-warning",     bg: "bg-warning/10" },
+  delete_loan:      { label: "ลบสัญญาเงินกู้",          icon: Trash2,    color: "text-destructive", bg: "bg-destructive/10" },
+  refinance_loan:   { label: "ต่อสัญญา / เพิ่มต้น",      icon: Edit2,     color: "text-primary",     bg: "bg-primary/10" },
+  adjust_late_fee:  { label: "ปรับแต่งค่าปรับ",         icon: Edit2,     color: "text-warning",     bg: "bg-warning/10" },
   record_payment:   { label: "บันทึกการชำระเงิน",        icon: CreditCard, color: "text-info",       bg: "bg-info/10" },
   delete_payment:   { label: "ลบประวัติการชำระเงิน",     icon: Trash2,    color: "text-destructive", bg: "bg-destructive/10" },
+  create_expense:   { label: "บันทึกค่าใช้จ่าย",        icon: FileText,  color: "text-warning",     bg: "bg-warning/10" },
+  delete_expense:   { label: "ลบค่าใช้จ่าย",           icon: Trash2,    color: "text-destructive", bg: "bg-destructive/10" },
+  update_settings:  { label: "อัปเดตการตั้งค่าระบบ",     icon: Edit2,     color: "text-primary",     bg: "bg-primary/10" },
   login:            { label: "เข้าสู่ระบบ",              icon: LogIn,     color: "text-muted-foreground", bg: "bg-muted" },
   signup:           { label: "สมัครสมาชิก",              icon: UserPlus,  color: "text-success",     bg: "bg-success/10" },
 };
@@ -50,6 +56,8 @@ const ENTITY_LABEL: Record<string, string> = {
   customer: "ลูกค้า",
   loan:     "สัญญาเงินกู้",
   payment:  "การชำระเงิน",
+  expense:  "ค่าใช้จ่าย",
+  settings: "ตั้งค่า",
   user:     "ผู้ใช้",
 };
 
@@ -129,7 +137,7 @@ function ActivityPage() {
                         {cfg.label}
                       </p>
                       <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                        {formatRelative(log.createdAt)}
+                        {formatRelative(log.createdAt || log.created_at)}
                       </span>
                     </div>
 
@@ -137,12 +145,12 @@ function ActivityPage() {
                       <span>
                         โดย{" "}
                         <span className="font-semibold text-primary">
-                          {log.userName || "ระบบ"}
+                          {log.userName || log.user_name || "ระบบ"}
                         </span>
                       </span>
-                      {log.entityType && (
+                      {(log.entityType || log.entity_type) && (
                         <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium">
-                          {ENTITY_LABEL[log.entityType] ?? log.entityType}
+                          {ENTITY_LABEL[log.entityType || log.entity_type] ?? (log.entityType || log.entity_type)}
                         </span>
                       )}
                     </div>

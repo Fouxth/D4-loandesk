@@ -1,5 +1,6 @@
 import sql from '../db';
 import { sendLineNotify } from './line.service';
+import { dbLogActivity } from './activity.service';
 
 const PAYMENT_CATEGORY_LABELS: Record<string, string> = {
   principal: 'ชำระปกติ',
@@ -122,6 +123,13 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
       }, tenantId);
     }
   }
+
+  if (result.length > 0) {
+    await dbLogActivity(tenantId, userId, 'record_payment', 'payment', result[0].id, {
+      amount: data.amount,
+      category: data.category,
+    });
+  }
   
   return result;
 }
@@ -149,8 +157,13 @@ export async function dbDeletePayment(id: string, tenantId: string) {
         { label: 'เลขที่สัญญา', value: p.loanNumber },
         { label: 'ยอดที่ถูกลบ', value: `${formattedAmount} บาท` }
       ],
-      footer: 'โปรดตรวจสอบความถูกต้องทันที'
+      footer: 'มีการลบประวัติการชำระเงินนี้ออกจากระบบ'
     }, tenantId);
+  
+    await dbLogActivity(tenantId, null, 'delete_payment', 'payment', id, {
+      loanNumber: p.customerName ? `${p.customerName} (${p.loanNumber})` : p.loanNumber,
+      amount: p.amount,
+    });
   }
   
   return result;

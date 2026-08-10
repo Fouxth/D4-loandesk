@@ -1,6 +1,7 @@
 import sql from '../db';
 import { sendLineNotify } from './line.service';
 import { ApiError } from '../utils/apiError';
+import { dbLogActivity } from './activity.service';
 
 const LOAN_CREATE_ALLOWED = new Set([
   'customerId', 'principal', 'interestRate', 'interestAmount', 'totalPayable',
@@ -109,6 +110,12 @@ export async function dbCreateLoan(data: any, loanNumber: string, userId: string
       ],
       footer: 'อนุมัติและบันทึกเข้าระบบแล้ว'
     }, tenantId);
+
+    await dbLogActivity(tenantId, userId, 'create_loan', 'loan', loan.id, {
+      loanNumber: loan.loanNumber || loan.loan_number,
+      customerName,
+      principal: loan.principal,
+    });
   }
   
   return result;

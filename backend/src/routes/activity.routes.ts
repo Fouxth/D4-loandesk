@@ -14,11 +14,11 @@ router.get('/', async (req: any, res) => {
       SELECT 
         a.id,
         a.action,
-        a.entity_type,
-        a.entity_id,
+        a.entity_type as "entityType",
+        a.entity_id as "entityId",
         a.details,
-        a.created_at,
-        p.full_name as user_name
+        a.created_at as "createdAt",
+        COALESCE(p.full_name, 'ระบบ') as "userName"
       FROM activity_logs a
       LEFT JOIN profiles p ON p.id = a.user_id
       WHERE a.tenant_id = ${req.tenantId!}
@@ -33,11 +33,14 @@ router.get('/', async (req: any, res) => {
 
 // Log a new activity
 router.post('/', async (req: any, res) => {
-  const { action, entityType, entityId, details } = req.body;
+  const action = req.body.action;
+  const entityType = req.body.entityType || req.body.entity_type || null;
+  const entityId = req.body.entityId || req.body.entity_id || null;
+  const details = req.body.details || null;
   try {
     await sql`
       INSERT INTO activity_logs (user_id, action, entity_type, entity_id, details, tenant_id)
-      VALUES (${req.userId}, ${action}, ${entityType ?? null}, ${entityId ?? null}, ${details ? JSON.stringify(details) : null}, ${req.tenantId!})
+      VALUES (${req.userId}, ${action}, ${entityType}, ${entityId}, ${details ? JSON.stringify(details) : null}, ${req.tenantId!})
     `;
     res.json({ success: true });
   } catch (e) {
