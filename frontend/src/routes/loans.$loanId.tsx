@@ -34,7 +34,6 @@ export const Route = createFileRoute("/loans/$loanId")({
 const METHOD_LABELS: Record<string, string> = {
   cash: "เงินสด",
   bank_transfer: "โอนผ่านธนาคาร",
-  mobile: "โมบายแบงก์กิ้ง",
   other: "อื่นๆ",
 };
 const PAWN_STATUS_LABELS: Record<string, string> = {
@@ -752,7 +751,6 @@ function PaymentForm({
               <SelectContent>
                 <SelectItem value="cash">เงินสด</SelectItem>
                 <SelectItem value="bank_transfer">โอนผ่านธนาคาร</SelectItem>
-                <SelectItem value="mobile">โมบายแบงก์กิ้ง</SelectItem>
                 <SelectItem value="other">อื่นๆ</SelectItem>
               </SelectContent>
             </Select>

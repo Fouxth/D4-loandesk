@@ -11,7 +11,6 @@ import {
   CreditCard, 
   Filter, 
   History, 
-  Smartphone, 
   TrendingUp 
 } from "lucide-react";
 import { formatTHB, formatDate } from "@/utils/format";
@@ -31,14 +30,12 @@ export const Route = createFileRoute("/payments")({
 const METHOD_LABELS: Record<string, string> = {
   cash: "เงินสด",
   bank_transfer: "โอนผ่านธนาคาร",
-  mobile: "โมบายแบงก์กิ้ง",
   other: "อื่นๆ",
 };
 
 const METHOD_ICONS: Record<string, any> = {
   cash: Banknote,
   bank_transfer: CreditCard,
-  mobile: Smartphone,
   other: History,
 };
 
@@ -99,7 +96,6 @@ function Payments() {
   const totalAmount = filtered.reduce((a, p) => a + Number(p.amount), 0);
   const cashTotal = filtered.filter(r => r.method === "cash").reduce((a, p) => a + Number(p.amount), 0);
   const bankTotal = filtered.filter(r => r.method === "bank_transfer").reduce((a, p) => a + Number(p.amount), 0);
-  const mobileTotal = filtered.filter(r => r.method === "mobile").reduce((a, p) => a + Number(p.amount), 0);
 
   return (
     <div className="animate-in fade-in duration-500 space-y-4 pb-20">
@@ -175,13 +171,12 @@ function Payments() {
             <SelectItem value="all">ทุกช่องทาง</SelectItem>
             <SelectItem value="cash">เงินสด</SelectItem>
             <SelectItem value="bank_transfer">โอนเงิน</SelectItem>
-            <SelectItem value="mobile">แอปฯ มือถือ</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {/* Breakdown Summary Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-4 bg-primary/10 rounded-2xl border border-primary/20 flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary">
             <TrendingUp className="h-5 w-5" />
@@ -211,16 +206,6 @@ function Payments() {
           <div className="flex flex-col">
             <span className="text-[11px] font-bold text-info/80 uppercase tracking-widest leading-none mb-1">ยอดโอนเงิน</span>
             <span className="text-lg font-black text-info">{formatTHB(bankTotal)}</span>
-          </div>
-        </div>
-
-        <div className="p-4 bg-warning/10 rounded-2xl border border-warning/20 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-warning/15 flex items-center justify-center text-warning">
-            <Smartphone className="h-5 w-5" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[11px] font-bold text-warning/80 uppercase tracking-widest leading-none mb-1">ยอดแอปฯ</span>
-            <span className="text-lg font-black text-warning">{formatTHB(mobileTotal)}</span>
           </div>
         </div>
       </div>
