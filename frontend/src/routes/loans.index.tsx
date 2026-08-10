@@ -463,8 +463,8 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
                 <Input
                   type="number"
                   min={0}
-                  value={documentFee}
-                  onChange={(e) => setDocumentFee(e.target.value === "" ? 0 : Number(e.target.value))}
+                  value={documentFee ?? ""}
+                  onChange={(e) => setDocumentFee(e.target.value === "" ? "" as any : Number(e.target.value))}
                   className="bg-muted/20"
                 />
               )}
@@ -484,8 +484,8 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
                 <Input
                   type="number"
                   min={0}
-                  value={advanceFee}
-                  onChange={(e) => setAdvanceFee(e.target.value === "" ? 0 : Number(e.target.value))}
+                  value={advanceFee ?? ""}
+                  onChange={(e) => setAdvanceFee(e.target.value === "" ? "" as any : Number(e.target.value))}
                   className="bg-muted/20"
                 />
               )}

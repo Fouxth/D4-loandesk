@@ -229,7 +229,14 @@ function Settings() {
   const handleSaveLending = async () => {
     setBusy("lending");
     try {
-      await updateSetting("lending_config", lending);
+      const sanitizedLending = {
+        ...lending,
+        lateFeePerDay: Number(lending.lateFeePerDay) || 0,
+        lateFeePerHour: Number(lending.lateFeePerHour) || 0,
+        documentFeeAmount: Number(lending.documentFeeAmount) || 0,
+        advanceFeeAmount: Number(lending.advanceFeeAmount) || 0,
+      };
+      await updateSetting("lending_config", sanitizedLending);
       await refreshSettings();
       toast.success("บันทึกการตั้งค่าเงินกู้เรียบร้อยแล้ว");
     } catch (e) {
@@ -242,7 +249,12 @@ function Settings() {
   const handleSaveLimits = async () => {
     setBusy("limits");
     try {
-      await updateSetting("customer_limits", limits);
+      const sanitizedLimits = limits.map(g => ({
+        ...g,
+        min: Number(g.min) || 0,
+        max: Number(g.max) || 0,
+      }));
+      await updateSetting("customer_limits", sanitizedLimits);
       toast.success("บันทึกวงเงินกลุ่มลูกค้าเรียบร้อยแล้ว");
     } catch (e) {
       toast.error("บันทึกวงเงินล้มเหลว");
@@ -853,8 +865,8 @@ function Settings() {
                         type="number"
                         min={0}
                         disabled={!lending.applyLateFee}
-                        value={lending.lateFeePerDay}
-                        onChange={(e) => setLending({ ...lending, lateFeePerDay: Number(e.target.value) })}
+                        value={lending.lateFeePerDay ?? ""}
+                        onChange={(e) => setLending({ ...lending, lateFeePerDay: e.target.value === "" ? "" as any : Number(e.target.value) })}
                         className="h-11 rounded-xl bg-muted/20 pr-10 font-bold disabled:opacity-50"
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>
@@ -867,8 +879,8 @@ function Settings() {
                         type="number"
                         min={0}
                         disabled={!lending.applyLateFee}
-                        value={lending.lateFeePerHour}
-                        onChange={(e) => setLending({ ...lending, lateFeePerHour: Number(e.target.value) })}
+                        value={lending.lateFeePerHour ?? ""}
+                        onChange={(e) => setLending({ ...lending, lateFeePerHour: e.target.value === "" ? "" as any : Number(e.target.value) })}
                         className="h-11 rounded-xl bg-muted/20 pr-10 font-bold disabled:opacity-50"
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>
@@ -902,8 +914,8 @@ function Settings() {
                       <Input
                         type="number"
                         min={0}
-                        value={lending.documentFeeAmount}
-                        onChange={(e) => setLending({ ...lending, documentFeeAmount: Number(e.target.value) })}
+                        value={lending.documentFeeAmount ?? ""}
+                        onChange={(e) => setLending({ ...lending, documentFeeAmount: e.target.value === "" ? "" as any : Number(e.target.value) })}
                         className="h-11 rounded-xl bg-muted/20 pr-10 font-bold"
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>
@@ -915,8 +927,8 @@ function Settings() {
                       <Input
                         type="number"
                         min={0}
-                        value={lending.advanceFeeAmount}
-                        onChange={(e) => setLending({ ...lending, advanceFeeAmount: Number(e.target.value) })}
+                        value={lending.advanceFeeAmount ?? ""}
+                        onChange={(e) => setLending({ ...lending, advanceFeeAmount: e.target.value === "" ? "" as any : Number(e.target.value) })}
                         className="h-11 rounded-xl bg-muted/20 pr-10 font-bold"
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>
@@ -956,20 +968,20 @@ function Settings() {
                     <span className="text-xs md:text-sm font-bold truncate">{group.label}</span>
                     <Input 
                       type="number" 
-                      value={group.min} 
+                      value={group.min ?? ""} 
                       onChange={(e) => {
                         const newLimits = [...limits];
-                        newLimits[idx].min = Number(e.target.value);
+                        newLimits[idx].min = e.target.value === "" ? "" as any : Number(e.target.value);
                         setLimits(newLimits);
                       }}
                       className="h-9 rounded-lg bg-muted/10 text-xs font-bold text-center" 
                     />
                     <Input 
                       type="number" 
-                      value={group.max} 
+                      value={group.max ?? ""} 
                       onChange={(e) => {
                         const newLimits = [...limits];
-                        newLimits[idx].max = Number(e.target.value);
+                        newLimits[idx].max = e.target.value === "" ? "" as any : Number(e.target.value);
                         setLimits(newLimits);
                       }}
                       className="h-9 rounded-lg bg-muted/10 text-xs font-bold text-center" 
