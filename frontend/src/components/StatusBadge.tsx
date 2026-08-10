@@ -120,9 +120,22 @@ export function loanStatusTone(status: string): any {
   }
 }
 
-export function getLoanStatusLabel(l: any, t?: (key: string) => string): string {
+export function getLoanStatusLabel(l: any, t?: any): string {
   const eff = getEffectiveStatus(l);
   const isPawn = l?.isPawn ?? l?.is_pawn;
+
+  if (t) {
+    if (eff === 'completed' && isPawn) return t('loans.status.redeemed', 'ไถ่ถอนแล้ว');
+    if (eff === 'completed') return t('loans.status.completed', 'เสร็จสิ้น');
+    if (eff === 'forfeited') return t('loans.status.forfeited', 'หลุดจำนำ');
+    if (eff === 'refinanced') return t('loans.status.refinanced', 'รียอดแล้ว');
+    if (eff === 'cancelled') return t('loans.status.cancelled', 'ยกเลิก');
+    if (eff === 'overdue') return t('loans.status.overdue', 'เกินกำหนด');
+    if (eff === 'due_today') return t('loans.status.due_today', 'ครบกำหนดวันนี้');
+    if (eff === 'active') return t('loans.status.active', 'ปกติ');
+    return t(`loans.status.${eff}`, eff);
+  }
+
   if (eff === 'completed' && isPawn) return 'ไถ่ถอนแล้ว';
   if (eff === 'completed') return 'เสร็จสิ้น';
   if (eff === 'forfeited') return 'หลุดจำนำ';
@@ -131,5 +144,5 @@ export function getLoanStatusLabel(l: any, t?: (key: string) => string): string 
   if (eff === 'overdue') return 'เกินกำหนด';
   if (eff === 'due_today') return 'ครบกำหนดวันนี้';
   if (eff === 'active') return 'ปกติ';
-  return t ? t(`loans.status.${eff}`) : eff;
+  return eff;
 }

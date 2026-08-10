@@ -118,13 +118,13 @@ function Loans() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50 border-b border-border">
-              <TableHead className="font-bold">เลขที่สัญญา</TableHead>
-              <TableHead className="font-bold">ชื่อลูกค้า</TableHead>
-              <TableHead className="font-bold">ประเภท</TableHead>
-              <TableHead className="font-bold">เงินต้น</TableHead>
-              <TableHead className="font-bold">ยอดรวม</TableHead>
-              <TableHead className="font-bold">ครบกำหนด</TableHead>
-              <TableHead className="font-bold text-center">สถานะ</TableHead>
+              <TableHead className="font-bold">{t('loans.table.loan_number', 'เลขที่สัญญา')}</TableHead>
+              <TableHead className="font-bold">{t('loans.table.customer', 'ชื่อลูกค้า')}</TableHead>
+              <TableHead className="font-bold">{t('loans.table.type', 'ประเภท')}</TableHead>
+              <TableHead className="font-bold">{t('loans.table.principal', 'เงินต้น')}</TableHead>
+              <TableHead className="font-bold">{t('loans.table.total', 'ยอดรวม')}</TableHead>
+              <TableHead className="font-bold">{t('loans.table.due_date', 'ครบกำหนด')}</TableHead>
+              <TableHead className="font-bold text-center">{t('loans.table.status', 'สถานะ')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

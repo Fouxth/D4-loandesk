@@ -11,7 +11,9 @@ import {
   CreditCard, 
   Filter, 
   History, 
-  TrendingUp 
+  TrendingUp,
+  Calendar as CalendarIcon,
+  Landmark
 } from "lucide-react";
 import { formatTHB, formatDate } from "@/utils/format";
 import { getPayments } from "@/lib/services";
@@ -49,9 +51,10 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/utils/utils";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Landmark } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 function Payments() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [methodFilter, setMethodFilter] = useState("all");
@@ -215,11 +218,11 @@ function Payments() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50 border-b border-border">
-                <TableHead className="font-bold pl-6">วันที่ชำระ</TableHead>
-                <TableHead className="font-bold">เลขที่สัญญา</TableHead>
-                <TableHead className="font-bold">ชื่อลูกค้า</TableHead>
-                <TableHead className="font-bold">ช่องทาง</TableHead>
-                <TableHead className="text-right font-bold pr-6">จำนวนเงิน</TableHead>
+                <TableHead className="font-bold pl-6">{t('payments.table.date', 'วันที่ชำระ')}</TableHead>
+                <TableHead className="font-bold">{t('payments.table.contract', 'เลขที่สัญญา')}</TableHead>
+                <TableHead className="font-bold">{t('payments.table.customer', 'ชื่อลูกค้า')}</TableHead>
+                <TableHead className="font-bold">{t('payments.table.method', 'ช่องทาง')}</TableHead>
+                <TableHead className="text-right font-bold pr-6">{t('payments.table.amount', 'จำนวนเงิน')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

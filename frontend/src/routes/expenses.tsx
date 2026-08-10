@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { formatTHB, formatDate, getThaiDateStr } from "@/utils/format";
 import { getExpenses, createExpense, deleteExpense } from "@/lib/services";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/expenses")({
   component: () => (<ProtectedRoute><AppLayout><Expenses /></AppLayout></ProtectedRoute>),
@@ -38,6 +39,7 @@ function formatMonthYearTH(monthKey: string): string {
 }
 
 function Expenses() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const currentMonthKey = getThaiDateStr().substring(0, 7);
@@ -179,10 +181,10 @@ function Expenses() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50 border-b border-border">
-                <TableHead className="font-bold whitespace-nowrap">วันที่</TableHead>
-                <TableHead className="font-bold whitespace-nowrap">หมวดหมู่</TableHead>
-                <TableHead className="font-bold whitespace-nowrap">รายละเอียด</TableHead>
-                <TableHead className="text-right font-bold whitespace-nowrap">จำนวนเงิน</TableHead>
+                <TableHead className="font-bold whitespace-nowrap">{t('expenses.table.date', 'วันที่')}</TableHead>
+                <TableHead className="font-bold whitespace-nowrap">{t('expenses.table.category', 'หมวดหมู่')}</TableHead>
+                <TableHead className="font-bold whitespace-nowrap">{t('expenses.table.description', 'รายละเอียด')}</TableHead>
+                <TableHead className="text-right font-bold whitespace-nowrap">{t('expenses.table.amount', 'จำนวนเงิน')}</TableHead>
                 <TableHead className="w-[50px]" />
               </TableRow>
             </TableHeader>

@@ -145,13 +145,13 @@ function Customers() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50 border-b border-border">
-              <TableHead className="font-bold">{t('customers.table.name')}</TableHead>
-              <TableHead className="font-bold">{t('customers.table.phone')}</TableHead>
-               <TableHead className="font-bold">{t('customers.table.id_card')}</TableHead>
-              <TableHead className="font-bold">ระดับลูกค้า</TableHead>
-              <TableHead className="font-bold">{t('customers.table.risk')}</TableHead>
-              <TableHead className="font-bold">{t('customers.table.created_at')}</TableHead>
-              <TableHead className="text-right font-bold">{t('customers.table.actions')}</TableHead>
+              <TableHead className="font-bold">{t('customers.table.name', 'ชื่อ-นามสกุล')}</TableHead>
+              <TableHead className="font-bold">{t('customers.table.phone', 'เบอร์โทรศัพท์')}</TableHead>
+              <TableHead className="font-bold">{t('customers.table.id_card', 'เลขบัตรประชาชน')}</TableHead>
+              <TableHead className="font-bold">{t('customers.table.category', 'ระดับลูกค้า')}</TableHead>
+              <TableHead className="font-bold">{t('customers.table.risk', 'ความเสี่ยง')}</TableHead>
+              <TableHead className="font-bold">{t('customers.table.created_at', 'วันที่เพิ่ม')}</TableHead>
+              <TableHead className="text-right font-bold">{t('customers.table.actions', 'จัดการ')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

@@ -68,6 +68,7 @@
       "overdue": "Overdue",
       "due_today": "Due Today",
       "completed": "Completed",
+      "redeemed": "Pawn Redeemed",
       "cancelled": "Cancelled",
       "forfeited": "Pawn Forfeited",
       "refinanced": "Refinanced"
