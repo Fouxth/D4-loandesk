@@ -18,6 +18,7 @@ import { calcLoan } from "@/utils/loanCalc";
 import { formatTHB, formatDate, getThaiDateStr } from "@/utils/format";
 import { getLoanCategory, LOAN_CATEGORY_OPTIONS } from "@/utils/loanType";
 import { useSettings } from "@/contexts/SettingsContext";
+import { CustomerSelect } from "@/components/CustomerSelect";
 
 export const Route = createFileRoute("/loans/")({
   component: () => (<ProtectedRoute><AppLayout><Loans /></AppLayout></ProtectedRoute>),
@@ -294,14 +295,12 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
       <form onSubmit={submit} className="space-y-4 pt-2">
         <div className="space-y-2">
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">เลือกลูกค้า</Label>
-          <Select value={form.customerId} onValueChange={(v) => setForm({ ...form, customerId: v })}>
-            <SelectTrigger className="bg-muted/20"><SelectValue placeholder="ค้นหาหรือเลือกชื่อลูกค้า" /></SelectTrigger>
-            <SelectContent>
-              {customers.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.fullName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CustomerSelect
+            value={form.customerId}
+            onValueChange={(v) => setForm({ ...form, customerId: v })}
+            customers={customers}
+            placeholder="พิมพ์ค้นหาชื่อ หรือเบอร์โทรศัพท์ลูกค้า..."
+          />
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
