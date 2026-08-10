@@ -8,6 +8,7 @@ export type LoanCategory =
   | 'ดอกลอย'
   | 'จบต้นจบดอก'
   | 'รับจำนำ'
+  | 'ยอดติด'
   | 'อื่นๆ';
 
 const SHEET_CATEGORY_MAP: Record<string, LoanCategory> = {
@@ -17,6 +18,7 @@ const SHEET_CATEGORY_MAP: Record<string, LoanCategory> = {
   'รายเดือน': 'รายเดือน',
   'ดอกลอย': 'ดอกลอย',
   'รับจำนำ': 'รับจำนำ',
+  'ยอดติด': 'ยอดติด',
 };
 
 function periodDays(loan: {
@@ -40,6 +42,8 @@ function periodDays(loan: {
 /** วิเคราะห์ประเภทสัญญาจาก notes, งวด, หรือช่วงวันเริ่ม–ครบกำหนด */
 export function getLoanCategory(loan: {
   notes?: string | null;
+  interestRate?: number;
+  interest_rate?: number;
   isPawn?: boolean;
   is_pawn?: boolean;
   isInterestOnly?: boolean;
@@ -58,6 +62,8 @@ export function getLoanCategory(loan: {
   due_date?: string | null;
 }): LoanCategory {
   const notes = loan.notes ?? '';
+  if (notes.includes('ยอดติด') || notes.includes('ยอดติดค้างชำระ')) return 'ยอดติด';
+
   const sheetMatch = notes.match(/นำเข้าจาก ([^;(]+)/);
   if (sheetMatch) {
     const sheet = sheetMatch[1].trim();
@@ -65,6 +71,7 @@ export function getLoanCategory(loan: {
     if (sheet.includes('3-5-7') || sheet.includes('3 5 7')) return 'รายวัน 3-5-7';
     if (sheet.includes('14')) return 'รายวัน 14';
     if (sheet.includes('12-24') || sheet.includes('12 24')) return 'รายวัน 12-24';
+    if (sheet.includes('ยอดติด')) return 'ยอดติด';
   }
 
   const isPawn = loan.isPawn ?? loan.is_pawn;
@@ -72,6 +79,11 @@ export function getLoanCategory(loan: {
   const isIndefinite = loan.isIndefinite ?? loan.is_indefinite;
   const isPrincipalInterestAtEnd = loan.isPrincipalInterestAtEnd ?? loan.is_principal_interest_at_end;
   const paymentType = loan.paymentType ?? loan.payment_type ?? 'daily';
+  const interestRate = Number(loan.interestRate ?? loan.interest_rate ?? 0);
+
+  if (interestRate === 0 && !isPawn && (isIndefinite || isInterestOnly === false)) {
+    return 'ยอดติด';
+  }
 
   if (isPawn) return 'รับจำนำ';
   if (isPrincipalInterestAtEnd) return 'จบต้นจบดอก';
@@ -100,4 +112,5 @@ export const LOAN_CATEGORY_OPTIONS: LoanCategory[] = [
   'ดอกลอย',
   'จบต้นจบดอก',
   'รับจำนำ',
+  'ยอดติด',
 ];
