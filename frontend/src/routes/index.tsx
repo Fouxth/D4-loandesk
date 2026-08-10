@@ -182,9 +182,9 @@ function Dashboard() {
       {dueLoans.length > 0 && (
         <div className="md:hidden">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-black uppercase tracking-widest text-foreground">⚡ ต้องติดตามวันนี้</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest text-foreground">⚡ {t('dashboard.due_tracker', 'ต้องติดตามวันนี้')}</h3>
             <Link to="/loans" className="text-[11px] font-bold text-primary flex items-center gap-0.5">
-              ดูทั้งหมด <ChevronRight className="h-3 w-3" />
+              {t('common.view_all', 'ดูทั้งหมด')} <ChevronRight className="h-3 w-3" />
             </Link>
           </div>
           <div className="space-y-2">
@@ -204,7 +204,7 @@ function Dashboard() {
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0 ml-3">
                     <StatusBadge tone={loanStatusTone(status)}>
-                      {status === 'overdue' ? 'เกินกำหนด' : 'วันนี้'}
+                      {status === 'overdue' ? t('loans.status.overdue', 'เกินกำหนด') : t('loans.status.due_today', 'วันนี้')}
                     </StatusBadge>
                     <span className="font-black text-sm text-primary">{formatTHB(l.totalPayable)}</span>
                   </div>
@@ -222,21 +222,21 @@ function Dashboard() {
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             <div className="bg-primary/10 border border-primary/20 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
               <div>
-                <p className="text-xs font-bold text-primary/80 uppercase tracking-widest mb-1">ยอดเงินคงค้างรวม</p>
+                <p className="text-xs font-bold text-primary/80 uppercase tracking-widest mb-1">{t('dashboard.stats.outstanding', 'ยอดเงินคงค้างรวม')}</p>
                 <h4 className="text-3xl font-black text-primary tracking-tight">{formatTHB(summary.outstanding)}</h4>
               </div>
               <div className="mt-4 flex items-center gap-2 text-[11px] text-primary/60 font-medium">
-                <Activity className="h-3 w-3" /> ยอดเงินต้นและดอกเบี้ยที่ยังไม่ได้รับชำระ
+                <Activity className="h-3 w-3" /> {t('dashboard.outstanding_desc', 'ยอดเงินต้นและดอกเบี้ยที่ยังไม่ได้รับชำระ')}
               </div>
             </div>
             
             <div className="bg-success/10 border border-success/20 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
               <div>
-                <p className="text-xs font-bold text-success/80 uppercase tracking-widest mb-1">ยอดเก็บเงินวันนี้</p>
+                <p className="text-xs font-bold text-success/80 uppercase tracking-widest mb-1">{t('dashboard.stats.today_collections', 'ยอดเก็บเงินวันนี้')}</p>
                 <h4 className="text-3xl font-black text-success tracking-tight">{formatTHB(summary.todayCollections)}</h4>
               </div>
               <div className="mt-4 flex items-center gap-2 text-[11px] text-success/60 font-medium">
-                <TrendingUp className="h-3 w-3" /> ยอดเงินที่จัดเก็บได้จริงในวันนี้
+                <TrendingUp className="h-3 w-3" /> {t('dashboard.today_collections_desc', 'ยอดเงินที่จัดเก็บได้จริงในวันนี้')}
               </div>
             </div>
           </div>
@@ -244,7 +244,7 @@ function Dashboard() {
           {/* Collection Chart */}
           <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] overflow-hidden">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-sm font-bold text-foreground">สถิติการจัดเก็บรายเดือน</h3>
+              <h3 className="text-sm font-bold text-foreground">{t('dashboard.charts.monthly_collections', 'สถิติการจัดเก็บรายเดือน')}</h3>
               <div className="h-8 w-8 rounded-lg bg-muted/30 flex items-center justify-center">
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </div>
@@ -277,7 +277,7 @@ function Dashboard() {
         {/* Status Breakdown & Small Stats */}
         <div className="space-y-6">
           <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] overflow-hidden h-full flex flex-col">
-            <h3 className="text-sm font-bold text-foreground mb-6">สัดส่วนสถานะสัญญา</h3>
+            <h3 className="text-sm font-bold text-foreground mb-6">{t('dashboard.charts.status_breakdown', 'สัดส่วนสถานะสัญญา')}</h3>
             <div className="flex-1 min-h-[250px] relative">
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <PieChart>
@@ -296,7 +296,7 @@ function Dashboard() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-12">
-                <p className="text-[11px] uppercase font-bold text-muted-foreground">ทั้งหมด</p>
+                <p className="text-[11px] uppercase font-bold text-muted-foreground">{t('common.total', 'ทั้งหมด')}</p>
                 <p className="text-2xl font-black">{summary.activeLoans + summary.overdue}</p>
               </div>
             </div>
@@ -308,7 +308,7 @@ function Dashboard() {
                     <Activity className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">กำไรเดือนนี้</p>
+                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('dashboard.stats.monthly_profit', 'กำไรเดือนนี้')}</p>
                     <p className="text-sm font-black text-foreground">{formatTHB(summary.monthlyProfit)}</p>
                   </div>
                 </div>
@@ -321,8 +321,8 @@ function Dashboard() {
         <div className="lg:col-span-3 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] overflow-hidden">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className="text-sm font-bold text-foreground">แนวโน้มการชำระเงิน</h3>
-              <p className="text-xs text-muted-foreground">ความเคลื่อนไหวในช่วง 14 วันที่ผ่านมา</p>
+              <h3 className="text-sm font-bold text-foreground">{t('dashboard.charts.payment_trend', 'แนวโน้มการชำระเงิน')}</h3>
+              <p className="text-xs text-muted-foreground">{t('dashboard.payment_trend_desc', 'ความเคลื่อนไหวในช่วง 14 วันที่ผ่านมา')}</p>
             </div>
             <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
               <Activity className="h-4 w-4" />
@@ -343,7 +343,7 @@ function Dashboard() {
                 <Tooltip
                   contentStyle={{ background: "var(--chart-card-bg)", border: "1px solid var(--chart-border)", borderRadius: 12, color: 'var(--foreground)' }}
                   labelStyle={{ color: 'var(--chart-text)' }}
-                  formatter={(value) => [formatTHB(Number(value ?? 0)), "ยอดชำระ"] as any}
+                  formatter={(value) => [formatTHB(Number(value ?? 0)), t('dashboard.paid_amount', 'ยอดชำระ')] as any}
                 />
                 <Area type="monotone" dataKey="amount" stroke="var(--chart-primary)" strokeWidth={3} fill="url(#trendGradient)" />
               </AreaChart>

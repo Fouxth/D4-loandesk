@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, AlertCircle, Loader2 } from "lucide-react";
 import { getLoans } from "@/lib/services";
 
+import { useTranslation } from "react-i18next";
+
 export const Route = createFileRoute("/calendar")({
   component: () => (
     <ProtectedRoute>
@@ -21,7 +23,12 @@ const THAI_MONTHS = [
   "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
   "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม",
 ];
+const ENGLISH_MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
 const THAI_DAYS_SHORT = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
+const ENGLISH_DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const STATUS_STYLE: Record<string, string> = {
   active: "bg-primary/10 text-primary border-primary/20",
@@ -41,7 +48,6 @@ const STATUS_LABEL: Record<string, string> = {
 function toYMD(d: any): string {
   if (!d) return "";
   const s = String(d);
-  // "2026-05-13T00:00:00.000Z" → "2026-05-13"
   return s.substring(0, 10);
 }
 
@@ -53,6 +59,8 @@ function formatDateYMD(date: Date): string {
 }
 
 function CalendarView() {
+  const { t, i18n } = useTranslation();
+  const isEN = i18n.language?.startsWith('en');
   const [loans, setLoans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState(() => {
@@ -90,14 +98,19 @@ function CalendarView() {
   }, [loans]);
 
   const today = useMemo(() => formatDateYMD(new Date()), []);
-
   const selectedLoans = selected ? byDate[selected] ?? [] : [];
+
+  const monthLabel = isEN
+    ? `${ENGLISH_MONTHS[month.getMonth()]} ${month.getFullYear()}`
+    : `${THAI_MONTHS[month.getMonth()]} ${month.getFullYear() + 543}`;
+
+  const daysShort = isEN ? ENGLISH_DAYS_SHORT : THAI_DAYS_SHORT;
 
   return (
     <div className="animate-in fade-in duration-500 space-y-4">
       <PageHeader
-        title="ปฏิทิน"
-        description="รายการสัญญาครบกำหนดชำระเงิน"
+        title={t('calendar.title', 'ปฏิทิน')}
+        description={t('calendar.description', 'รายการสัญญาครบกำหนดชำระเงิน')}
         actions={
           <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg">
             <Button
@@ -111,7 +124,7 @@ function CalendarView() {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="min-w-[150px] text-center font-bold text-sm">
-              {THAI_MONTHS[month.getMonth()]} {month.getFullYear() + 543}
+              {monthLabel}
             </span>
             <Button
               variant="ghost"
@@ -130,7 +143,7 @@ function CalendarView() {
       {loading ? (
         <div className="flex h-64 items-center justify-center gap-3 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <span className="text-sm">กำลังโหลด...</span>
+          <span className="text-sm">{t('common.loading', 'กำลังโหลด...')}</span>
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
@@ -138,7 +151,7 @@ function CalendarView() {
           <div className="rounded-2xl border border-border bg-card p-2 sm:p-6 shadow-[var(--shadow-elevated)]">
             {/* Day headers */}
             <div className="grid grid-cols-7 mb-2">
-              {THAI_DAYS_SHORT.map((d, i) => (
+              {daysShort.map((d, i) => (
                 <div
                   key={d}
                   className={`py-2 text-center text-[10px] sm:text-[11px] font-bold uppercase tracking-widest ${
@@ -201,7 +214,7 @@ function CalendarView() {
                       ))}
                       {items.length > 2 && (
                         <p className="text-[10px] text-muted-foreground text-center font-bold">
-                          +{items.length - 2} รายการ
+                          +{items.length - 2} {t('common.items', 'รายการ')}
                         </p>
                       )}
                     </div>
@@ -216,19 +229,19 @@ function CalendarView() {
             <div className="border-b border-border px-4 py-3">
               <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 {selected
-                  ? `สัญญาครบกำหนด ${selected}`
-                  : "เลือกวันเพื่อดูรายละเอียด"}
+                  ? `${t('calendar.due_loans_on', 'สัญญาครบกำหนด')} ${selected}`
+                  : t('calendar.select_date_prompt', 'เลือกวันเพื่อดูรายละเอียด')}
               </h3>
             </div>
 
             {!selected ? (
               <div className="flex h-48 flex-col items-center justify-center gap-2 text-muted-foreground px-4">
                 <AlertCircle className="h-8 w-8 opacity-30" />
-                <p className="text-sm text-center">คลิกที่วันในปฏิทินเพื่อดูสัญญาที่ครบกำหนด</p>
+                <p className="text-sm text-center">{t('calendar.click_prompt', 'คลิกที่วันในปฏิทินเพื่อดูสัญญาที่ครบกำหนด')}</p>
               </div>
             ) : selectedLoans.length === 0 ? (
               <div className="flex h-48 items-center justify-center text-muted-foreground">
-                <p className="text-sm">ไม่มีสัญญาครบกำหนดในวันนี้</p>
+                <p className="text-sm">{t('calendar.no_due_today', 'ไม่มีสัญญาครบกำหนดในวันนี้')}</p>
               </div>
             ) : (
               <div className="divide-y divide-border overflow-y-auto max-h-[500px]">
@@ -245,7 +258,7 @@ function CalendarView() {
                           {l.customerName}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {l.loanNumber} · {l.paymentType === "daily" ? "รายวัน" : l.paymentType === "weekly" ? "รายสัปดาห์" : "รายเดือน"}
+                          {l.loanNumber} · {l.paymentType === "daily" ? t('loans.payment_type.daily', 'รายวัน') : l.paymentType === "weekly" ? t('loans.payment_type.weekly', 'รายสัปดาห์') : t('loans.payment_type.monthly', 'รายเดือน')}
                         </p>
                       </div>
                       <span
@@ -253,11 +266,11 @@ function CalendarView() {
                           STATUS_STYLE[l.status] ?? STATUS_STYLE.active
                         }`}
                       >
-                        {STATUS_LABEL[l.status] ?? l.status}
+                        {t(`loans.status.${l.status}`, STATUS_LABEL[l.status] ?? l.status)}
                       </span>
                     </div>
                     <p className="mt-1 text-xs font-bold text-primary">
-                      ยอดรวม ฿{Number(l.totalPayable).toLocaleString()}
+                      {t('loans.table.total', 'ยอดรวม')} ฿{Number(l.totalPayable).toLocaleString()}
                     </p>
                   </Link>
                 ))}
@@ -266,12 +279,12 @@ function CalendarView() {
 
             {/* Legend */}
             <div className="border-t border-border px-4 py-3">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-2">สถานะ</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-2">{t('loans.table.status', 'สถานะ')}</p>
               <div className="space-y-1">
                 {Object.entries(STATUS_LABEL).map(([k, v]) => (
                   <div key={k} className="flex items-center gap-2">
                     <div className={`h-2 w-2 rounded-full border ${STATUS_STYLE[k]}`} />
-                    <span className="text-[11px] text-muted-foreground">{v}</span>
+                    <span className="text-[11px] text-muted-foreground">{t(`loans.status.${k}`, v)}</span>
                   </div>
                 ))}
               </div>

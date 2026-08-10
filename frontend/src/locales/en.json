@@ -17,6 +17,12 @@
       "status_breakdown": "Loan Status Distribution",
       "payment_trend": "Payment Trend (Last 14 Days)"
     },
+    "due_tracker": "Due Tracker Today",
+    "outstanding_desc": "Total unpaid principal & interest",
+    "today_collections_desc": "Actual amount collected today",
+    "collected": "Collected",
+    "paid_amount": "Paid Amount",
+    "payment_trend_desc": "Movement over the last 14 days",
     "loading": "Loading dashboard data..."
   },
   "menu": {
@@ -72,6 +78,11 @@
       "cancelled": "Cancelled",
       "forfeited": "Pawn Forfeited",
       "refinanced": "Refinanced"
+    },
+    "payment_type": {
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly"
     }
   },
   "payments": {
@@ -110,7 +121,11 @@
   },
   "calendar": {
     "title": "Calendar",
-    "description": "Daily payment schedule and due date calendar"
+    "description": "Daily payment schedule and due date calendar",
+    "due_loans_on": "Loans Due on",
+    "select_date_prompt": "Select a date to view details",
+    "click_prompt": "Click a date on the calendar to view due loans",
+    "no_due_today": "No loans due on this date"
   },
   "activity": {
     "title": "Activity Log",
@@ -132,7 +147,9 @@
     "save_success": "Saved successfully",
     "delete_success": "Deleted successfully",
     "total": "Total",
-    "items": "Items"
+    "items": "Items",
+    "view_all": "View All",
+    "loading": "Loading..."
   },
   "actions": {
     "edit": "Edit",
