@@ -44,6 +44,12 @@ export function getLoanNextDueDate(l: any): string | null {
     return null;
   }
 
+  const isPrincipalInterestAtEnd = l.isPrincipalInterestAtEnd ?? l.is_principal_interest_at_end;
+  if (isPrincipalInterestAtEnd) {
+    const rawDue = l.dueDate || l.due_date;
+    return rawDue ? String(rawDue).substring(0, 10) : null;
+  }
+
   const paidCount = Number(l.paidInstallmentsCount ?? l.paid_installments_count ?? l.paidInstallments ?? 0);
   const startDateStr = l.startDate || l.start_date;
   if (!startDateStr) {
