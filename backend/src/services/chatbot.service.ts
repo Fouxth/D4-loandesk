@@ -399,6 +399,26 @@ async function handleOverdue(userId: string, replyToken: string, tenantId: strin
     // Skip indefinite / 'ยอดติด' for daily overdue count
     if (isIndefinite || isZeroDebt) continue;
 
+    const isPrincipalInterestAtEnd = l.isPrincipalInterestAtEnd ?? l.is_principal_interest_at_end;
+
+    if (isPrincipalInterestAtEnd) {
+      const promiseDateStr = l.promiseDate ? l.promiseDate.toISOString().substring(0, 10) : (l.promise_date ? String(l.promise_date).substring(0, 10) : null);
+      const dueDateStr = l.dueDate ? l.dueDate.toISOString().substring(0, 10) : (l.due_date ? String(l.due_date).substring(0, 10) : null);
+      const effectiveDueDateStr = promiseDateStr || dueDateStr;
+
+      if (effectiveDueDateStr && effectiveDueDateStr < today) {
+        const days = Math.floor((new Date(today).getTime() - new Date(effectiveDueDateStr).getTime()) / (1000 * 60 * 60 * 24));
+        overdueList.push({
+          customerName: l.customerName || l.customer_name,
+          loanNumber: l.loanNumber || l.loan_number,
+          daysOverdue: days,
+          installmentAmount: l.installmentAmount || l.installment_amount,
+          isPrincipalInterestAtEnd: true
+        });
+      }
+      continue;
+    }
+
     const [p] = await sql`SELECT COUNT(*)::int as count FROM payments WHERE loan_id = ${l.id} AND tenant_id = ${tenantId}`;
     const paidCount = Number(p?.count || 0);
 
@@ -426,7 +446,8 @@ async function handleOverdue(userId: string, replyToken: string, tenantId: strin
         customerName: l.customerName || l.customer_name,
         loanNumber: l.loanNumber || l.loan_number,
         daysOverdue: days,
-        installmentAmount: l.installmentAmount || l.installment_amount
+        installmentAmount: l.installmentAmount || l.installment_amount,
+        isPrincipalInterestAtEnd: false
       });
     }
   }
@@ -439,12 +460,13 @@ async function handleOverdue(userId: string, replyToken: string, tenantId: strin
   }
 
   const items = overdueList.map(loan => {
+    const label = loan.isPrincipalInterestAtEnd ? `👤 ${loan.customerName} (จบต้นจบดอก)` : `👤 ${loan.customerName}`;
     return {
       type: 'box',
       layout: 'horizontal',
       margin: 'sm',
       contents: [
-        { type: 'text', text: `👤 ${loan.customerName}`, size: 'xs', color: '#333333', flex: 3, wrap: true },
+        { type: 'text', text: label, size: 'xs', color: '#333333', flex: 3, wrap: true },
         { type: 'text', text: `ค้าง ${loan.daysOverdue} วัน`, size: 'xs', color: '#ef4444', align: 'end', weight: 'bold', flex: 2 }
       ]
     };
@@ -509,6 +531,27 @@ async function handleCollectToday(userId: string, replyToken: string, tenantId: 
     `;
     if (pToday) continue; // Already paid today
 
+    const isPrincipalInterestAtEnd = l.isPrincipalInterestAtEnd ?? l.is_principal_interest_at_end;
+
+    if (isPrincipalInterestAtEnd) {
+      // For จบต้นจบดอก: ONLY show if today matches promise_date or due_date
+      const promiseDateStr = l.promiseDate ? l.promiseDate.toISOString().substring(0, 10) : (l.promise_date ? String(l.promise_date).substring(0, 10) : null);
+      const dueDateStr = l.dueDate ? l.dueDate.toISOString().substring(0, 10) : (l.due_date ? String(l.due_date).substring(0, 10) : null);
+      const effectiveDueDateStr = promiseDateStr || dueDateStr;
+
+      if (effectiveDueDateStr === today) {
+        pendingList.push({
+          customerName: l.customerName || l.customer_name,
+          loanNumber: l.loanNumber || l.loan_number,
+          installmentAmount: Number(l.installmentAmount || l.installment_amount || l.totalPayable || l.total_payable || 0),
+          remainingInstallments: 1,
+          isPrincipalInterestAtEnd: true,
+          label: '📌 จบต้นจบดอก (ครบกำหนด)'
+        });
+      }
+      continue;
+    }
+
     const [p] = await sql`SELECT COUNT(*)::int as count FROM payments WHERE loan_id = ${l.id} AND tenant_id = ${tenantId}`;
     const paidCount = Number(p?.count || 0);
 
@@ -540,7 +583,9 @@ async function handleCollectToday(userId: string, replyToken: string, tenantId: 
         installmentAmount: Number(l.installmentAmount || l.installment_amount || 0),
         remainingInstallments,
         installmentsCount,
-        paymentType
+        paymentType,
+        isPrincipalInterestAtEnd: false,
+        label: `📝 ${l.loanNumber || l.loan_number}`
       });
     }
   }
@@ -555,6 +600,7 @@ async function handleCollectToday(userId: string, replyToken: string, tenantId: 
   const items = [];
   for (const item of pendingList) {
     const formattedInstallment = item.installmentAmount.toLocaleString('en-US', { minimumFractionDigits: 0 });
+    const remainingText = item.isPrincipalInterestAtEnd ? '🎯 ครบกำหนดวันนี้' : `🎯 เหลือ ${item.remainingInstallments} งวด`;
 
     items.push({
       type: 'box',
@@ -571,8 +617,8 @@ async function handleCollectToday(userId: string, replyToken: string, tenantId: 
         { 
           type: 'box', layout: 'horizontal', margin: 'xs', 
           contents: [
-            { type: 'text', text: `📝 ${item.loanNumber}`, size: 'xs', color: '#8c8c8c', flex: 1 },
-            { type: 'text', text: `🎯 เหลือ ${item.remainingInstallments} งวด`, size: 'xs', color: '#0ea5e9', align: 'end', weight: 'bold', flex: 1 }
+            { type: 'text', text: item.label, size: 'xs', color: '#8c8c8c', flex: 1 },
+            { type: 'text', text: remainingText, size: 'xs', color: '#0ea5e9', align: 'end', weight: 'bold', flex: 1 }
           ]
         }
       ]
