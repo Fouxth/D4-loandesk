@@ -63,11 +63,25 @@ export const DEFAULT_LENDING_CONFIG: LendingConfig = {
 };
 
 function calcHoursOverdue(dueDate: string): number {
-  const due = new Date(String(dueDate).split('T')[0]);
-  if (isNaN(due.getTime())) return 0;
-  due.setHours(0, 0, 0, 0);
+  const parts = String(dueDate).split('T')[0].split('-').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return 0;
+  const [y, m, d] = parts;
+  
+  // Cutoff is 23:59:59 of the due date day
+  const dueCutoff = new Date(y, m - 1, d, 23, 59, 59, 999);
   const now = new Date();
-  return Math.max(0, Math.floor((now.getTime() - due.getTime()) / (1000 * 60 * 60)));
+  
+  // If current time is still within the due date day (before 23:59:59), no late fee!
+  if (now.getTime() <= dueCutoff.getTime()) {
+    return 0;
+  }
+  
+  // After midnight (00:00:00 of next day), count hours starting from next day start
+  const nextDayStart = new Date(y, m - 1, d + 1, 0, 0, 0, 0);
+  const elapsedMs = Math.max(0, now.getTime() - nextDayStart.getTime());
+  const hours = Math.floor(elapsedMs / (1000 * 60 * 60));
+  
+  return Math.max(1, hours);
 }
 
 function splitOverdueTime(totalHours: number) {
