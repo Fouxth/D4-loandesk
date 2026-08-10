@@ -17,12 +17,15 @@ export function calcLoan(
   }
 
   const due = new Date(startDate);
+  const count = Math.max(Number(installmentsCount) || 1, 1);
+  const offset = count > 1 ? count - 1 : 0;
+
   if (paymentType === "daily") {
-    due.setDate(due.getDate() + installmentsCount);
+    due.setDate(due.getDate() + offset);
   } else if (paymentType === "weekly") {
-    due.setDate(due.getDate() + installmentsCount * 7);
+    due.setDate(due.getDate() + offset * 7);
   } else if (paymentType === "monthly") {
-    due.setMonth(due.getMonth() + installmentsCount);
+    due.setMonth(due.getMonth() + offset);
   }
 
   return {

@@ -32,7 +32,7 @@ function periodDays(loan: {
 
   const start = loan.startDate ?? loan.start_date;
   const due = loan.dueDate ?? loan.due_date;
-  if (start && due) return Math.abs(daysBetween(start, due));
+  if (start && due) return Math.abs(daysBetween(start, due)) + 1;
 
   return 0;
 }

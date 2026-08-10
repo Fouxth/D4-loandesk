@@ -193,7 +193,7 @@ export function parseDaily357Sheet(rows: Row[], sheetName: string): ParseResult 
       const totalPayable = totalPaid ?? principal;
       const installmentAmount = Math.round(totalPayable / installments);
       const { interestAmount, interestRate } = calcLoanAmounts(principal, installmentAmount, installments, false);
-      const dueDate = endDate ?? addDays(startDate, installments);
+      const dueDate = endDate ?? addDays(startDate, installments > 0 ? installments - 1 : 0);
       const completed = totalPaid != null && totalPaid > 0;
 
       loans.push({
@@ -273,7 +273,7 @@ export function parseDailyGridSheet(
       installmentsCount,
       false,
     );
-    const dueDate = addDays(effectiveStart, installmentsCount);
+    const dueDate = addDays(effectiveStart, installmentsCount > 0 ? installmentsCount - 1 : 0);
     const { payments, notes, rollCount } = parseDayPayments(
       row,
       startCol,
