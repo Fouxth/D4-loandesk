@@ -229,6 +229,8 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
     getCustomers().then(data => setCustomers(data ?? []));
   }, []);
   
+  const isIndefiniteLoan = Boolean(form.isPawn || isZeroInterestDebt);
+
   const calc = calcLoan(
     form.principal,
     form.interestRate,
@@ -236,7 +238,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
     form.paymentType,
     new Date(form.startDate),
     form.isInterestOnly,
-    form.isIndefinite,
+    isIndefiniteLoan,
     form.isPrincipalInterestAtEnd,
   );
 
@@ -259,10 +261,10 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
         installmentAmount: calc.installment,
         paymentType: form.paymentType,
         startDate: form.startDate,
-        dueDate: calc.due ? calc.due.toISOString().split("T")[0] : null,
+        dueDate: isIndefiniteLoan ? null : (calc.due ? calc.due.toISOString().split("T")[0] : null),
         notes: form.notes,
         isInterestOnly: form.isInterestOnly,
-        isIndefinite: form.isIndefinite,
+        isIndefinite: isIndefiniteLoan,
         isPrincipalInterestAtEnd: form.isPrincipalInterestAtEnd,
         isPawn: form.isPawn,
         pawnItem: form.isPawn ? form.pawnItem : null,
@@ -387,7 +389,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
                   isPawn: checked,
                   paymentType: checked ? "monthly" : form.paymentType,
                   isInterestOnly: checked ? true : form.isInterestOnly,
-                  isIndefinite: checked ? true : form.isIndefinite,
+                  isIndefinite: checked,
                   isPrincipalInterestAtEnd: checked ? false : form.isPrincipalInterestAtEnd,
                 });
               }}
@@ -516,7 +518,9 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">สิ้นสุดวันที่</p>
-              <p className="text-sm font-bold text-primary">{calc.due ? formatDate(calc.due) : 'ไม่มีกำหนด'}</p>
+              <p className="text-sm font-bold text-primary">
+                {isIndefiniteLoan ? 'ไม่มีกำหนด' : (calc.due ? formatDate(calc.due) : 'ไม่มีกำหนด')}
+              </p>
             </div>
           </div>
           {(applyDocumentFee || applyAdvanceFee) && (
