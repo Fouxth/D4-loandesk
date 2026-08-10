@@ -362,21 +362,33 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
               type="checkbox" 
               id="isPawn" 
               checked={form.isPawn} 
-              onChange={(e) => setForm({ ...form, isPawn: e.target.checked })}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setForm({
+                  ...form,
+                  isPawn: checked,
+                  paymentType: checked ? "monthly" : form.paymentType,
+                  isInterestOnly: checked ? true : form.isInterestOnly,
+                  isPrincipalInterestAtEnd: checked ? false : form.isPrincipalInterestAtEnd,
+                });
+              }}
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
             />
             <Label htmlFor="isPawn" className="text-sm font-bold text-foreground cursor-pointer">จำนำสิ่งของ</Label>
           </div>
 
           {form.isPawn && (
-            <div className="space-y-2 mt-2 animate-in slide-in-from-top-2">
+            <div className="space-y-2 mt-2 p-3 bg-primary/5 rounded-xl border border-primary/20 animate-in slide-in-from-top-2 col-span-1 sm:col-span-2">
               <Label className="text-[11px] font-bold uppercase tracking-wider text-primary">รายละเอียดสิ่งของที่จำนำ</Label>
               <Input
                 value={form.pawnItem}
                 onChange={(e) => setForm({ ...form, pawnItem: e.target.value })}
-                placeholder="เช่น ทองคำหนัก 1 บาท, iPhone 15 Pro Max..."
-                className="bg-primary/5 border-primary/20 focus:border-primary"
+                placeholder="เช่น รถเก๋ง วีออส สีดำ, พระเลี่ยมทอง..."
+                className="bg-background border-primary/30 focus:border-primary"
               />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                💡 สัญญารับจำนำจะตั้งค่าชำระรายเดือนและเก็บเฉพาะดอกเบี้ยให้อัตโนมัติ โดยวันที่ใน <strong>"วันที่เริ่มสัญญา"</strong> จะใช้เป็นวันที่ครบกำหนดเก็บดอกเบี้ยประจำทุกเดือน
+              </p>
             </div>
           )}
 
