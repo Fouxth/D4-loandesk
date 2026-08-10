@@ -27,7 +27,8 @@ function pickFields(data: any, allowed: Set<string>): Record<string, unknown> {
 
 export async function getAllLoans(tenantId: string) {
   return await sql`
-    SELECT l.*, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name 
+    SELECT l.*, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name,
+           (SELECT COUNT(*)::int FROM payments p WHERE p.loan_id = l.id AND p.tenant_id = l.tenant_id) as paid_installments_count
     FROM loans l
     LEFT JOIN customers c ON l.customer_id = c.id
     WHERE l.tenant_id = ${tenantId}
@@ -37,7 +38,8 @@ export async function getAllLoans(tenantId: string) {
 
 export async function getLoanById(id: string, tenantId: string) {
   const [loan] = await sql`
-    SELECT l.*, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name, c.phone as customer_phone
+    SELECT l.*, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name, c.phone as customer_phone,
+           (SELECT COUNT(*)::int FROM payments p WHERE p.loan_id = l.id AND p.tenant_id = l.tenant_id) as paid_installments_count
     FROM loans l
     LEFT JOIN customers c ON l.customer_id = c.id
     WHERE l.id = ${id} AND l.tenant_id = ${tenantId}

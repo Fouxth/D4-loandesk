@@ -36,12 +36,12 @@ export function getLoanNextDueDate(l: any): string | null {
   }
 
   const isIndefinite = l.isIndefinite ?? l.is_indefinite;
-  if (isIndefinite) {
-    if (l.dueDate || l.due_date) {
-      return String(l.dueDate || l.due_date).substring(0, 10);
-    }
-    const start = l.startDate || l.start_date;
-    return start ? String(start).substring(0, 10) : null;
+  const notes = l.notes ?? '';
+  const interestRate = Number(l.interestRate ?? l.interest_rate ?? 0);
+  const isZeroDebt = notes.includes('ยอดติด') || notes.includes('ยอดติดค้างชำระ') || (interestRate === 0 && (l.installmentsCount === 1 || !l.paymentType));
+
+  if (isIndefinite || isZeroDebt) {
+    return null;
   }
 
   const paidCount = Number(l.paidInstallmentsCount ?? l.paid_installments_count ?? l.paidInstallments ?? 0);
@@ -85,6 +85,14 @@ export function getEffectiveStatus(l: any): string {
   const rawStatus = (l.status ?? '').toLowerCase();
   if (['completed', 'cancelled', 'forfeited', 'refinanced'].includes(rawStatus)) {
     return rawStatus;
+  }
+  const isIndefinite = l.isIndefinite ?? l.is_indefinite;
+  const notes = l.notes ?? '';
+  const interestRate = Number(l.interestRate ?? l.interest_rate ?? 0);
+  const isZeroDebt = notes.includes('ยอดติด') || notes.includes('ยอดติดค้างชำระ') || (interestRate === 0 && (l.installmentsCount === 1 || !l.paymentType));
+
+  if (isIndefinite || isZeroDebt) {
+    return 'active';
   }
   const todayStr = getThaiDateStr();
   const dueStr = getLoanNextDueDate(l);

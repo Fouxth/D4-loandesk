@@ -64,8 +64,20 @@ export function shouldSkipContractLateFee(loan: {
   paymentType?: string;
   installmentsCount?: number | string | null;
   isIndefinite?: boolean;
+  is_indefinite?: boolean;
+  notes?: string | null;
+  interestRate?: number | string | null;
+  interest_rate?: number | string | null;
 }): boolean {
-  void loan;
+  if (!loan) return false;
+  const isIndefinite = Boolean(loan.isIndefinite ?? loan.is_indefinite);
+  const notes = loan.notes ?? '';
+  const interestRate = Number(loan.interestRate ?? loan.interest_rate ?? 0);
+  const isZeroDebt = notes.includes('ยอดติด') || notes.includes('ยอดติดค้างชำระ') || (interestRate === 0 && (loan.installmentsCount === 1 || !loan.paymentType));
+  
+  if (isIndefinite || isZeroDebt) {
+    return true;
+  }
   return false;
 }
 
