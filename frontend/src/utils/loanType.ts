@@ -86,17 +86,18 @@ export function getLoanCategory(loan: {
   }
 
   if (isPawn) return 'รับจำนำ';
-  if (isPrincipalInterestAtEnd) return 'จบต้นจบดอก';
-  if (isInterestOnly && isIndefinite) {
-    return paymentType === 'monthly' ? 'รายเดือน' : 'ดอกลอย';
-  }
 
   const days = periodDays(loan);
 
-  if (paymentType === 'daily') {
+  if (paymentType === 'daily' || !loan.paymentType) {
     if ([3, 5, 7].includes(days)) return 'รายวัน 3-5-7';
     if (days === 14) return 'รายวัน 14';
     if (days >= 12 && days <= 24) return 'รายวัน 12-24';
+  }
+
+  if (isPrincipalInterestAtEnd) return 'จบต้นจบดอก';
+  if (isInterestOnly && isIndefinite) {
+    return paymentType === 'monthly' ? 'รายเดือน' : 'ดอกลอย';
   }
 
   if (paymentType === 'monthly') return 'รายเดือน';

@@ -51,7 +51,13 @@ function Loans() {
                         r.loanNumber.toLowerCase().includes(q) ||
                         r.customerName.toLowerCase().includes(q);
     const matchStatus = filter === "all" || getEffectiveStatus(r) === filter || (filter === "active" && getEffectiveStatus(r) === "due_today");
-    const matchType = typeFilter === "all" || getLoanCategory(r) === typeFilter;
+    const matchType =
+      typeFilter === "all" ||
+      getLoanCategory(r) === typeFilter ||
+      (typeFilter === "จบต้นจบดอก" && Boolean(r.isPrincipalInterestAtEnd || r.is_principal_interest_at_end)) ||
+      (typeFilter === "ดอกลอย" && Boolean(r.isInterestOnly || r.is_interest_only)) ||
+      (typeFilter === "รับจำนำ" && Boolean(r.isPawn || r.is_pawn)) ||
+      (typeFilter === "ยอดติด" && Boolean(r.isIndefinite || r.is_indefinite || (r.notes && r.notes.includes("ยอดติด"))));
     return matchSearch && matchStatus && matchType;
   });
 
