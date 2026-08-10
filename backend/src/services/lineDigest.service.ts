@@ -385,5 +385,29 @@ export async function sendLineTestNotification(tenantId: string) {
     },
   };
 
-  await Promise.all(recipients.map((to) => pushLineFlex(to, flex)));
+  const results = await Promise.all(
+    recipients.map(async (to) => {
+      const response = await fetch('https://api.line.me/v2/bot/message/push', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${channelAccessToken}`,
+        },
+        body: JSON.stringify({ to, messages: [flex] }),
+      });
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          throw new Error('LINE Channel Access Token หมดอายุหรือไม่อนุญาต (LINE API 401 Unauthorized) กรุณากด Issue Token ใหม่ใน LINE Developers Console');
+        }
+        if (response.status === 400 && errJson?.message?.includes('user')) {
+          throw new Error(`LINE User ID (${to}) ไม่ถูกต้อง หรือผู้ใช้ยังไม่ได้กดเพิ่มเพื่อนกับ LINE Bot`);
+        }
+        throw new Error(`LINE API เกิดข้อผิดพลาด (${response.status}): ${errJson?.message || 'ส่งข้อความไม่สำเร็จ'}`);
+      }
+      return true;
+    })
+  );
+
+  return results;
 }

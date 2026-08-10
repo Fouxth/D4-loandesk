@@ -58,7 +58,9 @@ export function isLineEventEnabled(
   config: LineNotifyConfig,
   eventType: LineEventType,
 ): boolean {
-  if (config.events && config.events[eventType] === false) return false;
+  if (!config.events) return true;
+  const camelKey = eventType.replace(/_([a-z])/g, (_, g) => g.toUpperCase());
+  if (config.events[eventType] === false || (config.events as any)[camelKey] === false) return false;
   return true;
 }
 
