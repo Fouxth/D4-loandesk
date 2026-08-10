@@ -244,6 +244,8 @@ function LoanDetail() {
                 suggested={suggestedPaymentAmount} 
                 nextNum={nextInstallmentNumber} 
                 isInterestOnly={isInterestOnlyMode}
+                installmentAmount={loan.installmentAmount ?? loan.installment_amount ?? 0}
+                tpPenaltyAmount={lending.tpPenaltyAmount ?? 100}
                 onDone={() => { setOpen(false); load(); }} 
               />
             </Dialog>
@@ -282,6 +284,8 @@ function LoanDetail() {
               suggested={suggestedPaymentAmount} 
               nextNum={nextInstallmentNumber} 
               isInterestOnly={isInterestOnlyMode}
+              installmentAmount={loan.installmentAmount ?? loan.installment_amount ?? 0}
+              tpPenaltyAmount={lending.tpPenaltyAmount ?? 100}
               onDone={() => { setOpenMobile(false); load(); }} 
             />
           </Dialog>
@@ -642,26 +646,61 @@ function LoanDetail() {
   );
 }
 
-function PaymentForm({ loanId, suggested, nextNum, isInterestOnly, onDone }: { loanId: string; suggested: number; nextNum: number; isInterestOnly: boolean; onDone: () => void }) {
+function PaymentForm({
+  loanId,
+  suggested,
+  nextNum,
+  isInterestOnly,
+  installmentAmount = 0,
+  tpPenaltyAmount = 100,
+  onDone,
+}: {
+  loanId: string;
+  suggested: number;
+  nextNum: number;
+  isInterestOnly: boolean;
+  installmentAmount?: number;
+  tpPenaltyAmount?: number;
+  onDone: () => void;
+}) {
   const [form, setForm] = useState({
     amount: suggested,
     paymentDate: getThaiDateStr(),
     installmentNumber: nextNum, 
     method: "cash" as "cash" | "bank_transfer" | "mobile" | "other", 
-    category: isInterestOnly ? "interest" : "principal" as "interest" | "principal",
+    category: (isInterestOnly ? "interest" : "principal") as "interest" | "principal" | "roll_penalty",
     notes: "",
   });
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const calculatedTpAmount = (installmentAmount * 2) + (tpPenaltyAmount || 100);
+
   useEffect(() => {
     setForm((current) => ({
       ...current,
-      amount: suggested,
+      amount: current.category === "roll_penalty" ? calculatedTpAmount : suggested,
       installmentNumber: nextNum,
-      category: isInterestOnly ? "interest" : "principal",
+      category: current.category || (isInterestOnly ? "interest" : "principal"),
     }));
-  }, [suggested, nextNum, isInterestOnly]);
+  }, [suggested, nextNum, isInterestOnly, calculatedTpAmount]);
+
+  const handleCategoryChange = (v: "interest" | "principal" | "roll_penalty") => {
+    if (v === "roll_penalty") {
+      setForm((current) => ({
+        ...current,
+        category: v,
+        amount: calculatedTpAmount > 0 ? calculatedTpAmount : current.amount,
+        notes: current.notes || "ชำระ ท+ป (ทบพรุ่งนี้ + ปรับ)",
+      }));
+    } else {
+      setForm((current) => ({
+        ...current,
+        category: v,
+        amount: suggested,
+      }));
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -720,15 +759,26 @@ function PaymentForm({ loanId, suggested, nextNum, isInterestOnly, onDone }: { l
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ประเภทการชำระ</Label>
-            <Select value={form.category} onValueChange={(v: any) => setForm({ ...form, category: v })}>
+            <Select value={form.category} onValueChange={handleCategoryChange}>
               <SelectTrigger className="bg-muted/20"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="interest">ชำระดอกเบี้ย</SelectItem>
                 <SelectItem value="principal">ชำระเงินต้น / ปิดยอด</SelectItem>
+                <SelectItem value="interest">ชำระดอกเบี้ย</SelectItem>
+                <SelectItem value="roll_penalty">⚡ ชำระ ท+ป (ทบ + ปรับ)</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
+        {form.category === "roll_penalty" && (
+          <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 space-y-1 text-xs">
+            <p className="font-bold text-warning flex items-center gap-1">
+              ⚡ คำนวณยอด ท+ป แนะนำ: {formatTHB(calculatedTpAmount)}
+            </p>
+            <p className="text-muted-foreground text-[11px]">
+              • งวดวันนี้ ({formatTHB(installmentAmount)}) + ทบงวดถัดไป ({formatTHB(installmentAmount)}) + ค่าปรับ ({formatTHB(tpPenaltyAmount)})
+            </p>
+          </div>
+        )}
         <div className="space-y-2">
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">หมายเหตุ</Label>
           <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="bg-muted/20" placeholder="ระบุรายละเอียดเพิ่มเติม..." />
