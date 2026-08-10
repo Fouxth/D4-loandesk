@@ -303,11 +303,13 @@ async function handleCustomerSearch(
   for (const customer of customers) {
     const loans = await sql`
       SELECT * FROM loans 
-      WHERE customer_id = ${customer.id} AND status IN ('active', 'overdue') AND tenant_id = ${tenantId}
+      WHERE customer_id = ${customer.id} 
+        AND (status IS NULL OR LOWER(status) NOT IN ('completed', 'closed', 'deleted', 'cancelled')) 
+        AND tenant_id = ${tenantId}
     `;
 
     if (loans.length === 0) {
-      messages.push({ type: 'text', text: `👤 ${customer.fullName}\n✅ ไม่มียอดหนี้ค้างชำระ (ปิดยอดหมดแล้ว)` });
+      messages.push({ type: 'text', text: `👤 ${customer.fullName || (customer as any).full_name}\n✅ ไม่มียอดหนี้ค้างชำระ (ปิดยอดหมดแล้ว)` });
       continue;
     }
 
@@ -317,7 +319,8 @@ async function handleCustomerSearch(
     for (const loan of loans) {
       const allPayments = await sql`SELECT amount FROM payments WHERE loan_id = ${loan.id} AND tenant_id = ${tenantId}`;
       const totalPaid = allPayments.reduce((acc: number, p: any) => acc + Number(p.amount), 0);
-      const remaining = Math.max(Number(loan.isInterestOnly ? loan.principal : loan.totalPayable) - totalPaid, 0);
+      const payable = Number(loan.isInterestOnly ? loan.principal : (loan.totalPayable || loan.total_payable || loan.principal || 0));
+      const remaining = Math.max(payable - totalPaid, 0);
       
       totalRemaining += remaining;
       
@@ -325,7 +328,7 @@ async function handleCustomerSearch(
         type: 'box',
         layout: 'horizontal',
         contents: [
-          { type: 'text', text: `📝 ${loan.loanNumber}`, size: 'xs', color: '#8c8c8c', flex: 2 },
+          { type: 'text', text: `📝 ${loan.loanNumber || loan.loan_number}`, size: 'xs', color: '#8c8c8c', flex: 2 },
           { type: 'text', text: `${remaining.toLocaleString('en-US', {minimumFractionDigits: 2})} ฿`, size: 'xs', color: '#ef4444', align: 'end', weight: 'bold', flex: 3 }
         ]
       });
@@ -333,7 +336,7 @@ async function handleCustomerSearch(
 
     messages.push({
       type: 'flex',
-      altText: `ข้อมูลหนี้สินของ ${customer.fullName}`,
+      altText: `ข้อมูลหนี้สินของ ${customer.fullName || (customer as any).full_name}`,
       contents: {
         type: 'bubble',
         size: 'mega',
@@ -342,7 +345,7 @@ async function handleCustomerSearch(
           layout: 'vertical',
           backgroundColor: '#3b82f6',
           contents: [
-            { type: 'text', text: `👤 ${customer.fullName}`, weight: 'bold', color: '#ffffff', size: 'sm' }
+            { type: 'text', text: `👤 ${customer.fullName || (customer as any).full_name}`, weight: 'bold', color: '#ffffff', size: 'sm' }
           ]
         },
         body: {
@@ -377,7 +380,9 @@ async function handleOverdue(userId: string, replyToken: string, tenantId: strin
     SELECT l.*, c.full_name as customer_name
     FROM loans l
     JOIN customers c ON l.customer_id = c.id
-    WHERE l.status IN ('active', 'overdue') AND l.due_date < ${today} AND l.tenant_id = ${tenantId}
+    WHERE (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled')) 
+      AND l.due_date IS NOT NULL AND l.due_date < ${today} 
+      AND l.tenant_id = ${tenantId}
     ORDER BY l.due_date ASC
     LIMIT 10
   `;
@@ -439,7 +444,8 @@ async function handleCollectToday(userId: string, replyToken: string, tenantId: 
     SELECT l.*, c.full_name as customer_name
     FROM loans l
     JOIN customers c ON l.customer_id = c.id
-    WHERE l.status IN ('active', 'overdue') AND l.tenant_id = ${tenantId}
+    WHERE (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled')) 
+      AND l.tenant_id = ${tenantId}
       AND NOT EXISTS (
         SELECT 1 FROM payments p 
         WHERE p.loan_id = l.id AND p.payment_date = ${today} AND p.tenant_id = ${tenantId}

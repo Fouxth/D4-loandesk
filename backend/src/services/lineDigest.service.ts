@@ -15,7 +15,7 @@ export async function fetchDueTodayLoans(tenantId: string, limit = DIGEST_LIMIT)
     FROM loans l
     JOIN customers c ON l.customer_id = c.id
     WHERE l.tenant_id = ${tenantId}
-      AND l.status IN ('active', 'overdue')
+      AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled'))
       AND l.due_date = ${today}
     ORDER BY l.due_date ASC
     LIMIT ${limit}
@@ -29,7 +29,7 @@ export async function fetchOverdueLoans(tenantId: string, limit = DIGEST_LIMIT) 
     FROM loans l
     JOIN customers c ON l.customer_id = c.id
     WHERE l.tenant_id = ${tenantId}
-      AND l.status IN ('active', 'overdue')
+      AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled'))
       AND l.due_date < ${today}
     ORDER BY l.due_date ASC
     LIMIT ${limit}
@@ -42,7 +42,7 @@ export async function countOverdueLoans(tenantId: string) {
     SELECT COUNT(*)::int as count
     FROM loans l
     WHERE l.tenant_id = ${tenantId}
-      AND l.status IN ('active', 'overdue')
+      AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled'))
       AND l.due_date < ${today}
   `;
   return Number(row?.count ?? 0);
@@ -55,7 +55,7 @@ export async function fetchPendingCollectionToday(tenantId: string, limit = DIGE
     FROM loans l
     JOIN customers c ON l.customer_id = c.id
     WHERE l.tenant_id = ${tenantId}
-      AND l.status IN ('active', 'overdue')
+      AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled'))
       AND NOT EXISTS (
         SELECT 1 FROM payments p
         WHERE p.loan_id = l.id AND p.payment_date = ${today} AND p.tenant_id = ${tenantId}
