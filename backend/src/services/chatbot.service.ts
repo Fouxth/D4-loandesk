@@ -213,7 +213,7 @@ async function handleSummary(userId: string, replyToken: string, tenantId: strin
 
   const [[payments], [loans], [expenses]] = await Promise.all([
     sql`SELECT COALESCE(SUM(amount::numeric), 0) as total FROM payments WHERE payment_date = ${today} AND tenant_id = ${tenantId}`,
-    sql`SELECT COALESCE(SUM(principal::numeric), 0) as total FROM loans WHERE (start_date = ${today} OR DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Bangkok') = ${today}) AND tenant_id = ${tenantId}`,
+    sql`SELECT COALESCE(SUM(principal::numeric), 0) as total FROM loans WHERE created_at IS NOT NULL AND DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Bangkok') = ${today} AND tenant_id = ${tenantId}`,
     sql`SELECT COALESCE(SUM(amount::numeric), 0) as total FROM expenses WHERE expense_date = ${today} AND tenant_id = ${tenantId}`
   ]);
 

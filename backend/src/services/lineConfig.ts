@@ -65,7 +65,11 @@ export function isLineEventEnabled(
 }
 
 export function getBangkokDateStr(date = new Date()): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(date);
+  const d = new Date(date);
+  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+  const thaiTime = new Date(utc + (3600000 * 7));
+  thaiTime.setHours(thaiTime.getHours() - 5);
+  return `${thaiTime.getFullYear()}-${String(thaiTime.getMonth() + 1).padStart(2, '0')}-${String(thaiTime.getDate()).padStart(2, '0')}`;
 }
 
 export function getBangkokHourMinute(date = new Date()): { hour: number; minute: number } {
