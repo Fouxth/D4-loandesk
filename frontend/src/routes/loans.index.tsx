@@ -387,6 +387,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
                   isPawn: checked,
                   paymentType: checked ? "monthly" : form.paymentType,
                   isInterestOnly: checked ? true : form.isInterestOnly,
+                  isIndefinite: checked ? true : form.isIndefinite,
                   isPrincipalInterestAtEnd: checked ? false : form.isPrincipalInterestAtEnd,
                 });
               }}
@@ -501,7 +502,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">สิ้นสุดวันที่</p>
-              <p className="text-sm font-bold text-primary">{formatDate(calc.due)}</p>
+              <p className="text-sm font-bold text-primary">{calc.due ? formatDate(calc.due) : 'ไม่มีกำหนด'}</p>
             </div>
           </div>
           {(applyDocumentFee || applyAdvanceFee) && (
