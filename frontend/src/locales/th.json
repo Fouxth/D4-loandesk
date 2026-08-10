@@ -5,15 +5,15 @@
     "description": "สรุปข้อมูลธุรกิจการให้กู้ยืมของคุณ",
     "stats": {
       "total_customers": "ลูกค้าทั้งหมด",
-      "active_loans": "สัญญาที่ยังไม่ปิด",
+      "active_loans": "สัญญาเงินกู้",
       "due_today": "ครบกำหนดวันนี้",
-      "overdue": "ค้างชำระเกินกำหนด",
+      "overdue": "เกินกำหนดชำระ",
       "outstanding": "ยอดเงินคงค้างรวม",
       "today_collections": "ยอดเก็บเงินวันนี้",
       "monthly_profit": "กำไรรายเดือน"
     },
     "charts": {
-      "monthly_collections": "ยอดการจัดเก็บรายเดือน",
+      "monthly_collections": "สถิติการจัดเก็บรายเดือน",
       "status_breakdown": "สัดส่วนสถานะสัญญา",
       "payment_trend": "แนวโน้มการชำระเงิน (14 วันล่าสุด)"
     },
@@ -28,7 +28,7 @@
     "reports": "รายงาน",
     "settings": "ตั้งค่า",
     "calendar": "ปฏิทิน",
-    "activity": "กิจกรรม",
+    "activity": "บันทึกกิจกรรม",
     "main": "เมนูหลัก",
     "finance": "การเงินและระบบ"
   },
@@ -72,6 +72,52 @@
       "forfeited": "หลุดจำนำ",
       "refinanced": "รียอดแล้ว"
     }
+  },
+  "payments": {
+    "title": "การชำระเงิน",
+    "description": "ประวัติรับชำระค่างวดเงินกู้ทั้งหมด",
+    "record_new": "บันทึกการชำระเงิน",
+    "search_placeholder": "ค้นหาเลขสัญญา หรือชื่อลูกค้า...",
+    "table": {
+      "contract": "เลขสัญญา",
+      "customer": "ลูกค้า",
+      "amount": "ยอดชำระ",
+      "date": "วันที่ชำระ",
+      "method": "ช่องทาง",
+      "slip": "สลิปหลักฐาน",
+      "actions": "จัดการ"
+    }
+  },
+  "expenses": {
+    "title": "ค่าใช้จ่าย",
+    "description": "บันทึกและจัดการค่าใช้จ่ายดำเนินงาน",
+    "record_new": "บันทึกค่าใช้จ่าย",
+    "search_placeholder": "ค้นหารายการค่าใช้จ่าย...",
+    "table": {
+      "category": "หมวดหมู่",
+      "amount": "จำนวนเงิน",
+      "date": "วันที่จ่าย",
+      "description": "รายละเอียด",
+      "actions": "จัดการ"
+    }
+  },
+  "reports": {
+    "title": "รายงาน",
+    "description": "สรุปรายงานทางการเงินและสถิติต่างๆ",
+    "export_excel": "ส่งออก Excel",
+    "summary": "สรุปผลการดำเนินงาน"
+  },
+  "calendar": {
+    "title": "ปฏิทิน",
+    "description": "ปฏิทินแสดงกำหนดชำระค่างวดรายวัน"
+  },
+  "activity": {
+    "title": "บันทึกกิจกรรม",
+    "description": "รายการการกระทำล่าสุดในระบบทั้งหมด"
+  },
+  "settings": {
+    "title": "ตั้งค่า",
+    "description": "จัดการข้อมูลร้านค้า การแจ้งเตือน และสำรองข้อมูล"
   },
   "auth": {
     "admin": "ผู้ดูแลระบบ",

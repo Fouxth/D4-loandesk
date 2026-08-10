@@ -4,6 +4,8 @@ import { initReactI18next } from 'react-i18next';
 import th from './locales/th.json';
 import en from './locales/en.json';
 
+const savedLang = typeof localStorage !== 'undefined' ? (localStorage.getItem('i18nextLng') || 'th') : 'th';
+
 i18n
   .use(initReactI18next)
   .init({
@@ -11,7 +13,7 @@ i18n
       th: { translation: th },
       en: { translation: en },
     },
-    lng: 'th', // เริ่มต้นภาษาไทย
+    lng: savedLang.startsWith('en') ? 'en' : 'th',
     fallbackLng: 'en',
     interpolation: { escapeValue: false },
   });

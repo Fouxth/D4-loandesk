@@ -1,20 +1,20 @@
 {
   "app_name": "D4-LoanDesk",
   "dashboard": {
-    "title": "System Overview",
-    "description": "Summary of your lending business data",
+    "title": "Dashboard Overview",
+    "description": "Summary of your lending business & operations",
     "stats": {
       "total_customers": "Total Customers",
-      "active_loans": "Active Loans",
+      "active_loans": "Loan Agreements",
       "due_today": "Due Today",
-      "overdue": "Overdue Loans",
-      "outstanding": "Total Outstanding",
+      "overdue": "Overdue",
+      "outstanding": "Total Outstanding Balance",
       "today_collections": "Today's Collections",
       "monthly_profit": "Monthly Profit"
     },
     "charts": {
-      "monthly_collections": "Monthly Collections",
-      "status_breakdown": "Loan Status Breakdown",
+      "monthly_collections": "Monthly Collection Statistics",
+      "status_breakdown": "Loan Status Distribution",
       "payment_trend": "Payment Trend (Last 14 Days)"
     },
     "loading": "Loading dashboard data..."
@@ -28,35 +28,42 @@
     "reports": "Reports",
     "settings": "Settings",
     "calendar": "Calendar",
-    "activity": "Activity",
+    "activity": "Activity Log",
     "main": "Main Menu",
     "finance": "Finance & System"
   },
   "customers": {
-    "title": "Customer List",
+    "title": "Customer Directory",
     "add_new": "Add New Customer",
-    "edit": "Edit Customer Information",
-    "search_placeholder": "Search by name, phone, ID...",
+    "edit": "Edit Customer Profile",
+    "search_placeholder": "Search by name, phone number, ID card...",
     "table": {
       "name": "Full Name",
-      "phone": "Phone",
-      "id_card": "ID Card",
-      "risk": "Risk",
-      "created_at": "Created At",
+      "phone": "Phone Number",
+      "id_card": "ID Card No.",
+      "risk": "Risk Level",
+      "created_at": "Date Added",
       "actions": "Actions"
     },
     "risk": {
       "low": "Low",
       "medium": "Medium",
       "high": "High"
+    },
+    "category": {
+      "new": "New Customer",
+      "regular": "Regular Customer",
+      "good": "Good Credit",
+      "blocked": "Blacklisted"
     }
   },
   "loans": {
     "title": "Loan Agreements",
-    "create_new": "Create Loan",
-    "search_placeholder": "Search by loan number or name...",
+    "create_new": "Create New Loan",
+    "refinance": "Refinance / Top Up",
+    "search_placeholder": "Search by loan number or customer name...",
     "status": {
-      "all": "All Status",
+      "all": "All Statuses",
       "active": "Active",
       "overdue": "Overdue",
       "due_today": "Due Today",
@@ -66,9 +73,55 @@
       "refinanced": "Refinanced"
     }
   },
+  "payments": {
+    "title": "Payments",
+    "description": "Complete payment history and transaction records",
+    "record_new": "Record Payment",
+    "search_placeholder": "Search by contract number or customer name...",
+    "table": {
+      "contract": "Contract No.",
+      "customer": "Customer",
+      "amount": "Payment Amount",
+      "date": "Payment Date",
+      "method": "Method",
+      "slip": "Proof Slip",
+      "actions": "Actions"
+    }
+  },
+  "expenses": {
+    "title": "Expenses",
+    "description": "Record and manage operational expenses",
+    "record_new": "Record Expense",
+    "search_placeholder": "Search expense items...",
+    "table": {
+      "category": "Category",
+      "amount": "Amount",
+      "date": "Expense Date",
+      "description": "Description",
+      "actions": "Actions"
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "description": "Financial reports and performance statistics",
+    "export_excel": "Export to Excel",
+    "summary": "Business Performance Summary"
+  },
+  "calendar": {
+    "title": "Calendar",
+    "description": "Daily payment schedule and due date calendar"
+  },
+  "activity": {
+    "title": "Activity Log",
+    "description": "Audit trail and recent system activities"
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Manage business profiles, LINE notifications, and backups"
+  },
   "auth": {
-    "admin": "Admin",
-    "staff": "Staff"
+    "admin": "Administrator",
+    "staff": "Staff Member"
   },
   "common": {
     "save": "Save Changes",
