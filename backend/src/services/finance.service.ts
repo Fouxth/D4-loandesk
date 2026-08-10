@@ -48,18 +48,51 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
   if (result.length > 0) {
     const payment = result[0];
     const loans = await sql`
-      SELECT l.*, c.full_name as customer_name
+      SELECT l.*, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name
       FROM loans l
-      JOIN customers c ON l.customer_id = c.id
+      LEFT JOIN customers c ON l.customer_id = c.id
       WHERE l.id = ${payment.loanId} AND l.tenant_id = ${tenantId}
     `;
     
     if (loans.length > 0) {
       const loan = loans[0];
+      const allPayments = await sql`SELECT amount, category FROM payments WHERE loan_id = ${payment.loanId} AND tenant_id = ${tenantId}`;
 
-      const allPayments = await sql`SELECT amount FROM payments WHERE loan_id = ${payment.loanId} AND tenant_id = ${tenantId}`;
-      const totalPaid = allPayments.reduce((acc, p) => acc + Number(p.amount), 0);
-      const remaining = Math.max(Number(loan.isInterestOnly ? loan.principal : loan.totalPayable) - totalPaid, 0);
+      let remaining = 0;
+      const isInterestOnlyLoan = Boolean(loan.is_interest_only || loan.is_pawn || loan.isInterestOnly || loan.isPawn);
+
+      if (isInterestOnlyLoan) {
+        const principalPaid = allPayments
+          .filter((p: any) => p.category === 'principal')
+          .reduce((acc: number, p: any) => acc + Number(p.amount), 0);
+
+        remaining = Math.max(Number(loan.principal) - principalPaid, 0);
+
+        // If principal is fully paid (principalPaid >= principal), close contract!
+        if (remaining === 0 && loan.status === 'active') {
+          await sql`UPDATE loans SET status = 'completed' WHERE id = ${loan.id} AND tenant_id = ${tenantId}`;
+        }
+
+        // Advance due date by 1 month to anchor start date day when interest is paid
+        if (payment.category === 'interest') {
+          const currentDueDateStr = loan.due_date ? String(loan.due_date).split('T')[0] : String(loan.start_date || loan.startDate).split('T')[0];
+          const parts = currentDueDateStr.split('-').map(Number);
+          if (parts.length === 3) {
+            const [y, m, d] = parts;
+            const nextDate = new Date(y, m, d);
+            const nextDueDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+            await sql`UPDATE loans SET due_date = ${nextDueDateStr} WHERE id = ${loan.id} AND tenant_id = ${tenantId}`;
+          }
+        }
+      } else {
+        const totalPaid = allPayments.reduce((acc: number, p: any) => acc + Number(p.amount), 0);
+        remaining = Math.max(Number(loan.total_payable || loan.totalPayable) - totalPaid, 0);
+
+        if (remaining === 0 && loan.status === 'active') {
+          await sql`UPDATE loans SET status = 'completed' WHERE id = ${loan.id} AND tenant_id = ${tenantId}`;
+        }
+      }
 
       const [recorder] = await sql`
         SELECT full_name FROM profiles WHERE id = ${userId}
@@ -71,7 +104,7 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
       const formattedAmount = Number(payment.amount).toLocaleString('en-US', { minimumFractionDigits: 2 });
       const formattedRemaining = remaining.toLocaleString('en-US', { minimumFractionDigits: 2 });
 
-      const message = `🔔 แจ้งเตือนรับชำระเงิน\n👤 ลูกค้า: ${loan.customerName}\n💰 ยอดชำระ: ${formattedAmount} บาท\n📉 คงเหลือ: ${formattedRemaining} บาท\n📂 ประเภท: ${categoryText}`;
+      const message = `🔔 แจ้งเตือนรับชำระเงิน\n👤 ลูกค้า: ${loan.customerName}\n💰 ยอดชำระ: ${formattedAmount} บาท\n📉 คงเหลือเงินต้น: ${formattedRemaining} บาท\n📂 ประเภท: ${categoryText}`;
 
       sendLineNotify(message, 'payment', {
         title: '🔔 รับชำระเงินเรียบร้อย',
@@ -83,7 +116,7 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
           { label: 'ประเภท', value: categoryText },
           { label: 'ช่องทาง', value: methodText },
           { label: 'บันทึกโดย', value: recorderName },
-          { label: 'ยอดคงเหลือรวม', value: `${formattedRemaining} บาท`, color: '#ef4444' },
+          { label: 'ยอดเงินต้นคงเหลือ', value: `${formattedRemaining} บาท`, color: '#ef4444' },
         ],
         footer: 'ตรวจสอบยอดในแอปได้ทันที',
       }, tenantId);

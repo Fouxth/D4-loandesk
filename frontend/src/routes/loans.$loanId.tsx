@@ -126,7 +126,8 @@ function LoanDetail() {
     ? calcLoanTotalOwed(Number(loan.totalPayable), tpCount, installmentAmount, tpConfig)
     : Number(loan.isInterestOnly ? loan.principal : loan.totalPayable);
 
-  const contractRemaining = loan.isInterestOnly
+  const isInterestOnlyMode = Boolean(loan.isInterestOnly || loan.isPawn || loan.is_interest_only || loan.is_pawn);
+  const contractRemaining = isInterestOnlyMode
     ? Math.max(Number(loan.principal) - principalPaid, 0)
     : Math.max(totalOwed - totalPaid, 0);
 
@@ -240,7 +241,7 @@ function LoanDetail() {
                 loanId={loanId} 
                 suggested={suggestedPaymentAmount} 
                 nextNum={nextInstallmentNumber} 
-                isInterestOnly={loan.isInterestOnly}
+                isInterestOnly={isInterestOnlyMode}
                 onDone={() => { setOpen(false); load(); }} 
               />
             </Dialog>
@@ -278,7 +279,7 @@ function LoanDetail() {
               loanId={loanId} 
               suggested={suggestedPaymentAmount} 
               nextNum={nextInstallmentNumber} 
-              isInterestOnly={loan.isInterestOnly}
+              isInterestOnly={isInterestOnlyMode}
               onDone={() => { setOpenMobile(false); load(); }} 
             />
           </Dialog>
@@ -426,16 +427,16 @@ function LoanDetail() {
               <dt className="text-muted-foreground">ชำระแล้ว (รวมทั้งหมด)</dt>
               <dd className="font-bold text-success">{formatTHB(totalPaid)}</dd>
             </div>
-            {loan.isInterestOnly && (
+            {isInterestOnlyMode && (
               <div className="flex justify-between items-center text-xs">
                 <dt className="text-muted-foreground pl-4">└ ดอกเบี้ยที่จ่ายแล้ว</dt>
-                <dd className="font-medium">{formatTHB(interestPaid)}</dd>
+                <dd className="font-bold text-warning">{formatTHB(interestPaid)}</dd>
               </div>
             )}
-            {loan.isInterestOnly && (
+            {isInterestOnlyMode && (
               <div className="flex justify-between items-center text-xs border-b border-border/50 pb-2">
                 <dt className="text-muted-foreground pl-4">└ เงินต้นที่คืนแล้ว</dt>
-                <dd className="font-medium">{formatTHB(principalPaid)}</dd>
+                <dd className="font-bold text-success">{formatTHB(principalPaid)}</dd>
               </div>
             )}
             <div className="flex justify-between items-center border-t border-primary/20 bg-primary/5 -mx-6 px-6 py-3 mt-2">
