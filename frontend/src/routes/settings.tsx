@@ -82,6 +82,7 @@ function Settings() {
   const [lending, setLending] = useState<LendingConfig>(DEFAULT_LENDING_CONFIG);
   const [limits, setLimits] = useState<any[]>([]);
   const [lineUserIds, setLineUserIds] = useState("");
+  const [lineChannelAccessToken, setLineChannelAccessToken] = useState("");
   const [lineEnabled, setLineEnabled] = useState(false);
   const [lineEvents, setLineEvents] = useState({
     payment: true,
@@ -161,6 +162,7 @@ function Settings() {
               ? [data.line_notify.userId]
               : [];
           setLineUserIds(ids.join("\n"));
+          setLineChannelAccessToken(data.line_notify.channelAccessToken || "");
           setLineEnabled(!!data.line_notify.enabled);
           if (data.line_notify.events) {
             setLineEvents({
@@ -293,6 +295,7 @@ function Settings() {
       await updateSetting("line_notify", { 
         userIds,
         userId: userIds[0] || "",
+        channelAccessToken: lineChannelAccessToken.trim(),
         enabled: lineEnabled, 
         events: lineEvents
       });
@@ -316,6 +319,7 @@ function Settings() {
       await updateSetting("line_notify", {
         userIds,
         userId: userIds[0] || "",
+        channelAccessToken: lineChannelAccessToken.trim(),
         enabled: lineEnabled,
         events: lineEvents,
       });
@@ -1058,6 +1062,20 @@ function Settings() {
               </div>
               
                 <div className="space-y-4 pt-2">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">LINE Channel Access Token (จาก LINE Developers Console)</Label>
+                    <Input 
+                      type="password"
+                      placeholder="ระบุหรือวาง Channel Access Token ของ LINE Messaging API..."
+                      value={lineChannelAccessToken}
+                      onChange={(e) => setLineChannelAccessToken(e.target.value)}
+                      className="bg-muted/20 font-mono text-xs h-11"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      * Token สำหรับให้ระบบส่งการแจ้งเตือนเข้า LINE Bot <strong>@792nhdet</strong>
+                    </p>
+                  </div>
+
                   <div className="space-y-2">
                     <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">LINE User ID (หลายคนได้ — บรรทัดละ 1 รหัส)</Label>
                     <Textarea 

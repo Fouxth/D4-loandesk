@@ -337,6 +337,9 @@ export async function sendLineTestNotification(tenantId: string) {
   const recipients = resolveLineRecipients(config);
   if (!recipients.length) throw new Error('กรุณาระบุ LINE User ID อย่างน้อย 1 รายการ');
 
+  const channelAccessToken = config.channelAccessToken?.trim() || process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!channelAccessToken) throw new Error('กรุณาระบุ LINE Channel Access Token ในหน้าการตั้งค่า');
+
   const flex = {
     type: 'flex',
     altText: '✅ ทดสอบการแจ้งเตือน',

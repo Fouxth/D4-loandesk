@@ -15,6 +15,7 @@ export interface LineNotifyConfig {
   userId?: string;
   userIds?: string[];
   token?: string;
+  channelAccessToken?: string;
   events?: Partial<Record<LineEventType, boolean>>;
 }
 

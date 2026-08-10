@@ -88,7 +88,7 @@ export async function sendLineNotify(
     if (!options?.skipEventCheck && !isLineEventEnabled(config, eventType)) return;
 
     const recipients = resolveLineRecipients(config);
-    const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+    const channelAccessToken = config.channelAccessToken?.trim() || process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
     if (channelAccessToken && recipients.length) {
       let sent = false;
@@ -117,7 +117,7 @@ export async function sendLineNotify(
       }
       if (sent) return;
     } else {
-      if (!channelAccessToken) console.warn('[LINE] ⚠️ Missing LINE_CHANNEL_ACCESS_TOKEN in .env');
+      if (!channelAccessToken) console.warn('[LINE] ⚠️ Missing LINE_CHANNEL_ACCESS_TOKEN');
       if (!recipients.length) console.warn('[LINE] ⚠️ Missing userId(s) in DB settings');
     }
 
