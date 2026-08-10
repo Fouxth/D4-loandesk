@@ -311,7 +311,7 @@ function LoanDetail() {
                   </span>
                 )}
                 {isPrincipalInterestAtEnd && (
-                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-warning/20 text-warning-foreground">
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-warning/20 text-warning">
                     จบต้นจบดอก
                   </span>
                 )}
@@ -380,7 +380,7 @@ function LoanDetail() {
             )}
             <div className="flex justify-between items-center">
               <dt className="text-muted-foreground">ดอกเบี้ย ({loan.interestRate}%)</dt>
-              <dd className="font-medium text-warning-foreground">{formatTHB(loan.interestAmount)}</dd>
+              <dd className="font-medium text-warning">{formatTHB(loan.interestAmount)}</dd>
             </div>
             {(effectiveFee > 0 || rawDaysOverdue > 0 || lateFeeMode !== 'auto') && !skipContractLateFee && (
               <div className="space-y-1">
@@ -467,7 +467,7 @@ function LoanDetail() {
                   <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
                     pawnStatus === 'redeemed' ? 'bg-success/20 text-success' : 
                     pawnStatus === 'forfeited' ? 'bg-destructive/20 text-destructive' : 
-                    'bg-warning/20 text-warning-foreground'
+                    'bg-warning/20 text-warning'
                   }`}>
                     {PAWN_STATUS_LABELS[pawnStatus] || pawnStatus}
                   </span>
