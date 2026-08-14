@@ -83,19 +83,88 @@ export async function countOverdueLoans(tenantId: string) {
 
 export async function fetchPendingCollectionToday(tenantId: string, limit = DIGEST_LIMIT) {
   const today = getBangkokDateStr();
-  return sql`
-    SELECT l.loan_number, l.installment_amount, c.full_name as customer_name
+
+  // Pull all active loans, then compute next due date to filter correctly
+  const loans = await sql`
+    SELECT l.*, c.full_name as customer_name
     FROM loans l
     JOIN customers c ON l.customer_id = c.id
     WHERE l.tenant_id = ${tenantId}
-      AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled'))
+      AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled', 'refinanced', 'forfeited'))
       AND NOT EXISTS (
         SELECT 1 FROM payments p
         WHERE p.loan_id = l.id AND p.payment_date = ${today} AND p.tenant_id = ${tenantId}
       )
     ORDER BY l.created_at ASC
-    LIMIT ${limit}
   `;
+
+  const pendingList: any[] = [];
+
+  for (const l of loans) {
+    // Skip indefinite / ยอดติดค้างชำระเดิม / zero-interest single-payment / pawn loans
+    const isIndefinite = l.isIndefinite || l.is_indefinite || l.isPawn || l.is_pawn;
+    const notes = l.notes || '';
+    const interestRate = Number(l.interestRate ?? l.interest_rate ?? 0);
+    const installmentsCount = Number(l.installmentsCount ?? l.installments_count ?? 0);
+    const paymentType = l.paymentType || l.payment_type;
+    const isZeroDebt =
+      notes.includes('ยอดติด') ||
+      notes.includes('ยอดติดค้างชำระ') ||
+      (interestRate === 0 && (installmentsCount === 1 || !paymentType));
+
+    if (isIndefinite || isZeroDebt) continue;
+
+    // Skip principal-interest-at-end (จำนำ) loans — due on a specific date, handled separately
+    if (l.isPrincipalInterestAtEnd || l.is_principal_interest_at_end) continue;
+
+    // Compute next due date dynamically
+    const startDateRaw = l.startDate ?? l.start_date;
+    if (!startDateRaw) continue;
+
+    const startDateStr = startDateRaw instanceof Date
+      ? startDateRaw.toISOString().substring(0, 10)
+      : String(startDateRaw).substring(0, 10);
+
+    const startParts = startDateStr.split('-').map(Number);
+    if (startParts.length !== 3 || startParts.some(isNaN)) continue;
+
+    const [y, m, d] = startParts;
+    const [p] = await sql`SELECT COUNT(*)::int as count FROM payments WHERE loan_id = ${l.id} AND tenant_id = ${tenantId}`;
+    const paidCount = Number(p?.count || 0);
+
+    const nextDate = new Date(y, m - 1, d);
+    if (paymentType === 'daily') {
+      nextDate.setDate(nextDate.getDate() + paidCount);
+    } else if (paymentType === 'weekly') {
+      nextDate.setDate(nextDate.getDate() + paidCount * 7);
+    } else if (paymentType === 'monthly') {
+      nextDate.setMonth(nextDate.getMonth() + paidCount);
+    }
+
+    const nextDueDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+
+    // Final due date cap
+    const finalDueDateRaw = l.dueDate ?? l.due_date;
+    const finalDueDateStr = finalDueDateRaw
+      ? (finalDueDateRaw instanceof Date ? finalDueDateRaw.toISOString().substring(0, 10) : String(finalDueDateRaw).substring(0, 10))
+      : null;
+
+    const effectiveDue = finalDueDateStr && nextDueDateStr > finalDueDateStr ? finalDueDateStr : nextDueDateStr;
+
+    // Only include if next due is today or already overdue (past due not yet collected)
+    if (effectiveDue <= today) {
+      pendingList.push({
+        loanNumber: l.loanNumber || l.loan_number,
+        customerName: l.customerName || l.customer_name,
+        installmentAmount: l.installmentAmount ?? l.installment_amount,
+        nextDueDate: effectiveDue,
+      });
+    }
+
+    if (pendingList.length >= limit) break;
+  }
+
+  return pendingList;
 }
 
 function loanRow(label: string, sub: string, amount?: number) {

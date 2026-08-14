@@ -891,7 +891,7 @@ function Settings() {
                   />
                 </div>
 
-                <div className="grid gap-6 sm:grid-cols-2">
+                <div className="grid gap-6 sm:grid-cols-3">
                   <div className="space-y-2">
                     <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ค่าปรับรายวัน (บาท/วัน)</Label>
                     <div className="relative">
@@ -920,9 +920,22 @@ function Settings() {
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ค่าปรับ ท+ป (บาท/ครั้ง)</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={lending.tpPenaltyAmount ?? ""}
+                        onChange={(e) => setLending({ ...lending, tpPenaltyAmount: e.target.value === "" ? "" as any : Number(e.target.value) })}
+                        className="h-11 rounded-xl bg-muted/20 pr-10 font-bold"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>
+                    </div>
+                  </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  ตัวอย่าง: ค่าปรับรายวัน 200 และรายชั่วโมง 20 ถ้าเลยกำหนด 1 วัน 5 ชม. = 200 + (5 × 20) = 300 บาท
+                  ตัวอย่าง: ค่าปรับรายวัน 200/วัน และค่าปรับ ท+ป (ทบ+ปรับ) 100 บาท/ครั้งเมื่อลูกค้าขอทบงวด
                 </p>
               </div>
               <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50">

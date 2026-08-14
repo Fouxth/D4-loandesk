@@ -774,7 +774,7 @@ function PaymentForm({
               <SelectContent>
                 <SelectItem value="principal">ชำระเงินต้น / ปิดยอด</SelectItem>
                 <SelectItem value="interest">ชำระดอกเบี้ย</SelectItem>
-                <SelectItem value="roll_penalty">⚡ ชำระ ท+ป (ทบ + ปรับ)</SelectItem>
+                <SelectItem value="roll_penalty">ชำระ ท+ป (ทบ + ปรับ)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -782,7 +782,7 @@ function PaymentForm({
         {form.category === "roll_penalty" && (
           <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 space-y-1 text-xs">
             <p className="font-bold text-warning flex items-center gap-1">
-              ⚡ คำนวณยอด ท+ป แนะนำ: {formatTHB(calculatedTpAmount)}
+              คำนวณยอด ท+ป แนะนำ: {formatTHB(calculatedTpAmount)}
             </p>
             <p className="text-muted-foreground text-[11px]">
               • งวดวันนี้ ({formatTHB(installmentAmount)}) + ทบงวดถัดไป ({formatTHB(installmentAmount)}) + ค่าปรับ ({formatTHB(tpPenaltyAmount)})

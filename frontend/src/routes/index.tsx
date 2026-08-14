@@ -182,7 +182,7 @@ function Dashboard() {
       {dueLoans.length > 0 && (
         <div className="md:hidden">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-black uppercase tracking-widest text-foreground">⚡ {t('dashboard.due_tracker', 'ต้องติดตามวันนี้')}</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest text-foreground">{t('dashboard.due_tracker', 'ต้องติดตามวันนี้')}</h3>
             <Link to="/loans" className="text-[11px] font-bold text-primary flex items-center gap-0.5">
               {t('common.view_all', 'ดูทั้งหมด')} <ChevronRight className="h-3 w-3" />
             </Link>
