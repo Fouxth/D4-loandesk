@@ -751,14 +751,14 @@ function PaymentForm({
       setForm((current) => ({
         ...current,
         category: v,
-        amount: calculatedTpAmount > 0 ? calculatedTpAmount : current.amount,
-        notes: current.notes || "ชำระ ท+ป (ทบพรุ่งนี้ + ปรับ)",
+        amount: current.amount && current.amount !== suggested ? current.amount : (calculatedTpAmount > 0 ? calculatedTpAmount : current.amount),
+        notes: current.notes || "ชำระ ท+ป (ทบ + ปรับ)",
       }));
     } else {
       setForm((current) => ({
         ...current,
         category: v,
-        amount: suggested,
+        amount: current.amount && current.amount !== calculatedTpAmount ? current.amount : suggested,
         notes: "",
       }));
     }
@@ -841,10 +841,10 @@ function PaymentForm({
         {form.category === "roll_penalty" && (
           <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 space-y-1 text-xs">
             <p className="font-bold text-warning flex items-center gap-1">
-              คำนวณยอด ท+ป แนะนำ: {formatTHB(calculatedTpAmount)}
+              💡 สามารถแก้ไขจำนวนเงินตามยอดที่ลูกค้าจ่ายจริงได้ (เช่น ทบหลายวัน ฿1,500)
             </p>
             <p className="text-muted-foreground text-[11px]">
-              • งวดวันนี้ ({formatTHB(installmentAmount)}) + ทบงวดถัดไป ({formatTHB(installmentAmount)}) + ค่าปรับ ({formatTHB(tpPenaltyAmount)})
+              • ยอดแนะนำ 1 ทบ: ค่างวด ({formatTHB(installmentAmount)}) + ทบ ({formatTHB(installmentAmount)}) + ค่าปรับ ({formatTHB(tpPenaltyAmount)}) = {formatTHB(calculatedTpAmount)}
             </p>
           </div>
         )}

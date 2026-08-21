@@ -40,20 +40,20 @@ export function sumRegularPayments(
 
 export function calcLoanPaidTotal(
   payments: { amount?: number | string; category?: string | null }[],
-  installmentAmount: number,
-  config: TpConfig,
+  _installmentAmount?: number,
+  _config?: TpConfig,
 ): number {
-  const tpCount = payments.filter(isRollPenalty).length;
-  return sumRegularPayments(payments) + tpCount * calcTpSettlementAmount(installmentAmount, config);
+  return payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 }
 
 export function calcLoanTotalOwed(
   totalPayable: number,
   tpCount: number,
-  installmentAmount: number,
-  config: TpConfig,
+  _installmentAmount?: number,
+  config?: TpConfig,
 ): number {
-  return Number(totalPayable) + tpCount * calcTpExtraOwed(installmentAmount, config);
+  const penalty = Number(config?.tpPenaltyAmount) || 0;
+  return Number(totalPayable) + (tpCount * penalty);
 }
 
 export function shouldSkipContractLateFee(loan: {
