@@ -240,8 +240,8 @@ function Settings() {
       await updateSetting("business_profile", business);
       await refreshSettings();
       toast.success("บันทึกข้อมูลร้านค้าเรียบร้อยแล้ว");
-    } catch (e) {
-      toast.error("บันทึกข้อมูลล้มเหลว");
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "บันทึกข้อมูลล้มเหลว");
     } finally {
       setBusy(null);
     }
@@ -261,8 +261,8 @@ function Settings() {
       await updateSetting("lending_config", sanitizedLending);
       await refreshSettings();
       toast.success("บันทึกการตั้งค่าเงินกู้เรียบร้อยแล้ว");
-    } catch (e) {
-      toast.error("บันทึกการตั้งค่าล้มเหลว");
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "บันทึกการตั้งค่าล้มเหลว");
     } finally {
       setBusy(null);
     }
@@ -278,8 +278,8 @@ function Settings() {
       }));
       await updateSetting("customer_limits", sanitizedLimits);
       toast.success("บันทึกวงเงินกลุ่มลูกค้าเรียบร้อยแล้ว");
-    } catch (e) {
-      toast.error("บันทึกวงเงินล้มเหลว");
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "บันทึกวงเงินล้มเหลว");
     } finally {
       setBusy(null);
     }
@@ -302,8 +302,8 @@ function Settings() {
       });
       await refreshSettings();
       toast.success("บันทึกการตั้งค่า LINE Notify เรียบร้อยแล้ว");
-    } catch (e) {
-      toast.error("บันทึกข้อมูลล้มเหลว");
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "บันทึกข้อมูลล้มเหลว");
     } finally {
       setBusy(null);
     }
