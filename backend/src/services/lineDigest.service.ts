@@ -16,6 +16,12 @@ export async function fetchDueTodayLoans(tenantId: string, limit = DIGEST_LIMIT)
     JOIN customers c ON l.customer_id = c.id
     WHERE l.tenant_id = ${tenantId}
       AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled'))
+      AND COALESCE(l.is_indefinite, FALSE) = FALSE
+      AND COALESCE(l.notes, '') NOT ILIKE '%ยอดติด%'
+      AND NOT (
+        COALESCE(NULLIF(l.interest_rate::text, ''), '0')::numeric = 0
+        AND (COALESCE(l.installments_count, 0) = 1 OR l.payment_type IS NULL)
+      )
       AND l.due_date = ${today}
     ORDER BY l.due_date ASC
     LIMIT ${limit}
@@ -91,6 +97,12 @@ export async function fetchPendingCollectionToday(tenantId: string, limit = DIGE
     JOIN customers c ON l.customer_id = c.id
     WHERE l.tenant_id = ${tenantId}
       AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled', 'refinanced', 'forfeited'))
+      -- Exclude non-installment contracts at the query boundary. Keep the
+      -- application-level guard below as a fallback for legacy data.
+      AND COALESCE(l.is_indefinite, FALSE) = FALSE
+      AND COALESCE(l.is_pawn, FALSE) = FALSE
+      AND COALESCE(l.is_principal_interest_at_end, FALSE) = FALSE
+      AND COALESCE(l.notes, '') NOT ILIKE '%ยอดติด%'
       AND NOT EXISTS (
         SELECT 1 FROM payments p
         WHERE p.loan_id = l.id AND p.payment_date = ${today} AND p.tenant_id = ${tenantId}
