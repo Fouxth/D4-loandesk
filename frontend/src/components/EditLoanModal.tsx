@@ -205,7 +205,8 @@ export function EditLoanModal({
                 type="number"
                 min={1}
                 value={form.principal ?? ""}
-                onChange={(e) => setForm({ ...form, principal: Number(e.target.value) })}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setForm({ ...form, principal: e.target.value === "" ? "" : Number(e.target.value) })}
                 className="bg-muted/20 font-bold"
                 required
               />
@@ -221,7 +222,8 @@ export function EditLoanModal({
                 min={0}
                 step={0.1}
                 value={form.interestRate ?? ""}
-                onChange={(e) => setForm({ ...form, interestRate: Number(e.target.value) })}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setForm({ ...form, interestRate: e.target.value === "" ? "" : Number(e.target.value) })}
                 className="bg-muted/20"
                 required
               />
@@ -236,7 +238,8 @@ export function EditLoanModal({
                 type="number"
                 min={1}
                 value={form.installmentsCount ?? ""}
-                onChange={(e) => setForm({ ...form, installmentsCount: Number(e.target.value) })}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" : Number(e.target.value) })}
                 className="bg-muted/20"
                 required
               />
@@ -423,7 +426,8 @@ export function EditLoanModal({
                   type="number"
                   min={0}
                   value={form.documentFee ?? ""}
-                  onChange={(e) => setForm({ ...form, documentFee: Number(e.target.value) })}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => setForm({ ...form, documentFee: e.target.value === "" ? "" : Number(e.target.value) })}
                   className="bg-muted/20"
                 />
               </div>
@@ -433,7 +437,8 @@ export function EditLoanModal({
                   type="number"
                   min={0}
                   value={form.advanceFee ?? ""}
-                  onChange={(e) => setForm({ ...form, advanceFee: Number(e.target.value) })}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => setForm({ ...form, advanceFee: e.target.value === "" ? "" : Number(e.target.value) })}
                   className="bg-muted/20"
                 />
               </div>
@@ -444,7 +449,8 @@ export function EditLoanModal({
                     type="number"
                     min={0}
                     value={form.parkingFee ?? ""}
-                    onChange={(e) => setForm({ ...form, parkingFee: Number(e.target.value) })}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => setForm({ ...form, parkingFee: e.target.value === "" ? "" : Number(e.target.value) })}
                     className="bg-muted/20"
                   />
                 </div>

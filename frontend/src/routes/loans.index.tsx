@@ -370,15 +370,15 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ยอดเงินต้น (บาท)</Label>
-            <Input type="number" min={1} value={form.principal} onChange={(e) => setForm({ ...form, principal: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
+            <Input type="number" min={1} value={form.principal} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, principal: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">อัตราดอกเบี้ย (%)</Label>
-            <Input type="number" min={0} step={0.1} value={form.interestRate} onChange={(e) => setForm({ ...form, interestRate: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
+            <Input type="number" min={0} step={0.1} value={form.interestRate} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, interestRate: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">จำนวนงวด</Label>
-            <Input type="number" min={1} value={form.installmentsCount} onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
+            <Input type="number" min={1} value={form.installmentsCount} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ความถี่ในการชำระ</Label>
@@ -516,6 +516,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
                   type="number"
                   min={0}
                   value={documentFee ?? ""}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) => setDocumentFee(e.target.value === "" ? "" as any : Number(e.target.value))}
                   className="bg-muted/20"
                 />
@@ -537,6 +538,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
                   type="number"
                   min={0}
                   value={advanceFee ?? ""}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) => setAdvanceFee(e.target.value === "" ? "" as any : Number(e.target.value))}
                   className="bg-muted/20"
                 />
@@ -559,6 +561,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
                     type="number"
                     min={0}
                     value={parkingFee ?? ""}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => setParkingFee(e.target.value === "" ? "" as any : Number(e.target.value))}
                     className="bg-muted/20"
                   />
