@@ -111,18 +111,22 @@ export async function dbCreateLoan(data: any, loanNumber: string, userId: string
     
     const message = `📝 แจ้งเตือนเปิดสัญญาใหม่\n👤 ลูกค้า: ${customerName}\n🏷 สัญญา: ${loan.loanNumber}\n💸 ยอดจัด: ${formattedPrincipal} บาท\n📅 ครบกำหนด: ${dueDate}`;
     
-    sendLineNotify(message, 'loan', {
-      title: '📝 เปิดสัญญาใหม่',
-      accentColor: '#0ea5e9',
-      items: [
-        { label: 'ลูกค้า', value: customerName },
-        { label: 'เลขที่สัญญา', value: loan.loanNumber },
-        { label: 'ยอดเงินต้น', value: `${formattedPrincipal} บาท`, color: '#0ea5e9' },
-        { label: 'ยอดชำระ/งวด', value: `${formattedInstallment} บาท` },
-        { label: 'วันที่ครบกำหนด', value: dueDate, color: '#f59e0b' }
-      ],
-      footer: 'อนุมัติและบันทึกเข้าระบบแล้ว'
-    }, tenantId);
+    try {
+      await sendLineNotify(message, 'loan', {
+        title: '📝 เปิดสัญญาใหม่',
+        accentColor: '#0ea5e9',
+        items: [
+          { label: 'ลูกค้า', value: customerName },
+          { label: 'เลขที่สัญญา', value: loan.loanNumber },
+          { label: 'ยอดเงินต้น', value: `${formattedPrincipal} บาท`, color: '#0ea5e9' },
+          { label: 'ยอดชำระ/งวด', value: `${formattedInstallment} บาท` },
+          { label: 'วันที่ครบกำหนด', value: dueDate, color: '#f59e0b' }
+        ],
+        footer: 'อนุมัติและบันทึกเข้าระบบแล้ว'
+      }, tenantId);
+    } catch (lineErr) {
+      console.error('[LINE Notify] Failed to send create loan notification:', lineErr);
+    }
 
     await dbLogActivity(tenantId, userId, 'create_loan', 'loan', loan.id, {
       loanNumber: loan.loanNumber || loan.loan_number,
@@ -274,7 +278,7 @@ export async function dbRefinanceLoan(oldLoanId: string, newData: any, newLoanNu
       
       const message = `🔄 แจ้งเตือนรียอดสัญญาใหม่ (Refinance)\n👤 ลูกค้า: ${customerName}\n📝 สัญญาเดิม: ${oldLoan.loanNumber} (ยอดเดิม: ${formattedOldPrincipal} ฿)\n🆕 สัญญาใหม่: ${newLoan.loanNumber} (ยอดใหม่: ${formattedNewPrincipal} ฿)`;
       
-      sendLineNotify(message, 'refinance', {
+      await sendLineNotify(message, 'refinance', {
         title: '🔄 รียอดสัญญาใหม่ (Refinance)',
         accentColor: '#8b5cf6',
         items: [
@@ -317,7 +321,7 @@ export async function dbUpdateLoan(id: string, data: any, tenantId: string) {
         if (newLoan.status === 'completed') {
           const formattedPrincipal = Number(newLoan.principal).toLocaleString('en-US', {minimumFractionDigits: 2});
           const message = `🎉 แจ้งเตือนปิดยอดสัญญา\n👤 ลูกค้า: ${customerName}\n📝 สัญญา: ${newLoan.loanNumber}\n💸 ยอดเงินต้น: ${formattedPrincipal} บาท`;
-          sendLineNotify(message, 'completed', {
+          await sendLineNotify(message, 'completed', {
             title: '🎉 ปิดยอดสัญญาสำเร็จ',
             accentColor: '#10b981',
             items: [
@@ -330,7 +334,7 @@ export async function dbUpdateLoan(id: string, data: any, tenantId: string) {
           }, tenantId);
         } else if (newLoan.status === 'forfeited') {
           const message = `⚠️ แจ้งเตือนทรัพย์สินหลุดจำนำ\n👤 ลูกค้า: ${customerName}\n📝 สัญญา: ${newLoan.loanNumber}\n📦 ทรัพย์สิน: ${newLoan.pawnItem || '—'}`;
-          sendLineNotify(message, 'pawn_forfeited', {
+          await sendLineNotify(message, 'pawn_forfeited', {
             title: '⚠️ ทรัพย์สินหลุดจำนำ',
             accentColor: '#ef4444',
             items: [
@@ -343,7 +347,7 @@ export async function dbUpdateLoan(id: string, data: any, tenantId: string) {
           }, tenantId);
         } else if (newLoan.status === 'overdue' && oldLoan.status !== 'overdue') {
           const formattedInstallment = Number(newLoan.installmentAmount).toLocaleString('en-US', { minimumFractionDigits: 2 });
-          sendLineNotify(
+          await sendLineNotify(
             `🚨 สัญญาเปลี่ยนสถานะเป็นค้างชำระ\n👤 ${customerName}\n📝 ${newLoan.loanNumber}`,
             'overdue_alert',
             {
@@ -417,7 +421,7 @@ export async function dbUpdateLoanLateFee(
           ? '0 บาท'
           : 'ตามระบบ';
 
-    sendLineNotify(
+    await sendLineNotify(
       `⚖️ ปรับค่าปรับสัญญา ${loan.loanNumber}`,
       'late_fee',
       {
@@ -459,7 +463,7 @@ export async function dbDeleteLoan(id: string, tenantId: string) {
 
     const formattedPrincipal = Number(loan.principal).toLocaleString('en-US', {minimumFractionDigits: 2});
     const message = `🚨 แจ้งเตือนการลบสัญญา\n👤 ลูกค้า: ${loan.customerName}\n📝 สัญญา: ${loan.loanNumber}\n💸 ยอดเงินต้น: ${formattedPrincipal} บาท`;
-    sendLineNotify(message, 'fraud', {
+    await sendLineNotify(message, 'fraud', {
       title: '🚨 ระงับ/ลบสัญญา',
       accentColor: '#ef4444',
       items: [

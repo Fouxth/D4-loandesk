@@ -88,6 +88,11 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
         }
 
         // Advance due date by 1 month to anchor start date day when interest is paid
+        if (remaining <= 0 && (loan.status || '').toLowerCase() !== 'completed') {
+          await sql`UPDATE loans SET status = 'completed' WHERE id = ${loan.id} AND tenant_id = ${tenantId}`;
+          isClosedNow = true;
+        }
+
         if (payment.category === 'interest') {
           const currentDueDateStr = loan.due_date ? String(loan.due_date).split('T')[0] : String(loan.start_date || loan.startDate).split('T')[0];
           const parts = currentDueDateStr.split('-').map(Number);
@@ -103,7 +108,7 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
         const totalPaid = allPayments.reduce((acc: number, p: any) => acc + Number(p.amount), 0);
         remaining = Math.max(Number(loan.total_payable || loan.totalPayable) - totalPaid, 0);
 
-        if (remaining === 0 && loan.status !== 'completed') {
+        if (remaining <= 0 && (loan.status || '').toLowerCase() !== 'completed') {
           await sql`UPDATE loans SET status = 'completed' WHERE id = ${loan.id} AND tenant_id = ${tenantId}`;
           isClosedNow = true;
         }
@@ -112,18 +117,22 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
       if (isClosedNow) {
         const formattedPrincipal = Number(loan.principal).toLocaleString('en-US', { minimumFractionDigits: 2 });
         const completedMsg = `🎉 แจ้งเตือนปิดยอดสัญญา\n👤 ลูกค้า: ${loan.customerName}\n📝 สัญญา: ${loan.loanNumber}\n💸 ยอดเงินต้น: ${formattedPrincipal} บาท`;
-        sendLineNotify(completedMsg, 'completed', {
-          title: '🎉 ปิดยอดสัญญาสำเร็จ',
-          accentColor: '#10b981',
-          items: [
-            { label: 'ลูกค้า', value: loan.customerName },
-            { label: 'เลขที่สัญญา', value: loan.loanNumber },
-            { label: 'ประเภทสัญญา', value: (loan.is_pawn || loan.isPawn) ? 'จำนำทรัพย์สิน' : 'เงินกู้ทั่วไป' },
-            { label: 'ยอดเงินต้น', value: `${formattedPrincipal} บาท` },
-            { label: 'สถานะ', value: 'ชำระครบถ้วน ปิดยอดแล้ว ✅' },
-          ],
-          footer: 'สัญญานี้ได้รับการปิดยอดเสร็จสิ้นแล้ว',
-        }, tenantId);
+        try {
+          await sendLineNotify(completedMsg, 'completed', {
+            title: '🎉 ปิดยอดสัญญาสำเร็จ',
+            accentColor: '#10b981',
+            items: [
+              { label: 'ลูกค้า', value: loan.customerName },
+              { label: 'เลขที่สัญญา', value: loan.loanNumber },
+              { label: 'ประเภทสัญญา', value: (loan.is_pawn || loan.isPawn) ? 'จำนำทรัพย์สิน' : 'เงินกู้ทั่วไป' },
+              { label: 'ยอดเงินต้น', value: `${formattedPrincipal} บาท` },
+              { label: 'สถานะ', value: 'ชำระครบถ้วน ปิดยอดแล้ว ✅' },
+            ],
+            footer: 'สัญญานี้ได้รับการปิดยอดเสร็จสิ้นแล้ว',
+          }, tenantId);
+        } catch (lineErr) {
+          console.error('[LINE Notify] Failed to send completed notification:', lineErr);
+        }
       }
 
       const [recorder] = await sql`
@@ -138,20 +147,24 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
 
       const message = `🔔 แจ้งเตือนรับชำระเงิน\n👤 ลูกค้า: ${loan.customerName}\n💰 ยอดชำระ: ${formattedAmount} บาท\n📉 คงเหลือเงินต้น: ${formattedRemaining} บาท\n📂 ประเภท: ${categoryText}\n💳 ช่องทาง: ${methodText}`;
 
-      sendLineNotify(message, 'payment', {
-        title: '🔔 รับชำระเงินเรียบร้อย',
-        accentColor: '#10b981',
-        items: [
-          { label: 'ลูกค้า', value: loan.customerName },
-          { label: 'เลขที่สัญญา', value: loan.loanNumber },
-          { label: 'ยอดเงินชำระ', value: `${formattedAmount} บาท`, color: '#10b981' },
-          { label: 'ประเภท', value: categoryText },
-          { label: 'ช่องทาง', value: methodText },
-          { label: 'บันทึกโดย', value: recorderName },
-          { label: 'ยอดเงินต้นคงเหลือ', value: `${formattedRemaining} บาท`, color: '#ef4444' },
-        ],
-        footer: 'ตรวจสอบยอดในแอปได้ทันที',
-      }, tenantId);
+      try {
+        await sendLineNotify(message, 'payment', {
+          title: '🔔 รับชำระเงินเรียบร้อย',
+          accentColor: '#10b981',
+          items: [
+            { label: 'ลูกค้า', value: loan.customerName },
+            { label: 'เลขที่สัญญา', value: loan.loanNumber },
+            { label: 'ยอดเงินชำระ', value: `${formattedAmount} บาท`, color: '#10b981' },
+            { label: 'ประเภท', value: categoryText },
+            { label: 'ช่องทาง', value: methodText },
+            { label: 'บันทึกโดย', value: recorderName },
+            { label: 'ยอดเงินต้นคงเหลือ', value: `${formattedRemaining} บาท`, color: '#ef4444' },
+          ],
+          footer: 'ตรวจสอบยอดในแอปได้ทันที',
+        }, tenantId);
+      } catch (lineErr) {
+        console.error('[LINE Notify] Failed to send payment notification:', lineErr);
+      }
     }
   }
 
@@ -180,16 +193,20 @@ export async function dbDeletePayment(id: string, tenantId: string) {
     const p = payments[0];
     const formattedAmount = Number(p.amount).toLocaleString('en-US', {minimumFractionDigits: 2});
     const message = `🚨 แจ้งเตือนความผิดปกติ (ลบข้อมูล)\n👤 ลูกค้า: ${p.customerName}\n📝 สัญญา: ${p.loanNumber}\n❌ ยอดที่ลบ: ${formattedAmount} บาท`;
-    sendLineNotify(message, 'fraud', {
-      title: '🚨 ยกเลิกรายการชำระ',
-      accentColor: '#f59e0b',
-      items: [
-        { label: 'ลูกค้า', value: p.customerName },
-        { label: 'เลขที่สัญญา', value: p.loanNumber },
-        { label: 'ยอดที่ถูกลบ', value: `${formattedAmount} บาท` }
-      ],
-      footer: 'มีการลบประวัติการชำระเงินนี้ออกจากระบบ'
-    }, tenantId);
+    try {
+      await sendLineNotify(message, 'fraud', {
+        title: '🚨 ยกเลิกรายการชำระ',
+        accentColor: '#f59e0b',
+        items: [
+          { label: 'ลูกค้า', value: p.customerName },
+          { label: 'เลขที่สัญญา', value: p.loanNumber },
+          { label: 'ยอดที่ถูกลบ', value: `${formattedAmount} บาท` }
+        ],
+        footer: 'มีการลบประวัติการชำระเงินนี้ออกจากระบบ'
+      }, tenantId);
+    } catch (lineErr) {
+      console.error('[LINE Notify] Failed to send fraud notification:', lineErr);
+    }
   
     await dbLogActivity(tenantId, null, 'delete_payment', 'payment', id, {
       loanNumber: p.customerName ? `${p.customerName} (${p.loanNumber})` : p.loanNumber,
@@ -216,16 +233,20 @@ export async function dbCreateExpense(data: any, userId: string, tenantId: strin
     const catText = categoryMap[expense.category] || expense.category;
     const formattedAmount = Number(expense.amount).toLocaleString('en-US', {minimumFractionDigits: 2});
     const message = `💸 แจ้งเตือนบันทึกรายจ่าย\n📂 หมวดหมู่: ${catText}\n💰 จำนวนเงิน: ${formattedAmount} บาท`;
-    sendLineNotify(message, 'expense', {
-      title: '💸 บันทึกรายจ่ายใหม่',
-      accentColor: '#6366f1',
-      items: [
-        { label: 'หมวดหมู่', value: catText },
-        { label: 'จำนวนเงิน', value: `${formattedAmount} บาท`, color: '#6366f1' },
-        { label: 'รายละเอียด', value: expense.details || '-' }
-      ],
-      footer: 'บันทึกรายจ่ายเข้าระบบแล้ว'
-    }, tenantId);
+    try {
+      await sendLineNotify(message, 'expense', {
+        title: '💸 บันทึกรายจ่ายใหม่',
+        accentColor: '#6366f1',
+        items: [
+          { label: 'หมวดหมู่', value: catText },
+          { label: 'จำนวนเงิน', value: `${formattedAmount} บาท`, color: '#6366f1' },
+          { label: 'รายละเอียด', value: expense.details || '-' }
+        ],
+        footer: 'บันทึกรายจ่ายเข้าระบบแล้ว'
+      }, tenantId);
+    } catch (lineErr) {
+      console.error('[LINE Notify] Failed to send expense notification:', lineErr);
+    }
   }
   
   return result;
@@ -252,16 +273,20 @@ export async function dbDeleteExpense(id: string, tenantId: string) {
     const formattedAmount = Number(expense.amount).toLocaleString('en-US', { minimumFractionDigits: 2 });
     const message = `🚨 แจ้งเตือนลบรายจ่าย\n📂 หมวดหมู่: ${catText}\n❌ ยอดที่ลบ: ${formattedAmount} บาท`;
 
-    sendLineNotify(message, 'fraud', {
-      title: '🚨 ยกเลิกรายการรายจ่าย',
-      accentColor: '#f59e0b',
-      items: [
-        { label: 'หมวดหมู่', value: catText },
-        { label: 'ยอดที่ถูกลบ', value: `${formattedAmount} บาท` },
-        { label: 'รายละเอียด', value: expense.details || '—' },
-      ],
-      footer: 'โปรดตรวจสอบความถูกต้องทันที',
-    }, tenantId);
+    try {
+      await sendLineNotify(message, 'fraud', {
+        title: '🚨 ยกเลิกรายการรายจ่าย',
+        accentColor: '#f59e0b',
+        items: [
+          { label: 'หมวดหมู่', value: catText },
+          { label: 'ยอดที่ถูกลบ', value: `${formattedAmount} บาท` },
+          { label: 'รายละเอียด', value: expense.details || '—' },
+        ],
+        footer: 'โปรดตรวจสอบความถูกต้องทันที',
+      }, tenantId);
+    } catch (lineErr) {
+      console.error('[LINE Notify] Failed to send fraud expense notification:', lineErr);
+    }
   }
 
   return result;
