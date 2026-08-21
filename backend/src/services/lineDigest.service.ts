@@ -288,7 +288,36 @@ export async function fetchYesterdayUncollectedLoans(tenantId: string, limit = D
   return uncollectedList;
 }
 
-function loanRow(label: string, sub: string, amount?: number) {
+export async function fetchYesterdayCollectedList(tenantId: string, limit = DIGEST_LIMIT) {
+  const yesterday = getYesterdayDateStr();
+  const rows = await sql`
+    SELECT 
+      COALESCE(c.full_name, l.pawn_item, 'ไม่ระบุชื่อ') as customer_name,
+      l.loan_number,
+      SUM(p.amount::numeric) as total_amount,
+      COUNT(p.id)::int as count
+    FROM payments p
+    JOIN loans l ON l.id = p.loan_id
+    LEFT JOIN customers c ON c.id = l.customer_id
+    WHERE p.tenant_id = ${tenantId}
+      AND (
+        to_char(p.payment_date, 'YYYY-MM-DD') = ${yesterday}
+        OR to_char(p.payment_date AT TIME ZONE 'Asia/Bangkok', 'YYYY-MM-DD') = ${yesterday}
+        OR p.payment_date::text LIKE ${yesterday + '%'}
+      )
+    GROUP BY c.full_name, l.pawn_item, l.loan_number
+    ORDER BY total_amount DESC
+    LIMIT ${limit}
+  `;
+  return rows.map((r: any) => ({
+    customerName: r.customerName || r.customer_name,
+    loanNumber: r.loanNumber || r.loan_number,
+    totalAmount: Number(r.totalAmount || r.total_amount || 0),
+    count: Number(r.count || 1),
+  }));
+}
+
+function loanRow(label: string, sub: string, amount?: number, amountColor = '#10b981', prefix = '') {
   return {
     type: 'box',
     layout: 'vertical',
@@ -301,9 +330,9 @@ function loanRow(label: string, sub: string, amount?: number) {
           { type: 'text', text: label, size: 'xs', color: '#333333', weight: 'bold', flex: 3, wrap: true },
           {
             type: 'text',
-            text: amount != null ? `${fmt(Number(amount))} ฿` : sub,
+            text: amount != null ? `${prefix}${fmt(Number(amount))} ฿` : sub,
             size: 'xs',
-            color: '#10b981',
+            color: amountColor,
             align: 'end',
             weight: 'bold',
             flex: 2,
@@ -343,92 +372,155 @@ export async function sendMorningDigest(tenantId: string, config: LineNotifyConf
   if (!includeMorning && !includeOverdue) return;
 
   const today = getBangkokDateStr();
-  const bodyContents: any[] = [
-    { type: 'text', text: `📅 ${today}`, size: 'xs', color: '#8c8c8c' },
-  ];
+  const yesterday = getYesterdayDateStr();
+
+  const flexMessagesToSend: any[] = [];
+
+  // ==========================================
+  // FLEX 1: สรุปผลงานเมื่อวาน (Yesterday Report)
+  // ==========================================
+  if (includeMorning) {
+    const [yesterdaySummary, yesterdayCollected, yesterdayUncollected] = await Promise.all([
+      fetchYesterdayCollectionSummary(tenantId),
+      fetchYesterdayCollectedList(tenantId),
+      fetchYesterdayUncollectedLoans(tenantId),
+    ]);
+
+    const yesterdayBodyContents: any[] = [
+      {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#f8fafc',
+        cornerRadius: 'md',
+        paddingAll: 'sm',
+        contents: [
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: '💰 ยอดเก็บได้เมื่อวาน:', size: 'xs', color: '#64748b', flex: 3 },
+              { type: 'text', text: `${fmt(yesterdaySummary.totalAmount)} ฿`, size: 'xs', weight: 'bold', color: '#10b981', align: 'end', flex: 2 },
+            ],
+          },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            margin: 'xs',
+            contents: [
+              { type: 'text', text: '👥 จำนวนที่ชำระ:', size: 'xs', color: '#64748b', flex: 3 },
+              { type: 'text', text: `${yesterdaySummary.customerCount} คน (${yesterdaySummary.totalCount} รายการ)`, size: 'xs', weight: 'bold', color: '#333333', align: 'end', flex: 3 },
+            ],
+          },
+        ],
+      },
+    ];
+
+    // รายชื่อที่เก็บได้เมื่อวาน
+    yesterdayBodyContents.push(buildSectionTitle(`✅ เก็บได้เมื่อวาน (${yesterdayCollected.length} ราย)`, '#10b981'));
+    if (yesterdayCollected.length === 0) {
+      yesterdayBodyContents.push({ type: 'text', text: 'ไม่มีรายการชำระเงินเมื่อวาน', size: 'xs', color: '#8c8c8c' });
+    } else {
+      for (const row of yesterdayCollected) {
+        yesterdayBodyContents.push(
+          loanRow(
+            `👤 ${row.customerName}`,
+            `📝 ${row.loanNumber}${row.count > 1 ? ` · ${row.count} งวด` : ''}`,
+            Number(row.totalAmount),
+            '#10b981',
+            '+'
+          ),
+        );
+      }
+    }
+
+    // รายชื่อที่ไม่ได้เก็บเมื่อวาน
+    yesterdayBodyContents.push(buildSectionTitle(`❌ ไม่ได้เก็บเมื่อวาน (${yesterdayUncollected.length} ราย)`, '#e11d48'));
+    if (yesterdayUncollected.length === 0) {
+      yesterdayBodyContents.push({ type: 'text', text: 'เมื่อวานเก็บครบตามกำหนดทุกคน 🎉', size: 'xs', color: '#10b981' });
+    } else {
+      for (const row of yesterdayUncollected) {
+        yesterdayBodyContents.push(
+          loanRow(
+            `👤 ${row.customerName}`,
+            `📝 ${row.loanNumber}`,
+            Number(row.installmentAmount),
+            '#e11d48'
+          ),
+        );
+      }
+    }
+
+    const yesterdayFlex = {
+      type: 'flex',
+      altText: `📊 สรุปผลงานเมื่อวาน (${yesterday})`,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#4f46e5',
+          contents: [
+            { type: 'text', text: '📊 สรุปผลงานเมื่อวาน', weight: 'bold', color: '#ffffff', size: 'sm' },
+            { type: 'text', text: `📅 ${yesterday}`, size: 'xxs', color: '#e0e7ff', margin: 'xs' },
+          ],
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: yesterdayBodyContents,
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'separator', color: '#f0f0f0' },
+            {
+              type: 'text',
+              text: 'LINE Notification · สรุปผลงานย้อนหลัง',
+              size: 'xxs',
+              color: '#aaaaaa',
+              margin: 'md',
+              align: 'center',
+              wrap: true,
+            },
+          ],
+        },
+      },
+    };
+
+    flexMessagesToSend.push(yesterdayFlex);
+  }
+
+  // ==========================================
+  // FLEX 2: สรุปแผนงานวันนี้ (Today Agenda)
+  // ==========================================
+  const todayBodyContents: any[] = [];
 
   if (includeMorning) {
-    const yesterday = getYesterdayDateStr();
-    const [yesterdaySummary, yesterdayUncollected, dueToday, pending] = await Promise.all([
-      fetchYesterdayCollectionSummary(tenantId),
-      fetchYesterdayUncollectedLoans(tenantId),
+    const [dueToday, pending] = await Promise.all([
       fetchDueTodayLoans(tenantId),
       fetchPendingCollectionToday(tenantId),
     ]);
 
-    // Section: สรุปผลงานเมื่อวาน
-    bodyContents.push(buildSectionTitle(`📊 สรุปผลเมื่อวาน (${yesterday})`, '#6366f1'));
-    bodyContents.push({
-      type: 'box',
-      layout: 'vertical',
-      backgroundColor: '#f8fafc',
-      cornerRadius: 'md',
-      paddingAll: 'sm',
-      margin: 'xs',
-      contents: [
-        {
-          type: 'box',
-          layout: 'horizontal',
-          contents: [
-            { type: 'text', text: '💰 ยอดเก็บได้เมื่อวาน:', size: 'xs', color: '#64748b', flex: 3 },
-            { type: 'text', text: `${fmt(yesterdaySummary.totalAmount)} ฿`, size: 'xs', weight: 'bold', color: '#10b981', align: 'end', flex: 2 },
-          ],
-        },
-        {
-          type: 'box',
-          layout: 'horizontal',
-          margin: 'xs',
-          contents: [
-            { type: 'text', text: '👥 จำนวนที่ชำระ:', size: 'xs', color: '#64748b', flex: 3 },
-            { type: 'text', text: `${yesterdaySummary.customerCount} คน (${yesterdaySummary.totalCount} รายการ)`, size: 'xs', weight: 'bold', color: '#333333', align: 'end', flex: 3 },
-          ],
-        },
-      ],
-    });
-
-    if (yesterdayUncollected.length > 0) {
-      bodyContents.push({
-        type: 'text',
-        text: `❌ ไม่ได้เก็บเมื่อวาน (${yesterdayUncollected.length} ราย):`,
-        size: 'xs',
-        color: '#e11d48',
-        weight: 'bold',
-        margin: 'sm',
-      });
-      for (const row of yesterdayUncollected) {
-        bodyContents.push(
-          loanRow(`👤 ${row.customerName}`, `📝 ${row.loanNumber}`, Number(row.installmentAmount)),
-        );
-      }
-    } else {
-      bodyContents.push({
-        type: 'text',
-        text: '✅ เมื่อวานเก็บครบตามกำหนดทุกคน 🎉',
-        size: 'xs',
-        color: '#10b981',
-        margin: 'xs',
-      });
-    }
-
-    // Section: แผนเก็บวันนี้
-    bodyContents.push(buildSectionTitle(`📋 ยังไม่เก็บวันนี้ (${pending.length} ราย)`, '#10b981'));
+    todayBodyContents.push(buildSectionTitle(`📋 ยังไม่เก็บวันนี้ (${pending.length} ราย)`, '#10b981'));
     if (pending.length === 0) {
-      bodyContents.push({ type: 'text', text: 'เก็บครบแล้ว 🎉', size: 'xs', color: '#8c8c8c' });
+      todayBodyContents.push({ type: 'text', text: 'เก็บครบแล้ว 🎉', size: 'xs', color: '#8c8c8c' });
     } else {
       for (const row of pending) {
-        bodyContents.push(
+        todayBodyContents.push(
           loanRow(`👤 ${row.customerName}`, `📝 ${row.loanNumber}`, Number(row.installmentAmount)),
         );
       }
     }
 
-    // Section: ครบกำหนดวันนี้
-    bodyContents.push(buildSectionTitle(`⏰ ครบกำหนดวันนี้ (${dueToday.length} ราย)`, '#f59e0b'));
+    todayBodyContents.push(buildSectionTitle(`⏰ ครบกำหนดวันนี้ (${dueToday.length} ราย)`, '#f59e0b'));
     if (dueToday.length === 0) {
-      bodyContents.push({ type: 'text', text: 'ไม่มีสัญญาครบกำหนดวันนี้', size: 'xs', color: '#8c8c8c' });
+      todayBodyContents.push({ type: 'text', text: 'ไม่มีสัญญาครบกำหนดวันนี้', size: 'xs', color: '#8c8c8c' });
     } else {
       for (const row of dueToday) {
-        bodyContents.push(
+        todayBodyContents.push(
           loanRow(`👤 ${row.customerName}`, `📝 ${row.loanNumber}`, Number(row.installmentAmount)),
         );
       }
@@ -438,24 +530,25 @@ export async function sendMorningDigest(tenantId: string, config: LineNotifyConf
   if (includeOverdue) {
     const overdue = await fetchOverdueLoans(tenantId);
     const totalOverdue = await countOverdueLoans(tenantId);
-    bodyContents.push(buildSectionTitle(`🚨 ค้างชำระ (${totalOverdue} ราย)`, '#ef4444'));
+    todayBodyContents.push(buildSectionTitle(`🚨 ค้างชำระ (${totalOverdue} ราย)`, '#ef4444'));
     if (overdue.length === 0) {
-      bodyContents.push({ type: 'text', text: 'ไม่มีลูกค้าค้างชำระ 🎉', size: 'xs', color: '#8c8c8c' });
+      todayBodyContents.push({ type: 'text', text: 'ไม่มีลูกค้าค้างชำระ 🎉', size: 'xs', color: '#8c8c8c' });
     } else {
       for (const row of overdue) {
         const days = Math.floor(
           (new Date(today).getTime() - new Date(row.dueDate).getTime()) / (1000 * 60 * 60 * 24),
         );
-        bodyContents.push(
+        todayBodyContents.push(
           loanRow(
             `👤 ${row.customerName}`,
             `📝 ${row.loanNumber} · ค้าง ${days} วัน`,
             Number(row.installmentAmount),
+            '#ef4444'
           ),
         );
       }
       if (totalOverdue > overdue.length) {
-        bodyContents.push({
+        todayBodyContents.push({
           type: 'text',
           text: `… และอีก ${totalOverdue - overdue.length} ราย`,
           size: 'xxs',
@@ -467,9 +560,9 @@ export async function sendMorningDigest(tenantId: string, config: LineNotifyConf
     }
   }
 
-  const flex = {
+  const todayFlex = {
     type: 'flex',
-    altText: '☀️ สรุปประจำวัน',
+    altText: `☀️ สรุปแผนงานวันนี้ (${today})`,
     contents: {
       type: 'bubble',
       size: 'mega',
@@ -478,14 +571,15 @@ export async function sendMorningDigest(tenantId: string, config: LineNotifyConf
         layout: 'vertical',
         backgroundColor: '#8b5cf6',
         contents: [
-          { type: 'text', text: '☀️ สรุปประจำวัน', weight: 'bold', color: '#ffffff', size: 'sm' },
+          { type: 'text', text: '☀️ สรุปแผนงานวันนี้', weight: 'bold', color: '#ffffff', size: 'sm' },
+          { type: 'text', text: `📅 ${today}`, size: 'xxs', color: '#ede9fe', margin: 'xs' },
         ],
       },
       body: {
         type: 'box',
         layout: 'vertical',
         spacing: 'sm',
-        contents: bodyContents,
+        contents: todayBodyContents,
       },
       footer: {
         type: 'box',
@@ -506,8 +600,10 @@ export async function sendMorningDigest(tenantId: string, config: LineNotifyConf
     },
   };
 
+  flexMessagesToSend.push(todayFlex);
+
   const token = config.channelAccessToken?.trim() || process.env.LINE_CHANNEL_ACCESS_TOKEN;
-  await Promise.all(recipients.map((to) => pushLineFlex(to, flex, token)));
+  await Promise.all(recipients.map((to) => pushLineFlex(to, flexMessagesToSend, token)));
 }
 
 export async function sendOverdueReminder(tenantId: string, config: LineNotifyConfig) {

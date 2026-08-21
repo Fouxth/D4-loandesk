@@ -13,12 +13,14 @@ type FlexOptions = {
   accentColor?: string;
 };
 
-export async function pushLineFlex(to: string, flexMessage: object, customToken?: string) {
+export async function pushLineFlex(to: string, flexMessage: object | object[], customToken?: string) {
   const channelAccessToken = customToken?.trim() || process.env.LINE_CHANNEL_ACCESS_TOKEN;
   if (!channelAccessToken) {
     console.warn('[LINE] ⚠️ Missing LINE_CHANNEL_ACCESS_TOKEN');
     return false;
   }
+
+  const messages = Array.isArray(flexMessage) ? flexMessage : [flexMessage];
 
   const response = await fetch('https://api.line.me/v2/bot/message/push', {
     method: 'POST',
@@ -26,7 +28,7 @@ export async function pushLineFlex(to: string, flexMessage: object, customToken?
       'Content-Type': 'application/json',
       Authorization: `Bearer ${channelAccessToken}`,
     },
-    body: JSON.stringify({ to, messages: [flexMessage] }),
+    body: JSON.stringify({ to, messages }),
   });
 
   if (response.ok) return true;
