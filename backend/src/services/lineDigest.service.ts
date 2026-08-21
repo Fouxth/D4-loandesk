@@ -179,6 +179,115 @@ export async function fetchPendingCollectionToday(tenantId: string, limit = DIGE
   return pendingList;
 }
 
+export function getYesterdayDateStr(todayStr?: string): string {
+  const today = todayStr || getBangkokDateStr();
+  const [y, m, d] = today.split('-').map(Number);
+  const yesterday = new Date(y, m - 1, d - 1);
+  return `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+}
+
+export async function fetchYesterdayCollectionSummary(tenantId: string) {
+  const yesterday = getYesterdayDateStr();
+  const [result] = await sql`
+    SELECT 
+      COALESCE(SUM(p.amount::numeric), 0) as total_amount,
+      COUNT(p.id)::int as total_count,
+      COUNT(DISTINCT l.customer_id)::int as customer_count
+    FROM payments p
+    JOIN loans l ON l.id = p.loan_id
+    WHERE p.tenant_id = ${tenantId}
+      AND p.payment_date = ${yesterday}
+  `;
+  return {
+    date: yesterday,
+    totalAmount: Number(result?.totalAmount || 0),
+    totalCount: Number(result?.totalCount || 0),
+    customerCount: Number(result?.customerCount || 0),
+  };
+}
+
+export async function fetchYesterdayUncollectedLoans(tenantId: string, limit = DIGEST_LIMIT) {
+  const yesterday = getYesterdayDateStr();
+  const loans = await sql`
+    SELECT l.*, c.full_name as customer_name
+    FROM loans l
+    JOIN customers c ON l.customer_id = c.id
+    WHERE l.tenant_id = ${tenantId}
+      AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled', 'refinanced', 'forfeited'))
+      AND COALESCE(l.is_indefinite, FALSE) = FALSE
+      AND COALESCE(l.is_pawn, FALSE) = FALSE
+      AND COALESCE(l.is_principal_interest_at_end, FALSE) = FALSE
+      AND COALESCE(l.notes, '') NOT ILIKE '%ยอดติด%'
+      AND NOT EXISTS (
+        SELECT 1 FROM payments p
+        WHERE p.loan_id = l.id AND p.payment_date = ${yesterday} AND p.tenant_id = ${tenantId}
+      )
+    ORDER BY l.created_at ASC
+  `;
+
+  const uncollectedList: any[] = [];
+
+  for (const l of loans) {
+    const isIndefinite = l.isIndefinite || l.is_indefinite || l.isPawn || l.is_pawn;
+    const notes = l.notes || '';
+    const interestRate = Number(l.interestRate ?? l.interest_rate ?? 0);
+    const installmentsCount = Number(l.installmentsCount ?? l.installments_count ?? 0);
+    const paymentType = l.paymentType || l.payment_type;
+    const isZeroDebt =
+      notes.includes('ยอดติด') ||
+      notes.includes('ยอดติดค้างชำระ') ||
+      (interestRate === 0 && (installmentsCount === 1 || !paymentType));
+
+    if (isIndefinite || isZeroDebt) continue;
+    if (l.isPrincipalInterestAtEnd || l.is_principal_interest_at_end) continue;
+
+    const startDateRaw = l.startDate ?? l.start_date;
+    if (!startDateRaw) continue;
+
+    const startDateStr = startDateRaw instanceof Date
+      ? startDateRaw.toISOString().substring(0, 10)
+      : String(startDateRaw).substring(0, 10);
+
+    const startParts = startDateStr.split('-').map(Number);
+    if (startParts.length !== 3 || startParts.some(isNaN)) continue;
+
+    const [y, m, d] = startParts;
+    const [p] = await sql`SELECT COUNT(*)::int as count FROM payments WHERE loan_id = ${l.id} AND tenant_id = ${tenantId}`;
+    const paidCount = Number(p?.count || 0);
+
+    const nextDate = new Date(y, m - 1, d);
+    if (paymentType === 'daily') {
+      nextDate.setDate(nextDate.getDate() + paidCount);
+    } else if (paymentType === 'weekly') {
+      nextDate.setDate(nextDate.getDate() + paidCount * 7);
+    } else if (paymentType === 'monthly') {
+      nextDate.setMonth(nextDate.getMonth() + paidCount);
+    }
+
+    const nextDueDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+
+    const finalDueDateRaw = l.dueDate ?? l.due_date;
+    const finalDueDateStr = finalDueDateRaw
+      ? (finalDueDateRaw instanceof Date ? finalDueDateRaw.toISOString().substring(0, 10) : String(finalDueDateRaw).substring(0, 10))
+      : null;
+
+    const effectiveDue = finalDueDateStr && nextDueDateStr > finalDueDateStr ? finalDueDateStr : nextDueDateStr;
+
+    if (effectiveDue <= yesterday) {
+      uncollectedList.push({
+        loanNumber: l.loanNumber || l.loan_number,
+        customerName: l.customerName || l.customer_name,
+        installmentAmount: l.installmentAmount ?? l.installment_amount,
+        nextDueDate: effectiveDue,
+      });
+    }
+
+    if (uncollectedList.length >= limit) break;
+  }
+
+  return uncollectedList;
+}
+
 function loanRow(label: string, sub: string, amount?: number) {
   return {
     type: 'box',
@@ -239,11 +348,69 @@ export async function sendMorningDigest(tenantId: string, config: LineNotifyConf
   ];
 
   if (includeMorning) {
-    const [dueToday, pending] = await Promise.all([
+    const yesterday = getYesterdayDateStr();
+    const [yesterdaySummary, yesterdayUncollected, dueToday, pending] = await Promise.all([
+      fetchYesterdayCollectionSummary(tenantId),
+      fetchYesterdayUncollectedLoans(tenantId),
       fetchDueTodayLoans(tenantId),
       fetchPendingCollectionToday(tenantId),
     ]);
 
+    // Section: สรุปผลงานเมื่อวาน
+    bodyContents.push(buildSectionTitle(`📊 สรุปผลเมื่อวาน (${yesterday})`, '#6366f1'));
+    bodyContents.push({
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: '#f8fafc',
+      cornerRadius: 'md',
+      paddingAll: 'sm',
+      margin: 'xs',
+      contents: [
+        {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: '💰 ยอดเก็บได้เมื่อวาน:', size: 'xs', color: '#64748b', flex: 3 },
+            { type: 'text', text: `${fmt(yesterdaySummary.totalAmount)} ฿`, size: 'xs', weight: 'bold', color: '#10b981', align: 'end', flex: 2 },
+          ],
+        },
+        {
+          type: 'box',
+          layout: 'horizontal',
+          margin: 'xs',
+          contents: [
+            { type: 'text', text: '👥 จำนวนที่ชำระ:', size: 'xs', color: '#64748b', flex: 3 },
+            { type: 'text', text: `${yesterdaySummary.customerCount} คน (${yesterdaySummary.totalCount} รายการ)`, size: 'xs', weight: 'bold', color: '#333333', align: 'end', flex: 3 },
+          ],
+        },
+      ],
+    });
+
+    if (yesterdayUncollected.length > 0) {
+      bodyContents.push({
+        type: 'text',
+        text: `❌ ไม่ได้เก็บเมื่อวาน (${yesterdayUncollected.length} ราย):`,
+        size: 'xs',
+        color: '#e11d48',
+        weight: 'bold',
+        margin: 'sm',
+      });
+      for (const row of yesterdayUncollected) {
+        bodyContents.push(
+          loanRow(`👤 ${row.customerName}`, `📝 ${row.loanNumber}`, Number(row.installmentAmount)),
+        );
+      }
+    } else {
+      bodyContents.push({
+        type: 'text',
+        text: '✅ เมื่อวานเก็บครบตามกำหนดทุกคน 🎉',
+        size: 'xs',
+        color: '#10b981',
+        margin: 'xs',
+      });
+    }
+
+    // Section: แผนเก็บวันนี้
     bodyContents.push(buildSectionTitle(`📋 ยังไม่เก็บวันนี้ (${pending.length} ราย)`, '#10b981'));
     if (pending.length === 0) {
       bodyContents.push({ type: 'text', text: 'เก็บครบแล้ว 🎉', size: 'xs', color: '#8c8c8c' });
@@ -255,6 +422,7 @@ export async function sendMorningDigest(tenantId: string, config: LineNotifyConf
       }
     }
 
+    // Section: ครบกำหนดวันนี้
     bodyContents.push(buildSectionTitle(`⏰ ครบกำหนดวันนี้ (${dueToday.length} ราย)`, '#f59e0b'));
     if (dueToday.length === 0) {
       bodyContents.push({ type: 'text', text: 'ไม่มีสัญญาครบกำหนดวันนี้', size: 'xs', color: '#8c8c8c' });
