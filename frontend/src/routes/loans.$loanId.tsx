@@ -411,7 +411,7 @@ function LoanDetail() {
                       loan={loan}
                       lending={lending}
                       rawDaysOverdue={rawDaysOverdue}
-                      dueDate={loan.dueDate}
+                      dueDate={nextDueDateStr}
                       contractRemaining={contractRemaining}
                       onSaved={load}
                     />
