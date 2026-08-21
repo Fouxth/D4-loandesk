@@ -104,19 +104,19 @@ function LoanDetail() {
   const paidInstallments = regularPayments.length + tpCount;
 
   const loanWithPayments = { ...loan, paidInstallmentsCount: payments.length };
-  const nextDueDateStr = getLoanNextDueDate(loanWithPayments) || loan.dueDate;
+  const contractDueDateStr = loan.promiseDate || loan.dueDate || loan.due_date;
   const today = getThaiDateStr();
-  const diff = nextDueDateStr ? daysBetween(today, nextDueDateStr) : 0;
+  const diff = contractDueDateStr ? daysBetween(today, contractDueDateStr) : 0;
   const skipContractLateFee = shouldSkipContractLateFee(loan);
   const rawDaysOverdue =
-    !skipContractLateFee && nextDueDateStr && (getEffectiveStatus(loanWithPayments) === 'active' || getEffectiveStatus(loanWithPayments) === 'overdue' || getEffectiveStatus(loanWithPayments) === 'due_today')
+    !skipContractLateFee && contractDueDateStr && (getEffectiveStatus(loanWithPayments) === 'active' || getEffectiveStatus(loanWithPayments) === 'overdue' || getEffectiveStatus(loanWithPayments) === 'due_today')
       ? Math.max(diff, 0)
       : 0;
   const { autoFee, effectiveFee, daysOverdue, hoursOverdue, mode: lateFeeMode } = resolveLateFee(
     lending,
     loan,
     rawDaysOverdue,
-    nextDueDateStr,
+    contractDueDateStr,
   );
   const lateFeeUnitParts = [
     daysOverdue > 0 ? `${daysOverdue} วัน` : null,
@@ -411,7 +411,7 @@ function LoanDetail() {
                       loan={loan}
                       lending={lending}
                       rawDaysOverdue={rawDaysOverdue}
-                      dueDate={nextDueDateStr}
+                      dueDate={contractDueDateStr}
                       contractRemaining={contractRemaining}
                       onSaved={load}
                     />

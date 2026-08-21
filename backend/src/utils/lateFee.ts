@@ -16,11 +16,20 @@ export interface LoanLateFeeOverride {
 }
 
 function calcHoursOverdue(dueDate: string): number {
-  const due = new Date(String(dueDate).split('T')[0]);
-  if (isNaN(due.getTime())) return 0;
-  due.setHours(0, 0, 0, 0);
+  const parts = String(dueDate).split('T')[0].split('-').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return 0;
+  const [y, m, d] = parts;
+
+  // Cutoff is 18:00:00 on the due date
+  const dueCutoff = new Date(y, m - 1, d, 18, 0, 0, 0);
   const now = new Date();
-  return Math.max(0, Math.floor((now.getTime() - due.getTime()) / (1000 * 60 * 60)));
+
+  if (now.getTime() <= dueCutoff.getTime()) {
+    return 0;
+  }
+
+  const elapsedMs = Math.max(0, now.getTime() - dueCutoff.getTime());
+  return Math.floor(elapsedMs / (1000 * 60 * 60));
 }
 
 function splitOverdueTime(totalHours: number) {
@@ -42,13 +51,11 @@ export function calcAutoLateFee(
   const perDay = Number(config.lateFeePerDay) || 0;
   const perHour = Number(config.lateFeePerHour) || 0;
 
-  if (dueDate && perHour > 0) {
+  if (dueDate) {
     const totalHours = calcHoursOverdue(dueDate);
     if (totalHours <= 0) return { fee: 0, hoursOverdue: 0, daysOverdue: 0 };
 
-    const { days, hours } = perDay > 0
-      ? splitOverdueTime(totalHours)
-      : { days: 0, hours: totalHours };
+    const { days, hours } = splitOverdueTime(totalHours);
     return {
       fee: days * perDay + hours * perHour,
       hoursOverdue: hours,

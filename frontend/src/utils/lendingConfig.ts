@@ -70,21 +70,20 @@ function calcHoursOverdue(dueDate: string): number {
   if (parts.length !== 3 || parts.some(isNaN)) return 0;
   const [y, m, d] = parts;
   
-  // Cutoff is 23:59:59 of the due date day
-  const dueCutoff = new Date(y, m - 1, d, 23, 59, 59, 999);
+  // Cutoff is 18:00:00 on the due date
+  const dueCutoff = new Date(y, m - 1, d, 18, 0, 0, 0);
   const now = new Date();
   
-  // If current time is still within the due date day (before 23:59:59), no late fee!
+  // If current time is on or before 18:00 on the due date, no late fee
   if (now.getTime() <= dueCutoff.getTime()) {
     return 0;
   }
   
-  // After midnight (00:00:00 of next day), count hours starting from next day start
-  const nextDayStart = new Date(y, m - 1, d + 1, 0, 0, 0, 0);
-  const elapsedMs = Math.max(0, now.getTime() - nextDayStart.getTime());
+  // Count hours starting from 18:00 on the due date
+  const elapsedMs = Math.max(0, now.getTime() - dueCutoff.getTime());
   const hours = Math.floor(elapsedMs / (1000 * 60 * 60));
   
-  return Math.max(1, hours);
+  return hours;
 }
 
 function splitOverdueTime(totalHours: number) {
@@ -106,13 +105,11 @@ export function calcLateFee(
   const perDay = Number(lending.lateFeePerDay) || 0;
   const perHour = Number(lending.lateFeePerHour) || 0;
 
-  if (dueDate && perHour > 0) {
+  if (dueDate) {
     const totalHours = calcHoursOverdue(dueDate);
     if (totalHours <= 0) return { daysOverdue: 0, hoursOverdue: 0, lateFeeTotal: 0 };
 
-    const { days, hours } = perDay > 0
-      ? splitOverdueTime(totalHours)
-      : { days: 0, hours: totalHours };
+    const { days, hours } = splitOverdueTime(totalHours);
     return {
       daysOverdue: days,
       hoursOverdue: hours,
