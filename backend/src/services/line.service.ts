@@ -13,10 +13,10 @@ type FlexOptions = {
   accentColor?: string;
 };
 
-export async function pushLineFlex(to: string, flexMessage: object) {
-  const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+export async function pushLineFlex(to: string, flexMessage: object, customToken?: string) {
+  const channelAccessToken = customToken?.trim() || process.env.LINE_CHANNEL_ACCESS_TOKEN;
   if (!channelAccessToken) {
-    console.warn('[LINE] ⚠️ Missing LINE_CHANNEL_ACCESS_TOKEN in .env');
+    console.warn('[LINE] ⚠️ Missing LINE_CHANNEL_ACCESS_TOKEN');
     return false;
   }
 
@@ -36,8 +36,8 @@ export async function pushLineFlex(to: string, flexMessage: object) {
   return false;
 }
 
-export async function pushLineText(to: string, text: string) {
-  const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+export async function pushLineText(to: string, text: string, customToken?: string) {
+  const channelAccessToken = customToken?.trim() || process.env.LINE_CHANNEL_ACCESS_TOKEN;
   if (!channelAccessToken) return false;
 
   const response = await fetch('https://api.line.me/v2/bot/message/push', {

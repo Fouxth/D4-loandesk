@@ -338,7 +338,8 @@ export async function sendMorningDigest(tenantId: string, config: LineNotifyConf
     },
   };
 
-  await Promise.all(recipients.map((to) => pushLineFlex(to, flex)));
+  const token = config.channelAccessToken?.trim() || process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  await Promise.all(recipients.map((to) => pushLineFlex(to, flex, token)));
 }
 
 export async function sendOverdueReminder(tenantId: string, config: LineNotifyConfig) {
@@ -415,7 +416,8 @@ export async function sendOverdueReminder(tenantId: string, config: LineNotifyCo
     },
   };
 
-  await Promise.all(recipients.map((to) => pushLineFlex(to, flex)));
+  const token = config.channelAccessToken?.trim() || process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  await Promise.all(recipients.map((to) => pushLineFlex(to, flex, token)));
 }
 
 export async function runScheduledLineNotifications(kind: 'morning' | 'evening') {
