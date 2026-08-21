@@ -1,7 +1,6 @@
-// Thai business day changes at 05:00 UTC+7 (= 22:00 UTC). Shift +2h then read UTC date to avoid browser-timezone arithmetic.
+// Realtime Thailand Date string (YYYY-MM-DD) in Asia/Bangkok timezone
 export function getThaiDateStr(d: Date = new Date()): string {
-  const adjusted = new Date(d.getTime() + 2 * 3600000);
-  return `${adjusted.getUTCFullYear()}-${String(adjusted.getUTCMonth() + 1).padStart(2, '0')}-${String(adjusted.getUTCDate()).padStart(2, '0')}`;
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(d);
 }
 
 export const THB = new Intl.NumberFormat("th-TH", {
