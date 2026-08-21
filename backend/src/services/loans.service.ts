@@ -9,7 +9,7 @@ const LOAN_CREATE_ALLOWED = new Set([
   'installmentsCount', 'installmentAmount', 'paymentType',
   'startDate', 'dueDate', 'promiseDate', 'status', 'notes',
   'isInterestOnly', 'isIndefinite', 'isPrincipalInterestAtEnd', 'isPawn', 'pawnItem', 'pawnStatus',
-  'documentFee', 'advanceFee',
+  'documentFee', 'advanceFee', 'parkingFee',
 ]);
 
 const LOAN_UPDATE_ALLOWED = new Set([
@@ -17,7 +17,7 @@ const LOAN_UPDATE_ALLOWED = new Set([
   'installmentsCount', 'installmentAmount', 'paymentType',
   'startDate', 'dueDate', 'promiseDate', 'status', 'notes',
   'isInterestOnly', 'isIndefinite', 'isPrincipalInterestAtEnd', 'isPawn', 'pawnItem', 'pawnStatus',
-  'documentFee', 'advanceFee',
+  'documentFee', 'advanceFee', 'parkingFee',
 ]);
 
 function toDateStr(d: any): string {
@@ -95,6 +95,7 @@ export async function dbCreateLoan(data: any, loanNumber: string, userId: string
   safeData.installmentAmount = toNum(safeData.installmentAmount, safeData.totalPayable as number);
   safeData.documentFee = toNum(safeData.documentFee, 0);
   safeData.advanceFee = toNum(safeData.advanceFee, 0);
+  safeData.parkingFee = toNum(safeData.parkingFee, 0);
 
   const result = await sql`
     INSERT INTO loans ${sql({ ...safeData, loanNumber, createdBy: userId, tenantId })}

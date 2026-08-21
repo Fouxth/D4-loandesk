@@ -256,6 +256,7 @@ function Settings() {
         lateFeePerHour: Number(lending.lateFeePerHour) || 0,
         documentFeeAmount: Number(lending.documentFeeAmount) || 0,
         advanceFeeAmount: Number(lending.advanceFeeAmount) || 0,
+        parkingFeeAmount: Number(lending.parkingFeeAmount) || 0,
       };
       await updateSetting("lending_config", sanitizedLending);
       await refreshSettings();
@@ -954,7 +955,7 @@ function Settings() {
                   <span className="text-sm font-bold">ค่าธรรมเนียมหักล่วงหน้า</span>
                   <p className="text-[11px] text-muted-foreground">ค่าเริ่มต้นที่จะแสดงในหน้าสร้างสัญญา เลือกหักได้เป็นรายสัญญา ไม่กระทบยอดหนี้ที่ลูกค้าต้องชำระ</p>
                 </div>
-                <div className="grid gap-6 sm:grid-cols-2">
+                <div className="grid gap-6 sm:grid-cols-3">
                   <div className="space-y-2">
                     <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ค่าเอกสาร (บาท)</Label>
                     <div className="relative">
@@ -976,6 +977,19 @@ function Settings() {
                         min={0}
                         value={lending.advanceFeeAmount ?? ""}
                         onChange={(e) => setLending({ ...lending, advanceFeeAmount: e.target.value === "" ? "" as any : Number(e.target.value) })}
+                        className="h-11 rounded-xl bg-muted/20 pr-10 font-bold"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">ค่าฝากจอด (บาท - จำนำ)</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={lending.parkingFeeAmount ?? ""}
+                        onChange={(e) => setLending({ ...lending, parkingFeeAmount: e.target.value === "" ? "" as any : Number(e.target.value) })}
                         className="h-11 rounded-xl bg-muted/20 pr-10 font-bold"
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">฿</span>

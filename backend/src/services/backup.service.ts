@@ -189,7 +189,7 @@ export async function restoreTenantBackup(targetTenantId: string, backupPayload:
           id, tenant_id, customer_id, loan_number, principal, interest_rate, interest_amount,
           total_payable, installments_count, installment_amount, payment_type, is_interest_only,
           is_principal_interest_at_end, is_pawn, pawn_item, pawn_status, is_indefinite,
-          document_fee, advance_fee, late_fee_mode, late_fee_amount, late_fee_note, status,
+          document_fee, advance_fee, parking_fee, late_fee_mode, late_fee_amount, late_fee_note, status,
           start_date, due_date, promise_date, notes, created_at, updated_at
         ) VALUES (
           ${l.id}, ${targetTenantId}, ${l.customerId ?? l.customer_id}, ${l.loanNumber ?? l.loan_number},
@@ -199,7 +199,7 @@ export async function restoreTenantBackup(targetTenantId: string, backupPayload:
           ${l.isInterestOnly ?? l.is_interest_only ?? false}, ${l.isPrincipalInterestAtEnd ?? l.is_principal_interest_at_end ?? false},
           ${l.isPawn ?? l.is_pawn ?? false}, ${(l.pawnItem ?? l.pawn_item) || null}, ${l.pawnStatus ?? l.pawn_status ?? 'in_storage'},
           ${l.isIndefinite ?? l.is_indefinite ?? false}, ${Number(l.documentFee ?? l.document_fee ?? 0)},
-          ${Number(l.advanceFee ?? l.advance_fee ?? 0)}, ${l.lateFeeMode ?? l.late_fee_mode ?? 'auto'},
+          ${Number(l.advanceFee ?? l.advance_fee ?? 0)}, ${Number(l.parkingFee ?? l.parking_fee ?? 0)}, ${l.lateFeeMode ?? l.late_fee_mode ?? 'auto'},
           ${Number(l.lateFeeAmount ?? l.late_fee_amount ?? 0)}, ${(l.lateFeeNote ?? l.late_fee_note) || null},
           ${l.status ?? 'active'}, ${l.startDate ?? l.start_date}, ${l.dueDate ?? l.due_date}, ${(l.promiseDate ?? l.promise_date) || null},
           ${l.notes || null}, ${l.createdAt ?? l.created_at ?? new Date()}, ${l.updatedAt ?? l.updated_at ?? new Date()}

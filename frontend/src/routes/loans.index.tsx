@@ -19,6 +19,7 @@ import { formatTHB, formatDate, getThaiDateStr } from "@/utils/format";
 import { getLoanCategory, LOAN_CATEGORY_OPTIONS } from "@/utils/loanType";
 import { useSettings } from "@/contexts/SettingsContext";
 import { CustomerSelect } from "@/components/CustomerSelect";
+import { cn } from "@/utils/utils";
 
 export const Route = createFileRoute("/loans/")({
   component: () => (<ProtectedRoute><AppLayout><Loans /></AppLayout></ProtectedRoute>),
@@ -230,6 +231,8 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
   const [documentFee, setDocumentFee] = useState(lending.documentFeeAmount);
   const [applyAdvanceFee, setApplyAdvanceFee] = useState(false);
   const [advanceFee, setAdvanceFee] = useState(lending.advanceFeeAmount);
+  const [applyParkingFee, setApplyParkingFee] = useState(false);
+  const [parkingFee, setParkingFee] = useState(lending.parkingFeeAmount);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { 
@@ -251,7 +254,11 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
 
   const appliedDocumentFee = applyDocumentFee ? Number(documentFee) || 0 : 0;
   const appliedAdvanceFee = applyAdvanceFee ? Number(advanceFee) || 0 : 0;
-  const netDisbursement = Math.max(Number(form.principal || 0) - appliedDocumentFee - appliedAdvanceFee, 0);
+  const appliedParkingFee = form.isPawn && applyParkingFee ? Number(parkingFee) || 0 : 0;
+  const netDisbursement = Math.max(
+    Number(form.principal || 0) - appliedDocumentFee - appliedAdvanceFee - appliedParkingFee,
+    0
+  );
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -278,6 +285,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
         pawnItem: form.isPawn ? form.pawnItem : null,
         documentFee: appliedDocumentFee,
         advanceFee: appliedAdvanceFee,
+        parkingFee: appliedParkingFee,
       });
       
       const loanId = (data as any)[0]?.id;
@@ -307,6 +315,7 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
       setIsZeroInterestDebt(false);
       setApplyDocumentFee(false);
       setApplyAdvanceFee(false);
+      setApplyParkingFee(false);
       toast.success(t('common.save_success', 'บันทึกเรียบร้อยแล้ว'));
       onDone();
     } catch (error: any) {
@@ -461,7 +470,10 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
             </div>
           )}
 
-          <div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-border/50 pt-3 mt-1">
+          <div className={cn(
+            "col-span-1 sm:col-span-2 grid gap-4 border-t border-border/50 pt-3 mt-1",
+            form.isPawn ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"
+          )}>
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <input
@@ -504,6 +516,29 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
                 />
               )}
             </div>
+            {form.isPawn && (
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="applyParkingFee"
+                    checked={applyParkingFee}
+                    onChange={(e) => setApplyParkingFee(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="applyParkingFee" className="text-sm font-bold text-foreground cursor-pointer">หักค่าฝากจอด</Label>
+                </div>
+                {applyParkingFee && (
+                  <Input
+                    type="number"
+                    min={0}
+                    value={parkingFee ?? ""}
+                    onChange={(e) => setParkingFee(e.target.value === "" ? "" as any : Number(e.target.value))}
+                    className="bg-muted/20"
+                  />
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -543,9 +578,9 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
               </p>
             </div>
           </div>
-          {(applyDocumentFee || applyAdvanceFee) && (
+          {(applyDocumentFee || applyAdvanceFee || (form.isPawn && applyParkingFee)) && (
             <div className="mt-3 pt-3 border-t border-primary/20">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">ยอดที่จ่ายลูกค้าจริง (หักค่าเอกสาร/ค่าล่วงหน้าแล้ว)</p>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">ยอดที่จ่ายลูกค้าจริง (หักค่าธรรมเนียมแล้ว)</p>
               <p className="text-base font-black text-primary">{formatTHB(netDisbursement)}</p>
             </div>
           )}

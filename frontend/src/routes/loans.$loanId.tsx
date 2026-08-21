@@ -363,7 +363,7 @@ function LoanDetail() {
               <dt className="text-muted-foreground">เงินต้น</dt>
               <dd className="font-medium">{formatTHB(loan.principal)}</dd>
             </div>
-            {(Number(loan.documentFee) > 0 || Number(loan.advanceFee) > 0) && (
+            {(Number(loan.documentFee) > 0 || Number(loan.advanceFee) > 0 || Number(loan.parkingFee) > 0) && (
               <div className="space-y-1">
                 {Number(loan.documentFee) > 0 && (
                   <div className="flex justify-between items-center">
@@ -377,10 +377,22 @@ function LoanDetail() {
                     <dd className="font-medium text-destructive">-{formatTHB(loan.advanceFee)}</dd>
                   </div>
                 )}
+                {Number(loan.parkingFee) > 0 && (
+                  <div className="flex justify-between items-center">
+                    <dt className="text-muted-foreground pl-4">└ หักค่าฝากจอด</dt>
+                    <dd className="font-medium text-destructive">-{formatTHB(loan.parkingFee)}</dd>
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <dt className="text-muted-foreground pl-4 font-bold">└ ยอดที่จ่ายลูกค้าจริง</dt>
                   <dd className="font-bold text-success">
-                    {formatTHB(Math.max(Number(loan.principal) - Number(loan.documentFee) - Number(loan.advanceFee), 0))}
+                    {formatTHB(Math.max(
+                      Number(loan.principal) -
+                        Number(loan.documentFee || 0) -
+                        Number(loan.advanceFee || 0) -
+                        Number(loan.parkingFee || 0),
+                      0
+                    ))}
                   </dd>
                 </div>
               </div>

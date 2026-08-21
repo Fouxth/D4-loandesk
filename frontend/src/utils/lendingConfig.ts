@@ -36,6 +36,8 @@ export interface LendingConfig {
   documentFeeAmount: number;
   /** ค่าล่วงหน้าเริ่มต้น (บาท) หักออกจากยอดที่จ่ายลูกค้าจริงตอนทำสัญญา */
   advanceFeeAmount: number;
+  /** ค่าฝากจอดเริ่มต้น (บาท) หักออกจากยอดที่จ่ายลูกค้าจริงตอนทำสัญญาจำนำ */
+  parkingFeeAmount: number;
 }
 
 export const DEFAULT_CATEGORY_RATES: CategoryInterestRates = {
@@ -60,6 +62,7 @@ export const DEFAULT_LENDING_CONFIG: LendingConfig = {
   deductInterestUpfront: true,
   documentFeeAmount: 500,
   advanceFeeAmount: 500,
+  parkingFeeAmount: 500,
 };
 
 function calcHoursOverdue(dueDate: string): number {
@@ -157,6 +160,7 @@ export function normalizeLendingConfig(raw?: Record<string, unknown> | null): Le
     deductInterestUpfront: typeof raw?.deductInterestUpfront === 'boolean' ? raw.deductInterestUpfront : DEFAULT_LENDING_CONFIG.deductInterestUpfront,
     documentFeeAmount: Number(raw?.documentFeeAmount ?? DEFAULT_LENDING_CONFIG.documentFeeAmount),
     advanceFeeAmount: Number(raw?.advanceFeeAmount ?? DEFAULT_LENDING_CONFIG.advanceFeeAmount),
+    parkingFeeAmount: Number(raw?.parkingFeeAmount ?? DEFAULT_LENDING_CONFIG.parkingFeeAmount),
   };
 }
 
