@@ -729,10 +729,25 @@ function PaymentForm({
     category: (isInterestOnly ? "interest" : "principal") as "interest" | "principal" | "roll_penalty",
     notes: "",
   });
+  const [rollDays, setRollDays] = useState<number | "">(1);
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const calculatedTpAmount = (installmentAmount * 2) + (tpPenaltyAmount || 100);
+  const calcTpForDays = (daysCount: number) => {
+    const days = Math.max(1, daysCount);
+    const totalDaysToPay = days + 1; // วันที่ทบ + วันนี้ 1 วัน
+    const totalInst = totalDaysToPay * installmentAmount;
+    const totalPen = days * (tpPenaltyAmount || 100);
+    return {
+      days,
+      totalDaysToPay,
+      totalInst,
+      totalPen,
+      totalTp: totalInst + totalPen,
+    };
+  };
+
+  const currentTpCalc = calcTpForDays(rollDays === "" ? 1 : Number(rollDays));
 
   useEffect(() => {
     setForm({
@@ -743,6 +758,7 @@ function PaymentForm({
       category: isInterestOnly ? "interest" : "principal",
       notes: "",
     });
+    setRollDays(1);
     setSlipFile(null);
   }, [suggested, nextNum, isInterestOnly]);
 
@@ -751,14 +767,14 @@ function PaymentForm({
       setForm((current) => ({
         ...current,
         category: v,
-        amount: current.amount && current.amount !== suggested ? current.amount : (calculatedTpAmount > 0 ? calculatedTpAmount : current.amount),
-        notes: current.notes || "ชำระ ท+ป (ทบ + ปรับ)",
+        amount: currentTpCalc.totalTp > 0 ? currentTpCalc.totalTp : current.amount,
+        notes: current.notes || `ชำระ ท+ป ${currentTpCalc.days} วัน (${currentTpCalc.totalDaysToPay} งวด ฿${currentTpCalc.totalInst} + ปรับ ฿${currentTpCalc.totalPen})`,
       }));
     } else {
       setForm((current) => ({
         ...current,
         category: v,
-        amount: current.amount && current.amount !== calculatedTpAmount ? current.amount : suggested,
+        amount: suggested,
         notes: "",
       }));
     }
@@ -787,6 +803,7 @@ function PaymentForm({
         category: isInterestOnly ? "interest" : "principal",
         notes: "",
       });
+      setRollDays(1);
       setSlipFile(null);
       onDone();
     } catch (error: any) {
@@ -826,7 +843,7 @@ function PaymentForm({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
+          <div className={form.category === "roll_penalty" ? "space-y-2" : "space-y-2 col-span-1 sm:col-span-2"}>
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ประเภทการชำระ</Label>
             <Select value={form.category} onValueChange={handleCategoryChange}>
               <SelectTrigger className="bg-muted/20"><SelectValue /></SelectTrigger>
@@ -837,15 +854,42 @@ function PaymentForm({
               </SelectContent>
             </Select>
           </div>
+          {form.category === "roll_penalty" && (
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-warning flex items-center justify-between">
+                <span>จำนวนวันที่ทบ (วัน)</span>
+              </Label>
+              <Input
+                type="number"
+                min={1}
+                value={rollDays}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => {
+                  const val = e.target.value === "" ? "" : Number(e.target.value);
+                  setRollDays(val);
+                  const calcResult = calcTpForDays(val === "" ? 1 : Number(val));
+                  setForm((prev) => ({
+                    ...prev,
+                    amount: calcResult.totalTp,
+                    notes: `ชำระ ท+ป ${calcResult.days} วัน (${calcResult.totalDaysToPay} งวด ฿${calcResult.totalInst} + ปรับ ฿${calcResult.totalPen})`,
+                  }));
+                }}
+                className="bg-warning/10 border-warning/40 font-bold text-warning"
+              />
+            </div>
+          )}
         </div>
         {form.category === "roll_penalty" && (
-          <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 space-y-1 text-xs">
-            <p className="font-bold text-warning flex items-center gap-1">
-              💡 สามารถแก้ไขจำนวนเงินตามยอดที่ลูกค้าจ่ายจริงได้ (เช่น ทบหลายวัน ฿1,500)
-            </p>
-            <p className="text-muted-foreground text-[11px]">
-              • ยอดแนะนำ 1 ทบ: ค่างวด ({formatTHB(installmentAmount)}) + ทบ ({formatTHB(installmentAmount)}) + ค่าปรับ ({formatTHB(tpPenaltyAmount)}) = {formatTHB(calculatedTpAmount)}
-            </p>
+          <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 space-y-1.5 text-xs animate-in fade-in">
+            <div className="flex justify-between items-center font-bold text-warning">
+              <span>💡 คำนวณยอด ท+ป {currentTpCalc.days} วัน:</span>
+              <span className="text-sm font-black">{formatTHB(currentTpCalc.totalTp)}</span>
+            </div>
+            <div className="space-y-0.5 text-[11px] text-muted-foreground">
+              <p>• ค่างวด {currentTpCalc.totalDaysToPay} วัน (ทบ {currentTpCalc.days} วัน + วันนี้ 1 วัน): <span className="font-semibold text-foreground">{formatTHB(currentTpCalc.totalInst)}</span></p>
+              <p>• ค่าปรับ ท+ป ({currentTpCalc.days} วัน x {formatTHB(tpPenaltyAmount || 100)}): <span className="font-semibold text-foreground">{formatTHB(currentTpCalc.totalPen)}</span></p>
+              <p className="text-[10px] text-warning/80 pt-0.5">* วันที่จ่ายจริง (วันนี้) ไม่มีการคิดค่าปรับ</p>
+            </div>
           </div>
         )}
         <div className="space-y-2">
