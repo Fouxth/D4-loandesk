@@ -4,17 +4,18 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 // https://vite.dev/config/
-export default defineConfig(async ({ command }) => {
-  const plugins: PluginOption[] = [react(), tailwindcss()]
+export default defineConfig(async () => {
+  const { TanStackRouterVite } = await import('@tanstack/router-vite-plugin')
+  const routerPlugins = TanStackRouterVite({
+    routesDirectory: './src/routes',
+    generatedRouteTree: './src/routeTree.gen.ts',
+  })
 
-  if (command === 'serve') {
-    const { TanStackRouterVite } = await import('@tanstack/router-vite-plugin')
-    const routerPlugins = TanStackRouterVite({
-      routesDirectory: './src/routes',
-      generatedRouteTree: './src/routeTree.gen.ts',
-    })
-    plugins.push(...(Array.isArray(routerPlugins) ? routerPlugins : [routerPlugins]))
-  }
+  const plugins: PluginOption[] = [
+    ...(Array.isArray(routerPlugins) ? routerPlugins : [routerPlugins]),
+    react(),
+    tailwindcss(),
+  ]
 
   return {
     plugins,

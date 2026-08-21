@@ -16,6 +16,7 @@ import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LoansRouteImport } from './routes/loans'
 import { Route as ExpensesRouteImport } from './routes/expenses'
+import { Route as DisbursementsRouteImport } from './routes/disbursements'
 import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as ActivityRouteImport } from './routes/activity'
@@ -58,6 +59,11 @@ const LoansRoute = LoansRouteImport.update({
 const ExpensesRoute = ExpensesRouteImport.update({
   id: '/expenses',
   path: '/expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DisbursementsRoute = DisbursementsRouteImport.update({
+  id: '/disbursements',
+  path: '/disbursements',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomersRoute = CustomersRouteImport.update({
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/activity': typeof ActivityRoute
   '/calendar': typeof CalendarRoute
   '/customers': typeof CustomersRouteWithChildren
+  '/disbursements': typeof DisbursementsRoute
   '/expenses': typeof ExpensesRoute
   '/loans': typeof LoansRouteWithChildren
   '/login': typeof LoginRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
   '/calendar': typeof CalendarRoute
+  '/disbursements': typeof DisbursementsRoute
   '/expenses': typeof ExpensesRoute
   '/login': typeof LoginRoute
   '/payments': typeof PaymentsRoute
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   '/activity': typeof ActivityRoute
   '/calendar': typeof CalendarRoute
   '/customers': typeof CustomersRouteWithChildren
+  '/disbursements': typeof DisbursementsRoute
   '/expenses': typeof ExpensesRoute
   '/loans': typeof LoansRouteWithChildren
   '/login': typeof LoginRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/calendar'
     | '/customers'
+    | '/disbursements'
     | '/expenses'
     | '/loans'
     | '/login'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/'
     | '/activity'
     | '/calendar'
+    | '/disbursements'
     | '/expenses'
     | '/login'
     | '/payments'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/calendar'
     | '/customers'
+    | '/disbursements'
     | '/expenses'
     | '/loans'
     | '/login'
@@ -208,6 +220,7 @@ export interface RootRouteChildren {
   ActivityRoute: typeof ActivityRoute
   CalendarRoute: typeof CalendarRoute
   CustomersRoute: typeof CustomersRouteWithChildren
+  DisbursementsRoute: typeof DisbursementsRoute
   ExpensesRoute: typeof ExpensesRoute
   LoansRoute: typeof LoansRouteWithChildren
   LoginRoute: typeof LoginRoute
@@ -266,6 +279,13 @@ declare module '@tanstack/react-router' {
       path: '/expenses'
       fullPath: '/expenses'
       preLoaderRoute: typeof ExpensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/disbursements': {
+      id: '/disbursements'
+      path: '/disbursements'
+      fullPath: '/disbursements'
+      preLoaderRoute: typeof DisbursementsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customers': {
@@ -358,6 +378,7 @@ const rootRouteChildren: RootRouteChildren = {
   ActivityRoute: ActivityRoute,
   CalendarRoute: CalendarRoute,
   CustomersRoute: CustomersRouteWithChildren,
+  DisbursementsRoute: DisbursementsRoute,
   ExpensesRoute: ExpensesRoute,
   LoansRoute: LoansRouteWithChildren,
   LoginRoute: LoginRoute,

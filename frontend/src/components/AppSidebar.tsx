@@ -3,6 +3,7 @@ import {
   Users,
   Wallet,
   Receipt,
+  HandCoins,
   TrendingDown,
   FileBarChart,
   Settings,
@@ -47,6 +48,7 @@ export function AppSidebar() {
 
   const financeItems = [
     { title: t('menu.payments'), icon: Receipt, url: "/payments" },
+    { title: t('menu.disbursements', 'ยอดเงินออก'), icon: HandCoins, url: "/disbursements" },
     { title: t('menu.expenses'), icon: TrendingDown, url: "/expenses" },
     { title: t('menu.reports'), icon: FileBarChart, url: "/reports" },
     { title: t('menu.calendar'), icon: Calendar, url: "/calendar" },
