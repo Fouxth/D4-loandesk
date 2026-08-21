@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel, getLoanNextDueDate } from "@/components/StatusBadge";
-import { ArrowLeft, Plus, Trash2, Camera, Image as ImageIcon, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Camera, Image as ImageIcon, X, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { formatTHB, formatDate, daysBetween, getThaiDateStr } from "@/utils/format";
 import { calcLoan } from "@/utils/loanCalc";
@@ -20,6 +20,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { resolveLateFee } from "@/utils/lateFee";
 import { LateFeeEditor } from "@/components/LateFeeEditor";
 import { PromiseDateEditor } from "@/components/PromiseDateEditor";
+import { EditLoanModal } from "@/components/EditLoanModal";
 import { getLoanCategory } from "@/utils/loanType";
 import {
   calcLoanPaidTotal,
@@ -250,6 +251,8 @@ function LoanDetail() {
               />
             </Dialog>
 
+            <EditLoanModal loan={loan} onDone={load} />
+
             <RefinanceDialog 
               loan={loan} 
               remaining={remaining} 
@@ -289,6 +292,21 @@ function LoanDetail() {
               onDone={() => { setOpenMobile(false); load(); }} 
             />
           </Dialog>
+
+          <EditLoanModal
+            loan={loan}
+            onDone={load}
+            trigger={
+              <Button
+                variant="outline"
+                className="h-12 w-12 rounded-xl shrink-0 border-border/60"
+                title="แก้ไขสัญญา"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            }
+          />
+
           {loan.isPawn && (
             <Button
               variant="outline"

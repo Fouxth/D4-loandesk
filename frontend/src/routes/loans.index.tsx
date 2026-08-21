@@ -12,13 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel, getLoanNextDueDate } from "@/components/StatusBadge";
-import { Plus, Search, Calendar, User, DollarSign } from "lucide-react";
+import { Plus, Search, Calendar, User, DollarSign, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { calcLoan } from "@/utils/loanCalc";
 import { formatTHB, formatDate, getThaiDateStr } from "@/utils/format";
 import { getLoanCategory, LOAN_CATEGORY_OPTIONS } from "@/utils/loanType";
 import { useSettings } from "@/contexts/SettingsContext";
 import { CustomerSelect } from "@/components/CustomerSelect";
+import { EditLoanModal } from "@/components/EditLoanModal";
 import { cn } from "@/utils/utils";
 
 export const Route = createFileRoute("/loans/")({
@@ -120,6 +121,7 @@ function Loans() {
               <TableHead className="font-bold">{t('loans.table.total', 'ยอดรวม')}</TableHead>
               <TableHead className="font-bold">{t('loans.table.due_date', 'ครบกำหนด')}</TableHead>
               <TableHead className="font-bold text-center">{t('loans.table.status', 'สถานะ')}</TableHead>
+              <TableHead className="font-bold text-center pr-6">จัดการ</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -143,6 +145,22 @@ function Loans() {
                     {getLoanStatusLabel(l, t)}
                   </StatusBadge>
                 </TableCell>
+                <TableCell className="text-center pr-6">
+                  <EditLoanModal
+                    loan={l}
+                    onDone={load}
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
+                        title="แก้ไขสัญญา"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -152,11 +170,9 @@ function Loans() {
       {/* Mobile Card List */}
       <div className="grid grid-cols-1 gap-4 md:hidden pb-10">
         {filtered.map((l) => (
-          <Link 
+          <div
             key={l.id} 
-            to="/loans/$loanId" 
-            params={{ loanId: l.id }}
-            className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] active:scale-[0.98] transition-all block"
+            className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] active:scale-[0.99] transition-all block relative"
           >
             <div className="flex justify-between items-start mb-3">
               <div>
@@ -164,17 +180,33 @@ function Loans() {
                   {l.loanNumber}
                   {l.isPawn && <span className="bg-primary text-white text-[10px] px-1 rounded ml-1">จำนำ</span>}
                 </span>
-                <h4 className="font-bold text-foreground text-lg flex items-center gap-2">
+                <Link to="/loans/$loanId" params={{ loanId: l.id }} className="font-bold text-foreground text-lg flex items-center gap-2 hover:text-primary transition-colors">
                   <User className="h-4 w-4 text-primary" /> {l.customerName}
-                </h4>
+                </Link>
                 <StatusBadge tone="info">{getLoanCategory(l)}</StatusBadge>
               </div>
-              <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
-                {getLoanStatusLabel(l, t)}
-              </StatusBadge>
+              <div className="flex items-center gap-1.5">
+                <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
+                  {getLoanStatusLabel(l, t)}
+                </StatusBadge>
+                <EditLoanModal
+                  loan={l}
+                  onDone={load}
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
+                      title="แก้ไขสัญญา"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  }
+                />
+              </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4 mt-2">
+            <Link to="/loans/$loanId" params={{ loanId: l.id }} className="grid grid-cols-2 gap-4 mt-2">
               <div className="space-y-1">
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                   <DollarSign className="h-3 w-3" /> ยอดรวมทั้งหมด
@@ -187,8 +219,8 @@ function Loans() {
                 </p>
                 <p className="text-xs font-bold text-foreground">{formatDate(l.dueDate)}</p>
               </div>
-            </div>
-          </Link>
+            </Link>
+          </div>
         ))}
       </div>
 

@@ -8,7 +8,8 @@ import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel } f
 import { formatTHB, formatDate } from "@/utils/format";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, FileText, Paperclip } from "lucide-react";
+import { ArrowLeft, FileText, Paperclip, Pencil } from "lucide-react";
+import { EditLoanModal } from "@/components/EditLoanModal";
 
 export const Route = createFileRoute("/customers/$id")({
   component: () => (
@@ -35,25 +36,27 @@ function Detail() {
   const [attachments, setAttachments] = useState<any[]>([]);
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
 
+  const load = async () => {
+    try {
+      const cust = await getCustomerById(id);
+      setC(cust);
+      const ls = await getLoansByCustomer(id);
+      setLoans(ls ?? []);
+
+      // Get all payments for this customer's loans
+      const allPayments = await getPayments();
+      const customerPayments = allPayments.filter((p: any) => ls.some((l: any) => l.id === p.loanId));
+      setPayments(customerPayments);
+
+      const atts = await getCustomerAttachments(id);
+      setAttachments(atts ?? []);
+    } catch (e) {
+      console.error("Failed to load customer details", e);
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      try {
-        const cust = await getCustomerById(id);
-        setC(cust);
-        const ls = await getLoansByCustomer(id);
-        setLoans(ls ?? []);
-
-        // Get all payments for this customer's loans
-        const allPayments = await getPayments();
-        const customerPayments = allPayments.filter((p: any) => ls.some((l: any) => l.id === p.loanId));
-        setPayments(customerPayments);
-
-        const atts = await getCustomerAttachments(id);
-        setAttachments(atts ?? []);
-      } catch (e) {
-        console.error("Failed to load customer details", e);
-      }
-    })();
+    load();
   }, [id]);
 
   if (!c) return <div className="flex h-64 items-center justify-center text-muted-foreground animate-pulse">กำลังโหลดข้อมูลลูกค้า...</div>;
@@ -110,18 +113,34 @@ function Detail() {
           <div className="space-y-2 overflow-y-auto max-h-[400px] pr-1">
             {loans.length === 0 && <p className="text-sm text-muted-foreground py-8 text-center">ยังไม่มีสัญญาเงินกู้</p>}
             {loans.map((l) => (
-              <Link key={l.id} to="/loans/$loanId" params={{ loanId: l.id }} className="flex items-center justify-between rounded-xl border border-border px-4 py-3.5 hover:bg-muted/50 transition-all hover:scale-[1.01] group">
-                <div className="min-w-0">
+              <div key={l.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-3.5 hover:bg-muted/30 transition-all group">
+                <Link to="/loans/$loanId" params={{ loanId: l.id }} className="min-w-0 flex-1">
                   <p className="text-sm font-bold group-hover:text-primary transition-colors">{l.loanNumber}</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">{formatDate(l.startDate)} → {formatDate(l.dueDate)}</p>
+                </Link>
+                <div className="text-right shrink-0 flex items-center gap-2">
+                  <div>
+                    <p className="text-sm font-black text-foreground">{formatTHB(l.totalPayable)}</p>
+                    <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
+                      {getLoanStatusLabel(l)}
+                    </StatusBadge>
+                  </div>
+                  <EditLoanModal
+                    loan={l}
+                    onDone={load}
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
+                        title="แก้ไขสัญญา"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-black text-foreground">{formatTHB(l.totalPayable)}</p>
-                  <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
-                    {getLoanStatusLabel(l)}
-                  </StatusBadge>
-                </div>
-              </Link>
+              </div>
             ))}
           </div>
         </div>
