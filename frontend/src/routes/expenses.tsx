@@ -276,6 +276,12 @@ function ExpenseForm({ onDone }: { onDone: () => void }) {
     try {
       await createExpense(form);
       toast.success("บันทึกค่าใช้จ่ายเรียบร้อยแล้ว"); 
+      setForm({ 
+        category: "fuel" as any, 
+        amount: 0, 
+        expenseDate: getThaiDateStr(), 
+        description: "" 
+      });
       onDone();
     } catch (error: any) {
       toast.error(error.message);
@@ -306,7 +312,7 @@ function ExpenseForm({ onDone }: { onDone: () => void }) {
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">จำนวนเงิน (บาท)</Label>
-            <Input type="number" min={1} step={0.01} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
+            <Input type="number" min={0} step={0.01} value={form.amount} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, amount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
           </div>
         </div>
         <div className="space-y-2">

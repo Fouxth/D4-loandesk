@@ -735,13 +735,16 @@ function PaymentForm({
   const calculatedTpAmount = (installmentAmount * 2) + (tpPenaltyAmount || 100);
 
   useEffect(() => {
-    setForm((current) => ({
-      ...current,
-      amount: current.category === "roll_penalty" ? calculatedTpAmount : suggested,
-      installmentNumber: nextNum,
-      category: current.category || (isInterestOnly ? "interest" : "principal"),
-    }));
-  }, [suggested, nextNum, isInterestOnly, calculatedTpAmount]);
+    setForm({
+      amount: suggested,
+      paymentDate: getThaiDateStr(),
+      installmentNumber: nextNum, 
+      method: "cash", 
+      category: isInterestOnly ? "interest" : "principal",
+      notes: "",
+    });
+    setSlipFile(null);
+  }, [suggested, nextNum, isInterestOnly]);
 
   const handleCategoryChange = (v: "interest" | "principal" | "roll_penalty") => {
     if (v === "roll_penalty") {
@@ -756,6 +759,7 @@ function PaymentForm({
         ...current,
         category: v,
         amount: suggested,
+        notes: "",
       }));
     }
   };
@@ -775,6 +779,14 @@ function PaymentForm({
         console.error("Activity log failed:", logError);
       }
       toast.success("บันทึกการชำระเงินเรียบร้อยแล้ว");
+      setForm({
+        amount: suggested,
+        paymentDate: getThaiDateStr(),
+        installmentNumber: nextNum + 1,
+        method: "cash",
+        category: isInterestOnly ? "interest" : "principal",
+        notes: "",
+      });
       setSlipFile(null);
       onDone();
     } catch (error: any) {
@@ -893,6 +905,19 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
     startDate: getThaiDateStr(),
     notes: `รียอดใหม่จากสัญญา ${loan.loanNumber}`,
   });
+
+  useEffect(() => {
+    if (open) {
+      setForm({
+        additionalPrincipal: 0,
+        interestRate: Number(loan?.interestRate || 0),
+        installmentsCount: Number(loan?.installmentsCount || 1),
+        paymentType: loan?.paymentType || "daily",
+        startDate: getThaiDateStr(),
+        notes: `รียอดใหม่จากสัญญา ${loan?.loanNumber || ""}`,
+      });
+    }
+  }, [open, loan]);
 
   const totalPrincipal = remaining + Number(form.additionalPrincipal);
   const calc = calcLoan(totalPrincipal, form.interestRate, form.installmentsCount, form.paymentType, new Date(form.startDate));
