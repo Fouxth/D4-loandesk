@@ -6,6 +6,7 @@ export type LineEventType =
   | 'refinance'
   | 'completed'
   | 'pawn_forfeited'
+  | 'yesterday_summary'
   | 'morning_digest'
   | 'overdue_alert'
   | 'late_fee';
@@ -27,6 +28,7 @@ export const DEFAULT_LINE_EVENTS: Record<LineEventType, boolean> = {
   refinance: true,
   completed: true,
   pawn_forfeited: true,
+  yesterday_summary: true,
   morning_digest: true,
   overdue_alert: true,
   late_fee: true,

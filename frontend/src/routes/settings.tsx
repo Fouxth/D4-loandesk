@@ -92,6 +92,7 @@ function Settings() {
     refinance: true,
     completed: true,
     pawn_forfeited: true,
+    yesterday_summary: true,
     morning_digest: true,
     overdue_alert: true,
     late_fee: true,
@@ -173,6 +174,7 @@ function Settings() {
               refinance: data.line_notify.events.refinance !== false,
               completed: data.line_notify.events.completed !== false,
               pawn_forfeited: data.line_notify.events.pawn_forfeited !== false,
+              yesterday_summary: data.line_notify.events.yesterday_summary !== false,
               morning_digest: data.line_notify.events.morning_digest !== false,
               overdue_alert: data.line_notify.events.overdue_alert !== false,
               late_fee: data.line_notify.events.late_fee !== false,
@@ -1161,12 +1163,19 @@ function Settings() {
                 <div className="space-y-4 pt-4 border-t border-border/50 animate-in fade-in slide-in-from-top-2">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">เลือกเหตุการณ์ที่ต้องการแจ้งเตือน</Label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-3 rounded-xl border bg-indigo-500/5 border-indigo-500/20 sm:col-span-2">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-bold cursor-pointer text-indigo-700 dark:text-indigo-300" onClick={() => setLineEvents(p => ({...p, yesterday_summary: !p.yesterday_summary}))}>📊 สรุปผลงานเมื่อวาน (Yesterday Summary)</Label>
+                        <p className="text-[11px] text-muted-foreground">ส่งทุก 07:00 — ยอดเก็บได้เมื่อวาน + รายชื่อลูกค้าที่เก็บได้ / ยังไม่ได้เก็บ</p>
+                      </div>
+                      <Switch checked={lineEvents.yesterday_summary ?? true} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, yesterday_summary: v }))} />
+                    </div>
                     <div className="flex items-center justify-between p-3 rounded-xl border bg-violet-500/5 border-violet-500/20 sm:col-span-2">
                       <div className="space-y-0.5">
-                        <Label className="text-sm font-bold cursor-pointer text-violet-700 dark:text-violet-300" onClick={() => setLineEvents(p => ({...p, morning_digest: !p.morning_digest}))}>สรุปเช้า (Morning Digest)</Label>
-                        <p className="text-[11px] text-muted-foreground">ส่งทุก 07:00 — รายการเก็บวันนี้ + ครบกำหนด + ค้างชำระ</p>
+                        <Label className="text-sm font-bold cursor-pointer text-violet-700 dark:text-violet-300" onClick={() => setLineEvents(p => ({...p, morning_digest: !p.morning_digest}))}>☀️ สรุปแผนงานวันนี้ (Today Agenda)</Label>
+                        <p className="text-[11px] text-muted-foreground">ส่งทุก 07:00 — รายการเก็บเงินวันนี้ + ครบกำหนด + ค้างชำระ</p>
                       </div>
-                      <Switch checked={lineEvents.morning_digest} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, morning_digest: v }))} />
+                      <Switch checked={lineEvents.morning_digest ?? true} onCheckedChange={(v) => setLineEvents(prev => ({ ...prev, morning_digest: v }))} />
                     </div>
                     <div className="flex items-center justify-between p-3 rounded-xl border bg-destructive/5 border-destructive/20 sm:col-span-2">
                       <div className="space-y-0.5">

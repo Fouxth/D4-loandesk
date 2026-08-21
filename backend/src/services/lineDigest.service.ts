@@ -367,9 +367,10 @@ export async function sendMorningDigest(tenantId: string, config: LineNotifyConf
   const recipients = resolveLineRecipients(config);
   if (!recipients.length) return;
 
+  const includeYesterday = isLineEventEnabled(config, 'yesterday_summary');
   const includeMorning = isLineEventEnabled(config, 'morning_digest');
   const includeOverdue = isLineEventEnabled(config, 'overdue_alert');
-  if (!includeMorning && !includeOverdue) return;
+  if (!includeYesterday && !includeMorning && !includeOverdue) return;
 
   const today = getBangkokDateStr();
   const yesterday = getYesterdayDateStr();
@@ -379,7 +380,7 @@ export async function sendMorningDigest(tenantId: string, config: LineNotifyConf
   // ==========================================
   // FLEX 1: สรุปผลงานเมื่อวาน (Yesterday Report)
   // ==========================================
-  if (includeMorning) {
+  if (includeYesterday) {
     const [yesterdaySummary, yesterdayCollected, yesterdayUncollected] = await Promise.all([
       fetchYesterdayCollectionSummary(tenantId),
       fetchYesterdayCollectedList(tenantId),
