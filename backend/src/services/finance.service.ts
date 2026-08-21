@@ -60,6 +60,7 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
       const allPayments = await sql`SELECT amount, category FROM payments WHERE loan_id = ${payment.loanId} AND tenant_id = ${tenantId}`;
 
       let remaining = 0;
+      let isClosedNow = false;
       const isInterestOnlyLoan = Boolean(loan.is_interest_only || loan.is_pawn || loan.isInterestOnly || loan.isPawn);
 
       if (isInterestOnlyLoan) {
@@ -70,8 +71,9 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
         remaining = Math.max(Number(loan.principal) - principalPaid, 0);
 
         // If principal is fully paid (principalPaid >= principal), close contract!
-        if (remaining === 0 && loan.status === 'active') {
+        if (remaining === 0 && loan.status !== 'completed') {
           await sql`UPDATE loans SET status = 'completed' WHERE id = ${loan.id} AND tenant_id = ${tenantId}`;
+          isClosedNow = true;
         }
 
         // Advance due date by 1 month to anchor start date day when interest is paid
@@ -90,9 +92,27 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
         const totalPaid = allPayments.reduce((acc: number, p: any) => acc + Number(p.amount), 0);
         remaining = Math.max(Number(loan.total_payable || loan.totalPayable) - totalPaid, 0);
 
-        if (remaining === 0 && loan.status === 'active') {
+        if (remaining === 0 && loan.status !== 'completed') {
           await sql`UPDATE loans SET status = 'completed' WHERE id = ${loan.id} AND tenant_id = ${tenantId}`;
+          isClosedNow = true;
         }
+      }
+
+      if (isClosedNow) {
+        const formattedPrincipal = Number(loan.principal).toLocaleString('en-US', { minimumFractionDigits: 2 });
+        const completedMsg = `🎉 แจ้งเตือนปิดยอดสัญญา\n👤 ลูกค้า: ${loan.customerName}\n📝 สัญญา: ${loan.loanNumber}\n💸 ยอดเงินต้น: ${formattedPrincipal} บาท`;
+        sendLineNotify(completedMsg, 'completed', {
+          title: '🎉 ปิดยอดสัญญาสำเร็จ',
+          accentColor: '#10b981',
+          items: [
+            { label: 'ลูกค้า', value: loan.customerName },
+            { label: 'เลขที่สัญญา', value: loan.loanNumber },
+            { label: 'ประเภทสัญญา', value: (loan.is_pawn || loan.isPawn) ? 'จำนำทรัพย์สิน' : 'เงินกู้ทั่วไป' },
+            { label: 'ยอดเงินต้น', value: `${formattedPrincipal} บาท` },
+            { label: 'สถานะ', value: 'ชำระครบถ้วน ปิดยอดแล้ว ✅' },
+          ],
+          footer: 'สัญญานี้ได้รับการปิดยอดเสร็จสิ้นแล้ว',
+        }, tenantId);
       }
 
       const [recorder] = await sql`
