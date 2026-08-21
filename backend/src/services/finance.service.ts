@@ -13,6 +13,17 @@ function paymentCategoryLabel(category?: string | null) {
   return PAYMENT_CATEGORY_LABELS[category] ?? category;
 }
 
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash: 'เงินสด',
+  bank_transfer: 'โอนผ่านธนาคาร',
+  other: 'อื่นๆ',
+};
+
+function paymentMethodLabel(method?: string | null) {
+  if (!method) return 'เงินสด';
+  return PAYMENT_METHOD_LABELS[method] ?? method;
+}
+
 export async function dbGetPayments(tenantId: string) {
   return await sql`
     SELECT p.*, l.loan_number, c.full_name as customer_name
@@ -120,12 +131,12 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
       `;
       const recorderName = recorder?.fullName || '—';
       const categoryText = paymentCategoryLabel(payment.category);
-      const methodText = payment.method ? String(payment.method) : '—';
+      const methodText = paymentMethodLabel(payment.method);
 
       const formattedAmount = Number(payment.amount).toLocaleString('en-US', { minimumFractionDigits: 2 });
       const formattedRemaining = remaining.toLocaleString('en-US', { minimumFractionDigits: 2 });
 
-      const message = `🔔 แจ้งเตือนรับชำระเงิน\n👤 ลูกค้า: ${loan.customerName}\n💰 ยอดชำระ: ${formattedAmount} บาท\n📉 คงเหลือเงินต้น: ${formattedRemaining} บาท\n📂 ประเภท: ${categoryText}`;
+      const message = `🔔 แจ้งเตือนรับชำระเงิน\n👤 ลูกค้า: ${loan.customerName}\n💰 ยอดชำระ: ${formattedAmount} บาท\n📉 คงเหลือเงินต้น: ${formattedRemaining} บาท\n📂 ประเภท: ${categoryText}\n💳 ช่องทาง: ${methodText}`;
 
       sendLineNotify(message, 'payment', {
         title: '🔔 รับชำระเงินเรียบร้อย',
