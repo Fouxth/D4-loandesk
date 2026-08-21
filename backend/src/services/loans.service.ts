@@ -96,6 +96,7 @@ export async function dbCreateLoan(data: any, loanNumber: string, userId: string
   safeData.documentFee = toNum(safeData.documentFee, 0);
   safeData.advanceFee = toNum(safeData.advanceFee, 0);
   safeData.parkingFee = toNum(safeData.parkingFee, 0);
+  safeData.status = (safeData.status as string) || 'active';
 
   const result = await sql`
     INSERT INTO loans ${sql({ ...safeData, loanNumber, createdBy: userId, tenantId })}
