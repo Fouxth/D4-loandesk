@@ -154,12 +154,12 @@ function LoanDetail() {
   const remaining = contractRemaining + (skipContractLateFee ? 0 : effectiveFee);
   const loanCategory = getLoanCategory(loan);
   const totalInstallments = Number(loan.installmentsCount ?? 0);
-  const recordedInstallmentNumbers = regularPayments
+  const recordedInstallmentNumbers = payments
     .map((payment) => Number(payment.installmentNumber))
     .filter((installmentNumber) => Number.isFinite(installmentNumber) && installmentNumber > 0);
   const nextInstallmentNumber = recordedInstallmentNumbers.length > 0
     ? Math.max(...recordedInstallmentNumbers) + 1
-    : regularPayments.length + 1;
+    : payments.length + 1;
   const dueAmountBase = isPrincipalInterestAtEnd ? contractRemaining : installmentAmount;
   const suggestedPaymentAmount = loan.isInterestOnly
     ? installmentAmount
@@ -762,7 +762,7 @@ function PaymentForm({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.amount || Number(form.amount) <= 0) {
+    if (form.amount === null || form.amount === undefined || (form.amount as any) === "" || Number(form.amount) < 0 || isNaN(Number(form.amount))) {
       toast.error("กรุณาระบุจำนวนเงินที่ถูกต้อง");
       return;
     }
@@ -793,7 +793,7 @@ function PaymentForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">จำนวนเงิน (บาท)</Label>
-            <Input type="number" min={1} step={0.01} value={form.amount} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, amount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
+            <Input type="number" min={0} step={0.01} value={form.amount} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, amount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ชำระงวดที่</Label>

@@ -32,8 +32,8 @@ router.get('/payments/loan/:loanId', async (req: AuthRequest, res) => {
 
 router.post('/payments', upload.single('slip'), async (req: AuthRequest, res) => {
   const amount = Number(req.body.amount);
-  if (!req.body.amount || isNaN(amount) || amount <= 0) {
-    return res.status(400).json({ error: 'จำนวนเงินต้องมากกว่า 0' });
+  if (req.body.amount === undefined || req.body.amount === null || req.body.amount === '' || isNaN(amount) || amount < 0) {
+    return res.status(400).json({ error: 'จำนวนเงินต้องไม่ติดลบ' });
   }
   try {
     const body: any = { ...req.body };
