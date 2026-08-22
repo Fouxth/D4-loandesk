@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Trash2, Pencil, Phone, X, FileText, Star } from "lucide-react";
+import { Plus, Search, Trash2, Pencil, Phone, X, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/utils/format";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
@@ -57,7 +57,7 @@ function Customers() {
   const [allLoans, setAllLoans] = useState<any[]>([]);
   const [allPayments, setAllPayments] = useState<any[]>([]);
   const [search, setSearch] = useSessionState("customers_search", "");
-  const [gradeFilter, setGradeFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
 
@@ -97,16 +97,16 @@ function Customers() {
                         (r.idCard && r.idCard.toLowerCase().includes(q));
     
     const prof = profilesMap[r.id];
-    const matchGrade = gradeFilter === "all" || (prof && prof.grade === gradeFilter);
-    return matchSearch && matchGrade;
+    const matchCategory = categoryFilter === "all" || (prof && prof.category === categoryFilter);
+    return matchSearch && matchCategory;
   });
 
-  // Grade Counts for filter tabs
-  const gradeCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: rows.length, "A+": 0, A: 0, B: 0, C: 0, D: 0, NEW: 0 };
+  // Category Counts for filter tabs
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: rows.length, good: 0, regular: 0, new: 0, watchlist: 0, blocked: 0 };
     rows.forEach((r) => {
-      const g = profilesMap[r.id]?.grade || "NEW";
-      if (counts[g] !== undefined) counts[g]++;
+      const cat = profilesMap[r.id]?.category || "new";
+      if (counts[cat] !== undefined) counts[cat]++;
     });
     return counts;
   }, [rows, profilesMap]);
@@ -167,97 +167,86 @@ function Customers() {
         }
       />
 
-      {/* Credit Grade Filter Chips */}
+      {/* Customer Category Filter Chips */}
       <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar text-xs font-bold">
         <div className="flex items-center gap-1.5 text-muted-foreground shrink-0 pr-1">
-          <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
-          <span>เกรดเครดิต:</span>
+          <span>กลุ่มลูกค้า:</span>
         </div>
         <button
-          onClick={() => setGradeFilter("all")}
+          onClick={() => setCategoryFilter("all")}
           className={cn(
             "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap",
-            gradeFilter === "all"
+            categoryFilter === "all"
               ? "bg-primary text-primary-foreground border-primary shadow-sm"
               : "bg-card border-border hover:bg-muted text-muted-foreground"
           )}
         >
-          ทั้งหมด ({gradeCounts.all})
+          ทั้งหมด ({categoryCounts.all})
         </button>
         <button
-          onClick={() => setGradeFilter("A+")}
+          onClick={() => setCategoryFilter("good")}
           className={cn(
             "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
-            gradeFilter === "A+"
+            categoryFilter === "good"
               ? "bg-emerald-600 text-white border-emerald-700 shadow-sm"
               : "bg-card border-border hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
           )}
         >
-          <span>⭐ เกรด A+ (VIP)</span>
-          <span className="opacity-80 text-[10px]">({gradeCounts["A+"]})</span>
+          <span>💎 เครดิตดี</span>
+          <span className="opacity-80 text-[10px]">({categoryCounts.good})</span>
         </button>
         <button
-          onClick={() => setGradeFilter("A")}
+          onClick={() => setCategoryFilter("regular")}
           className={cn(
             "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
-            gradeFilter === "A"
-              ? "bg-teal-600 text-white border-teal-700 shadow-sm"
-              : "bg-card border-border hover:bg-teal-500/10 text-teal-600 dark:text-teal-400"
+            categoryFilter === "regular"
+              ? "bg-blue-600 text-white border-blue-700 shadow-sm"
+              : "bg-card border-border hover:bg-blue-500/10 text-blue-600 dark:text-blue-400"
           )}
         >
-          <span>🟢 เกรด A (ดีมาก)</span>
-          <span className="opacity-80 text-[10px]">({gradeCounts.A})</span>
+          <span>👥 ลูกค้าประจำ</span>
+          <span className="opacity-80 text-[10px]">({categoryCounts.regular})</span>
         </button>
         <button
-          onClick={() => setGradeFilter("B")}
+          onClick={() => setCategoryFilter("new")}
           className={cn(
             "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
-            gradeFilter === "B"
-              ? "bg-amber-600 text-white border-amber-700 shadow-sm"
-              : "bg-card border-border hover:bg-amber-500/10 text-amber-600 dark:text-amber-400"
-          )}
-        >
-          <span>🟡 เกรด B (ปานกลาง)</span>
-          <span className="opacity-80 text-[10px]">({gradeCounts.B})</span>
-        </button>
-        <button
-          onClick={() => setGradeFilter("C")}
-          className={cn(
-            "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
-            gradeFilter === "C"
-              ? "bg-orange-600 text-white border-orange-700 shadow-sm"
-              : "bg-card border-border hover:bg-orange-500/10 text-orange-600 dark:text-orange-400"
-          )}
-        >
-          <span>🟠 เกรด C (เฝ้าระวัง)</span>
-          <span className="opacity-80 text-[10px]">({gradeCounts.C})</span>
-        </button>
-        {gradeCounts.D > 0 && (
-          <button
-            onClick={() => setGradeFilter("D")}
-            className={cn(
-              "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
-              gradeFilter === "D"
-                ? "bg-rose-600 text-white border-rose-700 shadow-sm"
-                : "bg-card border-border hover:bg-rose-500/10 text-rose-600 dark:text-rose-400"
-            )}
-          >
-            <span>🔴 เกรด D (เสี่ยงสูง)</span>
-            <span className="opacity-80 text-[10px]">({gradeCounts.D})</span>
-          </button>
-        )}
-        <button
-          onClick={() => setGradeFilter("NEW")}
-          className={cn(
-            "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
-            gradeFilter === "NEW"
+            categoryFilter === "new"
               ? "bg-slate-600 text-white border-slate-700 shadow-sm"
               : "bg-card border-border hover:bg-muted text-muted-foreground"
           )}
         >
           <span>⚪ ลูกค้าใหม่</span>
-          <span className="opacity-80 text-[10px]">({gradeCounts.NEW})</span>
+          <span className="opacity-80 text-[10px]">({categoryCounts.new})</span>
         </button>
+        {categoryCounts.watchlist > 0 && (
+          <button
+            onClick={() => setCategoryFilter("watchlist")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
+              categoryFilter === "watchlist"
+                ? "bg-orange-600 text-white border-orange-700 shadow-sm"
+                : "bg-card border-border hover:bg-orange-500/10 text-orange-600 dark:text-orange-400"
+            )}
+          >
+            <span>⚠️ เฝ้าระวัง</span>
+            <span className="opacity-80 text-[10px]">({categoryCounts.watchlist})</span>
+          </button>
+        )}
+        {categoryCounts.blocked > 0 && (
+          <button
+            onClick={() => setCategoryFilter("blocked")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
+              categoryFilter === "blocked"
+                ? "bg-rose-600 text-white border-rose-700 shadow-sm"
+                : "bg-card border-border hover:bg-rose-500/10 text-rose-600 dark:text-rose-400"
+            )}
+          >
+            <span>🚫 เครดิตไม่ผ่าน</span>
+            <span className="opacity-80 text-[10px]">({categoryCounts.blocked})</span>
+          </button>
+        )}
       </div>
 
       <div className="mb-6 flex items-center gap-2">
@@ -277,7 +266,7 @@ function Customers() {
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50 border-b border-border">
               <TableHead className="font-bold">{t('customers.table.name', 'ชื่อ-นามสกุล')}</TableHead>
-              <TableHead className="font-bold">เกรดเครดิต (Credit Score)</TableHead>
+              <TableHead className="font-bold">กลุ่มลูกค้า / เครดิต</TableHead>
               <TableHead className="font-bold">ประวัติการผ่อนชำระ</TableHead>
               <TableHead className="font-bold">{t('customers.table.phone', 'เบอร์โทรศัพท์')}</TableHead>
               <TableHead className="font-bold">{t('customers.table.id_card', 'เลขบัตรประชาชน')}</TableHead>
@@ -296,7 +285,7 @@ function Customers() {
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <CreditScoreBadge profile={prof} size="sm" showScore />
+                    <CreditScoreBadge profile={prof} size="sm" showRate />
                   </TableCell>
                   <TableCell>
                     <div className="text-xs space-y-0.5">
@@ -362,7 +351,7 @@ function Customers() {
                       {c.fullName}
                     </div>
                     <div className="mt-1">
-                      <CreditScoreBadge profile={prof} size="xs" showScore />
+                      <CreditScoreBadge profile={prof} size="xs" showRate />
                     </div>
                   </div>
                   <div className="text-right text-xs">

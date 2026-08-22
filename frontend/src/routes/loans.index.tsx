@@ -981,20 +981,19 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
           {selectedCreditProfile && (
             <div className={cn(
               "rounded-xl border p-3 text-xs space-y-1.5 transition-all animate-in fade-in",
-              selectedCreditProfile.grade === 'A+' || selectedCreditProfile.grade === 'A'
+              selectedCreditProfile.category === 'good'
                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
-                : selectedCreditProfile.grade === 'B'
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300"
-                : selectedCreditProfile.grade === 'C'
+                : selectedCreditProfile.category === 'regular'
+                ? "bg-blue-500/10 border-blue-500/30 text-blue-800 dark:text-blue-300"
+                : selectedCreditProfile.category === 'watchlist'
                 ? "bg-orange-500/10 border-orange-500/30 text-orange-800 dark:text-orange-300"
-                : selectedCreditProfile.grade === 'D'
+                : selectedCreditProfile.category === 'blocked'
                 ? "bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-300"
                 : "bg-muted/40 border-border text-muted-foreground"
             )}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-black text-sm">
-                  <CreditScoreBadge profile={selectedCreditProfile} size="xs" showScore />
-                  <span>{selectedCreditProfile.gradeLabel}</span>
+                  <CreditScoreBadge profile={selectedCreditProfile} size="xs" />
                 </div>
                 <span className="font-bold">
                   {selectedCreditProfile.totalLoansCount === 0

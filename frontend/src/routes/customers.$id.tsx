@@ -85,7 +85,7 @@ function Detail() {
         title={c.fullName}
         description={c.phone || "ไม่มีเบอร์โทรศัพท์"}
         actions={
-          <CreditScoreBadge profile={creditProfile} size="md" showScore />
+          <CreditScoreBadge profile={creditProfile} size="md" />
         }
       />
 
@@ -98,8 +98,8 @@ function Detail() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-black text-foreground">การประเมินเครดิตและประวัติการผ่อนชำระ</h3>
-                <CreditScoreBadge profile={creditProfile} size="sm" showScore />
+                <h3 className="text-base font-black text-foreground">การประเมินกลุ่มลูกค้าและประวัติการผ่อนชำระ</h3>
+                <CreditScoreBadge profile={creditProfile} size="sm" />
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
                 ประเมินจากประวัติทั้งหมด {creditProfile.totalLoansCount} สัญญา (สำเร็จแล้ว {creditProfile.completedLoansCount} สัญญา)

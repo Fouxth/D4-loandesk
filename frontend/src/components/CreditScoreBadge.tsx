@@ -1,69 +1,60 @@
 import type { CustomerCreditProfile } from "@/utils/creditScore";
 import { cn } from "@/utils/utils";
-import { ShieldCheck, ShieldAlert, Star, Sparkles, AlertTriangle, UserCheck } from "lucide-react";
+import { Sparkles, Users, Gem, AlertTriangle, Ban } from "lucide-react";
 
 interface CreditScoreBadgeProps {
   profile: CustomerCreditProfile;
   size?: "xs" | "sm" | "md" | "lg";
-  showScore?: boolean;
-  showLabel?: boolean;
+  showRate?: boolean;
   className?: string;
 }
 
 export function CreditScoreBadge({
   profile,
   size = "sm",
-  showScore = false,
-  showLabel = true,
+  showRate = false,
   className,
 }: CreditScoreBadgeProps) {
   const getIcon = () => {
-    switch (profile.grade) {
-      case "A+":
-        return <Star className="h-3 w-3 fill-amber-400 text-amber-400 animate-pulse" />;
-      case "A":
-        return <ShieldCheck className="h-3 w-3 text-emerald-500" />;
-      case "B":
-        return <UserCheck className="h-3 w-3 text-amber-500" />;
-      case "C":
-        return <AlertTriangle className="h-3 w-3 text-orange-500" />;
-      case "D":
-        return <ShieldAlert className="h-3 w-3 text-rose-500" />;
-      case "NEW":
+    switch (profile.category) {
+      case "good":
+        return <Gem className="h-3.5 w-3.5 text-emerald-500" />;
+      case "regular":
+        return <Users className="h-3.5 w-3.5 text-blue-500" />;
+      case "watchlist":
+        return <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />;
+      case "blocked":
+        return <Ban className="h-3.5 w-3.5 text-rose-500" />;
+      case "new":
       default:
-        return <Sparkles className="h-3 w-3 text-slate-400" />;
+        return <Sparkles className="h-3.5 w-3.5 text-slate-400" />;
     }
   };
 
   const sizeClasses = {
-    xs: "text-[10px] px-1.5 py-0.2 rounded-md gap-1",
-    sm: "text-[11px] px-2 py-0.5 rounded-lg gap-1.5",
-    md: "text-xs px-2.5 py-1 rounded-xl gap-2 font-bold",
-    lg: "text-sm px-3.5 py-1.5 rounded-2xl gap-2.5 font-black",
+    xs: "text-[10px] px-2 py-0.5 rounded-md gap-1 font-bold",
+    sm: "text-xs px-2.5 py-1 rounded-lg gap-1.5 font-bold",
+    md: "text-sm px-3 py-1.5 rounded-xl gap-2 font-bold",
+    lg: "text-base px-4 py-2 rounded-2xl gap-2.5 font-black",
   };
 
   return (
     <div
       className={cn(
-        "inline-flex items-center font-bold border transition-all select-none shadow-sm",
+        "inline-flex items-center select-none border shadow-sm transition-all whitespace-nowrap",
         profile.badgeBg,
         profile.badgeText,
         profile.badgeBorder,
         sizeClasses[size],
         className
       )}
-      title={`${profile.gradeLabel} (คะแนนเครดิต: ${profile.score}/100 | จ่ายตรง: ${profile.onTimePaymentRate}%)`}
+      title={`${profile.categoryLabel} (จ่ายตรงเวลา ${profile.onTimePaymentRate}%)`}
     >
       {getIcon()}
-      <span className="tracking-tight font-black">เกรด {profile.grade}</span>
-      {showScore && (
-        <span className="opacity-75 text-[10px] font-mono">
-          ({profile.score} คะแนน)
-        </span>
-      )}
-      {showLabel && size !== "xs" && (
-        <span className="opacity-80 text-[10px] hidden sm:inline">
-          · {profile.gradeLabel}
+      <span>{profile.categoryLabel}</span>
+      {showRate && profile.totalLoansCount > 0 && (
+        <span className="opacity-75 text-[10px] font-mono ml-0.5">
+          ({profile.onTimePaymentRate}%)
         </span>
       )}
     </div>
