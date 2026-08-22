@@ -243,40 +243,80 @@ export async function dbRefinanceLoan(oldLoanId: string, newData: any, newLoanNu
 
     await sql`UPDATE loans SET status = 'refinanced' WHERE id = ${oldLoanId} AND tenant_id = ${tenantId}`;
 
+    const isInterestOnly = Boolean(newData.isInterestOnly ?? oldLoan.isInterestOnly);
+    const isIndefinite = Boolean(newData.isIndefinite ?? oldLoan.isIndefinite);
+    const isPrincipalInterestAtEnd = Boolean(newData.isPrincipalInterestAtEnd ?? oldLoan.isPrincipalInterestAtEnd);
+    const isPawn = Boolean(newData.isPawn ?? oldLoan.isPawn);
+
     const [newLoan] = await sql`
       INSERT INTO loans ${sql({
         customerId: oldLoan.customerId,
         loanNumber: newLoanNumber,
-        principal: newData.principal,
-        interestRate: newData.interestRate,
-        interestAmount: newData.interestAmount,
-        totalPayable: newData.totalPayable,
-        installmentsCount: newData.installmentsCount,
-        installmentAmount: newData.installmentAmount,
-        paymentType: newData.paymentType,
+        principal: Number(newData.principal || 0),
+        interestRate: Number(newData.interestRate || 0),
+        interestAmount: Number(newData.interestAmount || 0),
+        totalPayable: Number(newData.totalPayable || 0),
+        installmentsCount: Number(newData.installmentsCount || 1),
+        installmentAmount: Number(newData.installmentAmount || 0),
+        paymentType: newData.paymentType || 'daily',
         startDate: newData.startDate,
-        dueDate: newData.dueDate,
+        dueDate: isIndefinite ? null : (newData.dueDate || null),
+        promiseDate: newData.promiseDate || (isPrincipalInterestAtEnd ? newData.dueDate : null),
         notes: newData.notes,
         refinancedFrom: oldLoanId,
-        is_interest_only: newData.isInterestOnly ?? oldLoan.isInterestOnly,
-        is_indefinite: newData.isIndefinite ?? oldLoan.isIndefinite,
-        is_pawn: newData.isPawn ?? oldLoan.isPawn,
-        pawn_item: newData.pawnItem ?? oldLoan.pawnItem,
-        pawn_status: newData.pawnStatus ?? oldLoan.pawnStatus,
+        isInterestOnly,
+        isIndefinite,
+        isPrincipalInterestAtEnd,
+        isPawn,
+        pawnItem: isPawn ? (newData.pawnItem || oldLoan.pawnItem || null) : null,
+        pawnStatus: isPawn ? (newData.pawnStatus || oldLoan.pawnStatus || 'active') : null,
+        documentFee: Number(newData.documentFee || 0),
+        advanceFee: Number(newData.advanceFee || 0),
+        parkingFee: Number(newData.parkingFee || 0),
+        status: 'active',
         createdBy: userId,
         tenantId
       })}
       RETURNING *
     `;
 
+    const deductedOldRemaining = Number(newData.deductedOldRemaining || 0);
+    const docFee = Number(newData.documentFee || 0);
+    const advFee = Number(newData.advanceFee || 0);
+    const parkFee = Number(newData.parkingFee || 0);
+    const netDisbursement = Math.max(Number(newLoan.principal || 0) - deductedOldRemaining - docFee - advFee - parkFee, 0);
+
+    // Activity Log
+    try {
+      await dbLogActivity(tenantId, userId, 'refinance_loan', 'loan', newLoan.id, {
+        oldLoanId,
+        oldLoanNumber: oldLoan.loanNumber,
+        newLoanNumber: newLoan.loanNumber,
+        oldPrincipal: oldLoan.principal,
+        newPrincipal: newLoan.principal,
+        deductedOldRemaining,
+        netDisbursement,
+      });
+    } catch (logErr) {
+      console.error('Failed to log refinance activity:', logErr);
+    }
+
     // Notify LINE of Refinance
     try {
-      const customers = await sql`SELECT full_name FROM customers WHERE id = ${oldLoan.customerId} AND tenant_id = ${tenantId}`;
-      const customerName = customers[0]?.fullName || "—";
+      let customerName = 'จำนำไม่ระบุชื่อ';
+      if (oldLoan.customerId) {
+        const customers = await sql`SELECT full_name FROM customers WHERE id = ${oldLoan.customerId} AND tenant_id = ${tenantId}`;
+        customerName = customers[0]?.fullName || customers[0]?.full_name || '—';
+      } else if (newLoan.pawnItem) {
+        customerName = `จำนำ: ${newLoan.pawnItem}`;
+      }
+
       const formattedOldPrincipal = Number(oldLoan.principal).toLocaleString('en-US', {minimumFractionDigits: 2});
       const formattedNewPrincipal = Number(newLoan.principal).toLocaleString('en-US', {minimumFractionDigits: 2});
+      const formattedDeducted = deductedOldRemaining.toLocaleString('en-US', {minimumFractionDigits: 2});
+      const formattedNet = netDisbursement.toLocaleString('en-US', {minimumFractionDigits: 2});
       
-      const message = `🔄 แจ้งเตือนรียอดสัญญาใหม่ (Refinance)\n👤 ลูกค้า: ${customerName}\n📝 สัญญาเดิม: ${oldLoan.loanNumber} (ยอดเดิม: ${formattedOldPrincipal} ฿)\n🆕 สัญญาใหม่: ${newLoan.loanNumber} (ยอดใหม่: ${formattedNewPrincipal} ฿)`;
+      const message = `🔄 แจ้งเตือนรียอดสัญญาใหม่ (Refinance)\n👤 ลูกค้า: ${customerName}\n📝 สัญญาเดิม: ${oldLoan.loanNumber} (ยอดเดิม: ${formattedOldPrincipal} ฿)\n🆕 สัญญาใหม่: ${newLoan.loanNumber} (ยอดจัดใหม่: ${formattedNewPrincipal} ฿)\n✂️ หักยอดค้างเดิม: ${formattedDeducted} ฿\n💵 จ่ายลูกค้าจริง: ${formattedNet} ฿`;
       
       await sendLineNotify(message, 'refinance', {
         title: '🔄 รียอดสัญญาใหม่ (Refinance)',
@@ -284,10 +324,12 @@ export async function dbRefinanceLoan(oldLoanId: string, newData: any, newLoanNu
         items: [
           { label: 'ลูกค้า', value: customerName },
           { label: 'สัญญาเดิม', value: oldLoan.loanNumber },
-          { label: 'สัญญาใหม่', value: newLoan.loanNumber },
-          { label: 'ยอดใหม่รวม', value: `${formattedNewPrincipal} บาท`, color: '#8b5cf6' }
+          { label: 'สัญญาใหม่ (เริ่มส่งใหม่)', value: newLoan.loanNumber },
+          { label: 'ยอดจัดสัญญาใหม่', value: `${formattedNewPrincipal} บาท`, color: '#8b5cf6' },
+          { label: 'หักยอดค้างเดิม', value: `${formattedDeducted} บาท` },
+          { label: 'ยอดเงินจ่ายลูกค้าจริง', value: `${formattedNet} บาท`, color: '#10b981' }
         ],
-        footer: 'ทำรายการรียอดใหม่สำเร็จแล้ว'
+        footer: 'ทำรายการรียอดใหม่สำเร็จแล้ว (เริ่มส่งงวดที่ 1 ใหม่)'
       }, tenantId);
     } catch (err) {
       console.error('Failed to send refinance notification:', err);

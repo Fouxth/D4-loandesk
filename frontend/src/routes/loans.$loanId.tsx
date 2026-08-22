@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel, getLoanNextDueDate } from "@/components/StatusBadge";
-import { ArrowLeft, Plus, Trash2, Camera, Image as ImageIcon, X, Loader2, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Camera, Image as ImageIcon, X, Loader2, Pencil, RefreshCw } from "lucide-react";
+import { cn } from "@/utils/utils";
 import { toast } from "sonner";
 import { formatTHB, formatDate, daysBetween, getThaiDateStr } from "@/utils/format";
 import { calcLoan } from "@/utils/loanCalc";
-import { RefreshCw } from "lucide-react";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { useSettings } from "@/contexts/SettingsContext";
 import { resolveLateFee } from "@/utils/lateFee";
@@ -939,59 +939,121 @@ function PaymentForm({
 }
 
 function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: number; onDone: () => void }) {
+  const navigate = useNavigate();
+  const { lending } = useSettings();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const defaultNewPrincipal = Number(loan?.principal || remaining || 10000);
+
   const [form, setForm] = useState({
-    additionalPrincipal: 0,
-    interestRate: Number(loan.interestRate),
-    installmentsCount: Number(loan.installmentsCount),
-    paymentType: loan.paymentType,
+    principal: defaultNewPrincipal,
+    interestRate: Number(loan?.interestRate ?? loan?.interest_rate ?? 20),
+    installmentsCount: Number(loan?.installmentsCount ?? loan?.installments_count ?? 30),
+    paymentType: (loan?.paymentType || loan?.payment_type || "daily") as "daily" | "weekly" | "monthly",
     startDate: getThaiDateStr(),
-    notes: `รียอดใหม่จากสัญญา ${loan.loanNumber}`,
+    promiseDate: "",
+    notes: `รียอดใหม่จากสัญญา ${loan?.loanNumber || ""}`,
+    isInterestOnly: Boolean(loan?.isInterestOnly || loan?.is_interest_only),
+    isPrincipalInterestAtEnd: Boolean(loan?.isPrincipalInterestAtEnd || loan?.is_principal_interest_at_end),
+    isPawn: Boolean(loan?.isPawn || loan?.is_pawn),
+    pawnItem: loan?.pawnItem || loan?.pawn_item || "",
   });
+
+  const [applyDocumentFee, setApplyDocumentFee] = useState(false);
+  const [documentFee, setDocumentFee] = useState<number | string>(lending.documentFeeAmount || 300);
+  const [applyAdvanceFee, setApplyAdvanceFee] = useState(false);
+  const [advanceFee, setAdvanceFee] = useState<number | string>(lending.advanceFeeAmount || 500);
+  const [applyParkingFee, setApplyParkingFee] = useState(false);
+  const [parkingFee, setParkingFee] = useState<number | string>(lending.parkingFeeAmount || 500);
 
   useEffect(() => {
     if (open) {
+      const initPrin = Number(loan?.principal || remaining || 10000);
       setForm({
-        additionalPrincipal: 0,
-        interestRate: Number(loan?.interestRate || 0),
-        installmentsCount: Number(loan?.installmentsCount || 1),
-        paymentType: loan?.paymentType || "daily",
+        principal: initPrin,
+        interestRate: Number(loan?.interestRate ?? loan?.interest_rate ?? 20),
+        installmentsCount: Number(loan?.installmentsCount ?? loan?.installments_count ?? 30),
+        paymentType: (loan?.paymentType || loan?.payment_type || "daily") as "daily" | "weekly" | "monthly",
         startDate: getThaiDateStr(),
+        promiseDate: "",
         notes: `รียอดใหม่จากสัญญา ${loan?.loanNumber || ""}`,
+        isInterestOnly: Boolean(loan?.isInterestOnly || loan?.is_interest_only),
+        isPrincipalInterestAtEnd: Boolean(loan?.isPrincipalInterestAtEnd || loan?.is_principal_interest_at_end),
+        isPawn: Boolean(loan?.isPawn || loan?.is_pawn),
+        pawnItem: loan?.pawnItem || loan?.pawn_item || "",
       });
+      setApplyDocumentFee(false);
+      setDocumentFee(lending.documentFeeAmount || 300);
+      setApplyAdvanceFee(false);
+      setAdvanceFee(lending.advanceFeeAmount || 500);
+      setApplyParkingFee(false);
+      setParkingFee(lending.parkingFeeAmount || 500);
     }
-  }, [open, loan]);
+  }, [open, loan, remaining, lending]);
 
-  const totalPrincipal = remaining + Number(form.additionalPrincipal);
-  const calc = calcLoan(totalPrincipal, form.interestRate, form.installmentsCount, form.paymentType, new Date(form.startDate));
+  const isIndefiniteLoan = Boolean(form.isPawn);
+
+  const calc = calcLoan(
+    Number(form.principal || 0),
+    Number(form.interestRate || 0),
+    Number(form.installmentsCount || 1),
+    form.paymentType,
+    new Date(form.startDate),
+    form.isInterestOnly,
+    isIndefiniteLoan,
+    form.isPrincipalInterestAtEnd
+  );
+
+  const appliedDocumentFee = applyDocumentFee ? Number(documentFee) || 0 : 0;
+  const appliedAdvanceFee = applyAdvanceFee ? Number(advanceFee) || 0 : 0;
+  const appliedParkingFee = form.isPawn && applyParkingFee ? Number(parkingFee) || 0 : 0;
+  const totalDeductions = remaining + appliedDocumentFee + appliedAdvanceFee + appliedParkingFee;
+  const netDisbursement = Math.max(Number(form.principal || 0) - totalDeductions, 0);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.principal || Number(form.principal) <= 0) {
+      toast.error("กรุณาระบุยอดเงินต้นสัญญาใหม่");
+      return;
+    }
     setBusy(true);
     try {
-      await refinanceLoan(loan.id, {
-        principal: totalPrincipal,
-        interestRate: form.interestRate,
+      const res = await refinanceLoan(loan.id, {
+        principal: Number(form.principal),
+        interestRate: Number(form.interestRate),
         interestAmount: calc.interest,
         totalPayable: calc.total,
-        installmentsCount: form.installmentsCount,
+        installmentsCount: Number(form.installmentsCount),
         installmentAmount: calc.installment,
         paymentType: form.paymentType,
         startDate: form.startDate,
-        dueDate: calc.due ? calc.due.toISOString().split("T")[0] : form.startDate,
+        dueDate: isIndefiniteLoan ? null : (calc.due ? calc.due.toISOString().split("T")[0] : null),
+        promiseDate: form.promiseDate || (form.isPrincipalInterestAtEnd && calc.due ? calc.due.toISOString().split("T")[0] : null),
         notes: form.notes,
+        isInterestOnly: form.isInterestOnly,
+        isIndefinite: isIndefiniteLoan,
+        isPrincipalInterestAtEnd: form.isPrincipalInterestAtEnd,
+        isPawn: form.isPawn,
+        pawnItem: form.isPawn ? form.pawnItem : null,
+        documentFee: appliedDocumentFee,
+        advanceFee: appliedAdvanceFee,
+        parkingFee: appliedParkingFee,
+        deductedOldRemaining: remaining,
+        netDisbursement,
       });
-      try {
-        await logActivity({ action: "refinance_loan", entity_type: "loan", entity_id: loan.id, details: { newPrincipal: totalPrincipal } });
-      } catch (logError) {
-        console.error("Activity log failed:", logError);
-      }
-      toast.success("รียอดสัญญาใหม่เรียบร้อยแล้ว");
+
+      toast.success("รียอดสัญญาใหม่เรียบร้อยแล้ว (เริ่มส่งงวดที่ 1 ใหม่)");
       setOpen(false);
-      onDone();
+
+      const newLoanId = res?.id || res?.[0]?.id;
+      if (newLoanId) {
+        navigate({ to: "/loans/$loanId", params: { loanId: newLoanId } });
+      } else {
+        onDone();
+      }
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || "เกิดข้อผิดพลาดในการรียอดสัญญาใหม่");
     } finally {
       setBusy(false);
     }
@@ -1004,37 +1066,64 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
           <RefreshCw className="mr-2 h-5 w-5" />รียอดใหม่
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-xl w-[95vw] sm:w-full">
+      <DialogContent className="max-w-xl w-[95vw] sm:w-full max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">รียอดสัญญาใหม่ (Refinance)</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            สร้างสัญญาใหม่ เริ่มนับงวดที่ 1 ใหม่ และหักล้างยอดคงค้างสัญญาเดิม ({loan.loanNumber})
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={submit} className="space-y-4 pt-2">
-          <div className="bg-muted/30 rounded-lg p-4 grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-[11px] uppercase font-bold text-muted-foreground mb-1">ยอดคงเหลือเดิม</p>
-              <p className="text-lg font-black">{formatTHB(remaining)}</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase font-bold text-muted-foreground mb-1">เงินต้นใหม่รวม</p>
-              <p className="text-lg font-black text-primary">{formatTHB(totalPrincipal)}</p>
-            </div>
-          </div>
 
+        {/* Existing Debt Card */}
+        <div className="rounded-xl border border-warning/30 bg-warning/10 p-3.5 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-warning">ยอดคงค้างสัญญาเดิมที่จะหักล้าง ({loan.loanNumber})</p>
+            <p className="text-xs text-muted-foreground mt-0.5">สัญญาเดิมจะถูกเปลี่ยนสถานะเป็น "รียอดแล้ว" (เคลียร์ยอด)</p>
+          </div>
+          <span className="text-base font-black text-warning shrink-0">{formatTHB(remaining)}</span>
+        </div>
+
+        <form onSubmit={submit} className="space-y-4 pt-1">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">เพิ่มเงินต้น (+)</Label>
-              <Input type="number" value={form.additionalPrincipal} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, additionalPrincipal: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
+              <Label className="text-xs font-bold uppercase tracking-wider text-primary">
+                ยอดเงินต้นสัญญาใหม่ (บาท) *
+              </Label>
+              <Input
+                type="number"
+                min={1}
+                value={form.principal}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setForm({ ...form, principal: e.target.value === "" ? "" as any : Number(e.target.value) })}
+                className="bg-primary/10 border-primary/30 font-black text-primary text-base"
+                placeholder="เช่น 10000"
+              />
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">อัตราดอกเบี้ย (%)</Label>
-              <Input type="number" step={0.1} value={form.interestRate} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, interestRate: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
+              <Input
+                type="number"
+                step={0.1}
+                min={0}
+                value={form.interestRate}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setForm({ ...form, interestRate: e.target.value === "" ? "" as any : Number(e.target.value) })}
+                className="bg-muted/20"
+              />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">จำนวนงวด</Label>
-              <Input type="number" value={form.installmentsCount} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">จำนวนงวด (เริ่มส่งใหม่)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={form.installmentsCount}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" as any : Number(e.target.value) })}
+                className="bg-muted/20"
+              />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ความถี่</Label>
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ความถี่ในการชำระ</Label>
               <Select value={form.paymentType} onValueChange={(v: any) => setForm({ ...form, paymentType: v })}>
                 <SelectTrigger className="bg-muted/20"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -1044,32 +1133,267 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2 col-span-1 sm:col-span-2">
+            <div className={form.isPrincipalInterestAtEnd ? "space-y-2 col-span-1" : "space-y-2 col-span-1 sm:col-span-2"}>
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">วันที่เริ่มสัญญาใหม่</Label>
               <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className="bg-muted/20" />
             </div>
+
+            {form.isPrincipalInterestAtEnd && (
+              <div className="space-y-2 col-span-1">
+                <Label className="text-xs font-bold uppercase tracking-wider text-primary">วันนัดจ่าย (วันครบกำหนด)</Label>
+                <Input
+                  type="date"
+                  value={form.promiseDate || (calc.due ? calc.due.toISOString().split("T")[0] : "")}
+                  onChange={(e) => setForm({ ...form, promiseDate: e.target.value })}
+                  className="bg-primary/10 border-primary/30 font-bold"
+                />
+              </div>
+            )}
+
+            {/* Loan Mode Options */}
+            <div className="col-span-1 sm:col-span-2 space-y-2 pt-1 border-t border-border/50">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="refinanceIsInterestOnly"
+                  checked={form.isInterestOnly}
+                  disabled={form.isPrincipalInterestAtEnd}
+                  onChange={(e) => setForm({ ...form, isInterestOnly: e.target.checked })}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <Label htmlFor="refinanceIsInterestOnly" className="text-sm font-bold text-foreground cursor-pointer">
+                  เงินกู้แบบดอกลอย (เก็บแต่ดอกเบี้ย)
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="refinanceIsPrincipalInterestAtEnd"
+                  checked={form.isPrincipalInterestAtEnd}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      isPrincipalInterestAtEnd: e.target.checked,
+                      isInterestOnly: e.target.checked ? false : form.isInterestOnly,
+                    })
+                  }
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <Label htmlFor="refinanceIsPrincipalInterestAtEnd" className="text-sm font-bold text-foreground cursor-pointer">
+                  จบต้นจบดอก (ชำระครั้งเดียววันครบกำหนด)
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="refinanceIsPawn"
+                  checked={form.isPawn}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setForm({
+                      ...form,
+                      isPawn: checked,
+                      paymentType: checked ? "monthly" : form.paymentType,
+                      isInterestOnly: checked ? true : form.isInterestOnly,
+                      isPrincipalInterestAtEnd: checked ? false : form.isPrincipalInterestAtEnd,
+                    });
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <Label htmlFor="refinanceIsPawn" className="text-sm font-bold text-foreground cursor-pointer">
+                  จำนำสิ่งของ
+                </Label>
+              </div>
+            </div>
+
+            {form.isPawn && (
+              <div className="space-y-2 p-3 bg-primary/5 rounded-xl border border-primary/20 col-span-1 sm:col-span-2 animate-in fade-in">
+                <Label className="text-[11px] font-bold uppercase tracking-wider text-primary">รายละเอียดสิ่งของที่จำนำ</Label>
+                <Input
+                  value={form.pawnItem}
+                  onChange={(e) => setForm({ ...form, pawnItem: e.target.value })}
+                  placeholder="เช่น รถเก๋ง วีออส สีดำ, พระเลี่ยมทอง..."
+                  className="bg-background border-primary/30"
+                />
+              </div>
+            )}
+
+            {/* Fee Deduction Checkboxes */}
+            <div className={cn(
+              "col-span-1 sm:col-span-2 grid gap-4 border-t border-border/50 pt-3",
+              form.isPawn ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"
+            )}>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="refinanceApplyDocumentFee"
+                    checked={applyDocumentFee}
+                    onChange={(e) => setApplyDocumentFee(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="refinanceApplyDocumentFee" className="text-sm font-bold text-foreground cursor-pointer">
+                    หักค่าเอกสาร
+                  </Label>
+                </div>
+                {applyDocumentFee && (
+                  <Input
+                    type="number"
+                    min={0}
+                    value={documentFee}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => setDocumentFee(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="bg-muted/20"
+                  />
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="refinanceApplyAdvanceFee"
+                    checked={applyAdvanceFee}
+                    onChange={(e) => setApplyAdvanceFee(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="refinanceApplyAdvanceFee" className="text-sm font-bold text-foreground cursor-pointer">
+                    หักค่าล่วงหน้า
+                  </Label>
+                </div>
+                {applyAdvanceFee && (
+                  <Input
+                    type="number"
+                    min={0}
+                    value={advanceFee}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => setAdvanceFee(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="bg-muted/20"
+                  />
+                )}
+              </div>
+
+              {form.isPawn && (
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="refinanceApplyParkingFee"
+                      checked={applyParkingFee}
+                      onChange={(e) => setApplyParkingFee(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <Label htmlFor="refinanceApplyParkingFee" className="text-sm font-bold text-foreground cursor-pointer">
+                      หักค่าฝากจอด
+                    </Label>
+                  </div>
+                  {applyParkingFee && (
+                    <Input
+                      type="number"
+                      min={0}
+                      value={parkingFee}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setParkingFee(e.target.value === "" ? "" : Number(e.target.value))}
+                      className="bg-muted/20"
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 col-span-1 sm:col-span-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">หมายเหตุ</Label>
+              <Input
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                className="bg-muted/20"
+                placeholder="ระบุรายละเอียดเพิ่มเติม..."
+              />
+            </div>
           </div>
 
-          <div className="rounded-xl bg-primary/5 border border-primary/10 p-4 shadow-sm">
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">ยอดรวมใหม่</p>
-                <p className="text-sm font-bold text-primary">{formatTHB(calc.total)}</p>
+          {/* Preliminary Summary */}
+          <div className="rounded-xl bg-primary/10 border border-primary/20 p-4 shadow-sm space-y-3">
+            <div>
+              <h4 className="text-[11px] font-bold uppercase tracking-widest text-primary mb-2">
+                📋 สรุปสัญญาใหม่ (เริ่มส่งงวดที่ 1 ใหม่)
+              </h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">ยอดเงินต้นใหม่</p>
+                  <p className="text-sm font-bold text-primary">{formatTHB(Number(form.principal || 0))}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">ดอกเบี้ย</p>
+                  <p className="text-sm font-bold text-primary">{formatTHB(calc.interest)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">ยอดรวมทั้งหมด</p>
+                  <p className="text-sm font-bold text-primary">{formatTHB(calc.total)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">
+                    {form.isPrincipalInterestAtEnd ? "ยอดปิด" : "ต่องวด"}
+                  </p>
+                  <p className="text-sm font-bold text-primary">{formatTHB(calc.installment)}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">ต่องวด</p>
-                <p className="text-sm font-bold text-primary">{formatTHB(calc.installment)}</p>
+            </div>
+
+            {/* Financial Settlement Breakdown */}
+            <div className="border-t border-primary/20 pt-3 space-y-1.5 text-xs">
+              <div className="flex justify-between items-center text-muted-foreground">
+                <span>ยอดจัดสัญญาใหม่:</span>
+                <span className="font-semibold text-foreground">{formatTHB(Number(form.principal || 0))}</span>
               </div>
-              <div>
-                <p className="text-[11px] uppercase font-bold text-muted-foreground mb-1">สิ้นสุดวันที่</p>
-                <p className="text-[11px] font-bold">{calc.due ? formatDate(calc.due.toISOString().split("T")[0]) : 'ไม่มีกำหนด'}</p>
+              <div className="flex justify-between items-center text-destructive">
+                <span>หัก: ยอดคงค้างสัญญาเดิม ({loan.loanNumber}):</span>
+                <span className="font-semibold">-{formatTHB(remaining)}</span>
+              </div>
+              {appliedDocumentFee > 0 && (
+                <div className="flex justify-between items-center text-destructive">
+                  <span>หัก: ค่าเอกสาร:</span>
+                  <span className="font-semibold">-{formatTHB(appliedDocumentFee)}</span>
+                </div>
+              )}
+              {appliedAdvanceFee > 0 && (
+                <div className="flex justify-between items-center text-destructive">
+                  <span>หัก: ค่าล่วงหน้า:</span>
+                  <span className="font-semibold">-{formatTHB(appliedAdvanceFee)}</span>
+                </div>
+              )}
+              {appliedParkingFee > 0 && (
+                <div className="flex justify-between items-center text-destructive">
+                  <span>หัก: ค่าฝากจอด:</span>
+                  <span className="font-semibold">-{formatTHB(appliedParkingFee)}</span>
+                </div>
+              )}
+
+              <div className="border-t border-primary/20 pt-2 flex justify-between items-center">
+                <span className="text-xs font-bold text-primary uppercase tracking-wider">
+                  💵 ยอดเงินจ่ายลูกค้าจริง (หักยอดค้างและค่าธรรมเนียมแล้ว):
+                </span>
+                <span className="text-base font-black text-success">{formatTHB(netDisbursement)}</span>
               </div>
             </div>
           </div>
 
-          <DialogFooter className="pt-4">
-            <Button type="submit" disabled={busy} className="w-full py-6 text-base font-bold shadow-[var(--shadow-elevated)]">
-              {busy ? "กำลังดำเนินการ..." : "ยืนยันการรียอดสัญญาใหม่"}
+          <DialogFooter className="pt-3">
+            <Button
+              type="submit"
+              disabled={busy || Number(form.principal || 0) <= 0}
+              className="w-full py-6 text-base font-bold shadow-[var(--shadow-elevated)]"
+            >
+              {busy ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  กำลังดำเนินการรียอด...
+                </span>
+              ) : (
+                "ยืนยันการรียอดสัญญาใหม่ (เริ่มส่งใหม่)"
+              )}
             </Button>
           </DialogFooter>
         </form>
