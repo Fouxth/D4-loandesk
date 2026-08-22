@@ -38,6 +38,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/utils/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useSessionState } from "@/hooks/useSessionState";
 
 export const Route = createFileRoute("/disbursements")({
   component: () => (<ProtectedRoute><AppLayout><Disbursements /></AppLayout></ProtectedRoute>),
@@ -48,11 +49,11 @@ const CATEGORY_OPTIONS = ["ทั้งหมด", ...LOAN_CATEGORY_OPTIONS];
 function Disbursements() {
   const [loans, setLoans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("ทั้งหมด");
-  const [viewMode, setViewMode] = useState<"day" | "month" | "all">("day");
+  const [search, setSearch] = useSessionState("disbursements_search", "");
+  const [categoryFilter, setCategoryFilter] = useSessionState("disbursements_cat_filter", "ทั้งหมด");
+  const [viewMode, setViewMode] = useSessionState<"day" | "month" | "all">("disbursements_view_mode", "day");
   const [date, setDate] = useState<Date | undefined>(new Date());
-  const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), "yyyy-MM"));
+  const [selectedMonth, setSelectedMonth] = useSessionState("disbursements_month", format(new Date(), "yyyy-MM"));
 
   useEffect(() => {
     setLoading(true);

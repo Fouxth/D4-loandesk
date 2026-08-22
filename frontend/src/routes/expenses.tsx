@@ -16,6 +16,7 @@ import { formatTHB, formatDate, getThaiDateStr } from "@/utils/format";
 import { getExpenses, createExpense, deleteExpense } from "@/lib/services";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { useTranslation } from "react-i18next";
+import { useSessionState } from "@/hooks/useSessionState";
 
 export const Route = createFileRoute("/expenses")({
   component: () => (<ProtectedRoute><AppLayout><Expenses /></AppLayout></ProtectedRoute>),
@@ -43,7 +44,7 @@ function Expenses() {
   const [rows, setRows] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const currentMonthKey = getThaiDateStr().substring(0, 7);
-  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthKey);
+  const [selectedMonth, setSelectedMonth] = useSessionState<string>("expenses_selected_month", currentMonthKey);
   
   const load = async () => { 
     const data = await getExpenses(); 

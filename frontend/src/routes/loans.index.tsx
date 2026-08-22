@@ -21,6 +21,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { CustomerSelect } from "@/components/CustomerSelect";
 import { EditLoanModal } from "@/components/EditLoanModal";
 import { cn } from "@/utils/utils";
+import { useSessionState } from "@/hooks/useSessionState";
 
 export const Route = createFileRoute("/loans/")({
   component: () => (<ProtectedRoute><AppLayout><Loans /></AppLayout></ProtectedRoute>),
@@ -31,9 +32,9 @@ export const Route = createFileRoute("/loans/")({
 function Loans() {
   const { t } = useTranslation();
   const [rows, setRows] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [search, setSearch] = useSessionState("loans_search", "");
+  const [filter, setFilter] = useSessionState("loans_status_filter", "all");
+  const [typeFilter, setTypeFilter] = useSessionState("loans_type_filter", "all");
   const [open, setOpen] = useState(false);
 
   const load = async () => {

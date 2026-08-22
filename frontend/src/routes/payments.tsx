@@ -52,15 +52,16 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/utils/utils";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
+import { useSessionState } from "@/hooks/useSessionState";
 
 function Payments() {
   const { t } = useTranslation();
   const [rows, setRows] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
-  const [methodFilter, setMethodFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<"day" | "month">("day");
+  const [search, setSearch] = useSessionState("payments_search", "");
+  const [methodFilter, setMethodFilter] = useSessionState("payments_method_filter", "all");
+  const [viewMode, setViewMode] = useSessionState<"day" | "month">("payments_view_mode", "day");
   const [date, setDate] = useState<Date | undefined>(new Date());
-  const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), "yyyy-MM"));
+  const [selectedMonth, setSelectedMonth] = useSessionState("payments_selected_month", format(new Date(), "yyyy-MM"));
   
   useEffect(() => {
     getPayments().then(data => setRows(data ?? []));

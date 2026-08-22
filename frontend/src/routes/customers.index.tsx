@@ -47,10 +47,12 @@ type Customer = {
   createdAt: string
 };
 
+import { useSessionState } from "@/hooks/useSessionState";
+
 function Customers() {
   const { t } = useTranslation();
   const [rows, setRows] = useState<Customer[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useSessionState("customers_search", "");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
 
