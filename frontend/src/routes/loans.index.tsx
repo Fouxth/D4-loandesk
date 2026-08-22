@@ -40,6 +40,10 @@ function Loans() {
   // Quick Pay & Bulk Pay State
   const [selectedLoanIds, setSelectedLoanIds] = useState<Set<string>>(new Set());
   const [quickPayingId, setQuickPayingId] = useState<string | null>(null);
+  const [quickPayTarget, setQuickPayTarget] = useState<any | null>(null);
+  const [quickPayMethod, setQuickPayMethod] = useState<"cash" | "bank_transfer" | "other">("cash");
+  const [quickPayDate, setQuickPayDate] = useState(getThaiDateStr());
+
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkPaymentDate, setBulkPaymentDate] = useState(getThaiDateStr());
@@ -127,7 +131,16 @@ function Loans() {
     });
   };
 
-  const handleQuickPay = async (loan: any) => {
+  const onTriggerQuickPay = (loan: any, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setQuickPayTarget(loan);
+    setQuickPayMethod("cash");
+    setQuickPayDate(getThaiDateStr());
+  };
+
+  const handleQuickPayConfirm = async () => {
+    if (!quickPayTarget) return;
+    const loan = quickPayTarget;
     const loanId = loan.id;
     const customerName = loan.customerName || loan.customer_name || "—";
     const isInterestOnly = Boolean(loan.isInterestOnly || loan.isPawn || loan.is_interest_only || loan.is_pawn);
@@ -145,10 +158,10 @@ function Loans() {
         loanId,
         amount: instAmount,
         installmentNumber: nextNum,
-        paymentDate: getThaiDateStr(),
-        method: "cash",
+        paymentDate: quickPayDate,
+        method: quickPayMethod,
         category: isInterestOnly ? "interest" : "principal",
-        notes: "ชำระด่วน 1-Click",
+        notes: "ชำระด่วน",
       });
       try {
         await logActivity({
@@ -158,6 +171,7 @@ function Loans() {
         });
       } catch (e) {}
       toast.success(`⚡️ บันทึกชำระ ${customerName} ฿${instAmount.toLocaleString()} (งวดที่ ${nextNum}) เรียบร้อยแล้ว`);
+      setQuickPayTarget(null);
       await load();
     } catch (error: any) {
       toast.error(error.message || "เกิดข้อผิดพลาดในการบันทึกชำระด่วน");
@@ -392,7 +406,7 @@ function Loans() {
                           size="sm"
                           variant="outline"
                           disabled={isPayingThis}
-                          onClick={() => handleQuickPay(l)}
+                          onClick={(e) => onTriggerQuickPay(l, e)}
                           className="h-8 px-2.5 rounded-lg border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold text-xs gap-1 shadow-sm active:scale-95 transition-all"
                           title={`จ่ายด่วนงวดปกติ ฿${instAmt.toLocaleString()}`}
                         >
@@ -519,7 +533,7 @@ function Loans() {
                       size="sm"
                       variant="outline"
                       disabled={isPayingThis}
-                      onClick={() => handleQuickPay(l)}
+                      onClick={(e) => onTriggerQuickPay(l, e)}
                       className="h-8 px-2.5 rounded-lg border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold text-xs gap-1 shadow-sm active:scale-95 transition-all"
                       title={`จ่ายด่วน ฿${instAmt.toLocaleString()}`}
                     >
@@ -704,6 +718,104 @@ function Loans() {
                 <>
                   <CheckCircle2 className="h-4 w-4" />
                   <span>ยืนยันบันทึกทั้ง {selectedLoansList.length} รายการ</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Pay Single Confirmation Dialog */}
+      <Dialog open={!!quickPayTarget} onOpenChange={(isOpen) => !isOpen && setQuickPayTarget(null)}>
+        <DialogContent className="w-[95vw] sm:w-full max-w-md border-border shadow-[var(--shadow-elevated)]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Zap className="h-5 w-5 text-emerald-500 fill-emerald-500" />
+              <span>ยืนยันการรับชำระด่วน</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {quickPayTarget && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[10px] font-mono font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                      {quickPayTarget.loanNumber}
+                    </span>
+                    <h3 className="text-lg font-black text-foreground mt-0.5">
+                      {quickPayTarget.customerName}
+                    </h3>
+                  </div>
+                  <span className="text-xs font-bold text-muted-foreground bg-card/80 px-2.5 py-1 rounded-lg border border-border">
+                    งวดที่ {Number(quickPayTarget.paidInstallmentsCount ?? quickPayTarget.paid_installments_count ?? 0) + 1}
+                  </span>
+                </div>
+
+                <div className="pt-2 border-t border-emerald-500/20 flex justify-between items-center">
+                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                    ยอดค่างวดที่ต้องชำระ:
+                  </span>
+                  <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                    {formatTHB(Number(quickPayTarget.installmentAmount ?? quickPayTarget.installment_amount ?? 0))}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    วันที่ชำระ
+                  </Label>
+                  <Input
+                    type="date"
+                    value={quickPayDate}
+                    onChange={(e) => setQuickPayDate(e.target.value)}
+                    className="bg-muted/20"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    ช่องทางการชำระ
+                  </Label>
+                  <Select value={quickPayMethod} onValueChange={(v: any) => setQuickPayMethod(v)}>
+                    <SelectTrigger className="bg-muted/20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">เงินสด</SelectItem>
+                      <SelectItem value="bank_transfer">โอนผ่านธนาคาร</SelectItem>
+                      <SelectItem value="other">อื่นๆ</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="pt-2 gap-2">
+            <Button
+              variant="outline"
+              disabled={!!quickPayingId}
+              onClick={() => setQuickPayTarget(null)}
+              className="rounded-xl"
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              disabled={!!quickPayingId}
+              onClick={handleQuickPayConfirm}
+              className="rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md gap-1.5"
+            >
+              {quickPayingId ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>กำลังบันทึก...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>ยืนยันรับชำระ ฿{Number(quickPayTarget?.installmentAmount ?? quickPayTarget?.installment_amount ?? 0).toLocaleString()}</span>
                 </>
               )}
             </Button>
