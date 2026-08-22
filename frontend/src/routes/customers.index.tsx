@@ -606,6 +606,7 @@ function CustomerForm({ editing, existingCustomers = [], onDone, onSubmit }: { e
                 <SelectItem value="new">ลูกค้าใหม่</SelectItem>
                 <SelectItem value="regular">ลูกค้าประจำ</SelectItem>
                 <SelectItem value="good">เครดิตดี</SelectItem>
+                <SelectItem value="watchlist">เฝ้าระวัง</SelectItem>
                 <SelectItem value="blocked">เครดิตไม่ผ่าน</SelectItem>
               </SelectContent>
             </Select>
