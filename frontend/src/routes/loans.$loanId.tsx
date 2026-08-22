@@ -1143,7 +1143,7 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
                 <Label className="text-xs font-bold uppercase tracking-wider text-primary">วันนัดจ่าย (วันครบกำหนด)</Label>
                 <Input
                   type="date"
-                  value={form.promiseDate || (calc.due ? calc.due.toISOString().split("T")[0] : "")}
+                  value={form.promiseDate || calc.dueStr || ""}
                   onChange={(e) => setForm({ ...form, promiseDate: e.target.value })}
                   className="bg-primary/10 border-primary/30 font-bold"
                 />
