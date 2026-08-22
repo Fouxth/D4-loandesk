@@ -1,6 +1,6 @@
 import { getCustomerById, getLoansByCustomer, getPayments, getCustomerAttachments } from "@/lib/services";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PageHeader } from "@/components/PageHeader";
@@ -8,8 +8,11 @@ import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel } f
 import { formatTHB, formatDate } from "@/utils/format";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, FileText, Paperclip, Pencil } from "lucide-react";
+import { ArrowLeft, FileText, Paperclip, Pencil, Star, Sparkles } from "lucide-react";
 import { EditLoanModal } from "@/components/EditLoanModal";
+import { calcCustomerCreditProfile } from "@/utils/creditScore";
+import { CreditScoreBadge } from "@/components/CreditScoreBadge";
+import { cn } from "@/utils/utils";
 
 export const Route = createFileRoute("/customers/$id")({
   component: () => (
@@ -59,7 +62,12 @@ function Detail() {
     load();
   }, [id]);
 
-  if (!c) return <div className="flex h-64 items-center justify-center text-muted-foreground animate-pulse">กำลังโหลดข้อมูลลูกค้า...</div>;
+  const creditProfile = useMemo(() => {
+    if (!c) return null;
+    return calcCustomerCreditProfile(c, loans, payments);
+  }, [c, loans, payments]);
+
+  if (!c || !creditProfile) return <div className="flex h-64 items-center justify-center text-muted-foreground animate-pulse">กำลังโหลดข้อมูลลูกค้า...</div>;
 
   const outstanding = loans.reduce((sum, l) => {
     const paid = payments.filter((p) => p.loanId === l.id).reduce((a, p) => a + Number(p.amount), 0);
@@ -67,20 +75,110 @@ function Detail() {
   }, 0);
 
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 pb-16">
       <Link to="/customers">
         <Button variant="ghost" size="sm" className="mb-4 hover:bg-muted">
           <ArrowLeft className="mr-1 h-4 w-4" />ย้อนกลับ
         </Button>
       </Link>
-      <PageHeader title={c.fullName} description={c.phone || "ไม่มีเบอร์โทรศัพท์"} />
+      <PageHeader
+        title={c.fullName}
+        description={c.phone || "ไม่มีเบอร์โทรศัพท์"}
+        actions={
+          <CreditScoreBadge profile={creditProfile} size="md" showScore />
+        }
+      />
+
+      {/* Credit Scoring & Intelligence Card */}
+      <div className="rounded-2xl border border-primary/30 bg-card p-5 sm:p-6 shadow-[var(--shadow-elevated)] mb-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 rounded-2xl bg-primary/15 flex items-center justify-center text-primary">
+              <Star className="h-6 w-6 fill-primary/30 text-primary" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black text-foreground">การประเมินเครดิตและประวัติการผ่อนชำระ</h3>
+                <CreditScoreBadge profile={creditProfile} size="sm" showScore />
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                ประเมินจากประวัติทั้งหมด {creditProfile.totalLoansCount} สัญญา (สำเร็จแล้ว {creditProfile.completedLoansCount} สัญญา)
+              </p>
+            </div>
+          </div>
+
+          <div className="text-left sm:text-right bg-emerald-500/10 border border-emerald-500/30 p-3 rounded-xl">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-emerald-700 dark:text-emerald-300">
+              วงเงินที่แนะนำสำหรับกู้ครั้งถัดไป
+            </p>
+            <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">
+              {creditProfile.recommendedNextCreditLimit > 0 ? formatTHB(creditProfile.recommendedNextCreditLimit) : "ไม่แนะนำให้ปล่อยกู้เพิ่ม"}
+            </p>
+          </div>
+        </div>
+
+        {/* 4 Score Metrics Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+            <p className="text-[11px] text-muted-foreground font-bold">อัตราจ่ายตรงเวลา</p>
+            <p className="text-lg font-black text-foreground mt-0.5">{creditProfile.onTimePaymentRate}%</p>
+            <div className="w-full bg-muted rounded-full h-1.5 mt-2 overflow-hidden">
+              <div
+                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${creditProfile.onTimePaymentRate}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+            <p className="text-[11px] text-muted-foreground font-bold">ประวัติทบดอก (ท+ป)</p>
+            <p className={cn("text-lg font-black mt-0.5", creditProfile.rollPenaltyCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground")}>
+              {creditProfile.rollPenaltyCount} ครั้ง
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {creditProfile.rollPenaltyCount === 0 ? "ไม่เคยขอทบ" : "มีการขอผลัด/ทบดอก"}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+            <p className="text-[11px] text-muted-foreground font-bold">ปิดยอดสำเร็จแล้ว</p>
+            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{creditProfile.completedLoansCount} สัญญา</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              จากทั้งหมด {creditProfile.totalLoansCount} สัญญา
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+            <p className="text-[11px] text-muted-foreground font-bold">ยอดเงินกู้สะสม</p>
+            <p className="text-lg font-black text-foreground mt-0.5">{formatTHB(creditProfile.totalBorrowedAmount)}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              คืนแล้ว {formatTHB(creditProfile.totalRepaidAmount)}
+            </p>
+          </div>
+        </div>
+
+        {/* AI Credit Advice Box */}
+        <div className="rounded-xl bg-muted/40 border border-border/80 p-3.5 space-y-1.5 text-xs">
+          <div className="flex items-start gap-2">
+            <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold text-foreground">
+                <span className="text-muted-foreground">ผลวิเคราะห์:</span> {creditProfile.analysis}
+              </p>
+              <p className="text-muted-foreground">
+                <span className="font-bold text-foreground">คำแนะนำ:</span> {creditProfile.recommendation}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 pb-6">
         <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)]">
           <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-2">ข้อมูลส่วนตัว</h3>
           <dl className="space-y-3 text-sm">
             <div className="flex justify-between items-center">
-              <dt className="text-muted-foreground">ความเสี่ยง</dt>
+              <dt className="text-muted-foreground">ระดับความเสี่ยง</dt>
               <dd>
                 <StatusBadge tone={c.riskLevel === "high" ? "destructive" : c.riskLevel === "medium" ? "warning" : "success"}>
                   {c.riskLevel === 'high' ? 'สูง' : c.riskLevel === 'medium' ? 'กลาง' : 'ต่ำ'}

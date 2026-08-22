@@ -1,4 +1,4 @@
-import { logActivity, getCustomers, createCustomer, updateCustomer, deleteCustomer, getCustomerAttachments, uploadCustomerAttachment, deleteCustomerAttachment } from "@/lib/services";
+import { logActivity, getCustomers, createCustomer, updateCustomer, deleteCustomer, getCustomerAttachments, uploadCustomerAttachment, deleteCustomerAttachment, getLoans, getPayments } from "@/lib/services";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,11 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { StatusBadge } from "@/components/StatusBadge";
-import { Plus, Search, Trash2, Pencil, Phone, CreditCard, X, FileText } from "lucide-react";
+import { Plus, Search, Trash2, Pencil, Phone, X, FileText, Star } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/utils/format";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { calcCustomerCreditProfile, type CustomerCreditProfile } from "@/utils/creditScore";
+import { CreditScoreBadge } from "@/components/CreditScoreBadge";
+import { cn } from "@/utils/utils";
 
 function resolveFileUrl(filePath?: string | null) {
   if (!filePath) return "";
@@ -52,14 +54,23 @@ import { useSessionState } from "@/hooks/useSessionState";
 function Customers() {
   const { t } = useTranslation();
   const [rows, setRows] = useState<Customer[]>([]);
+  const [allLoans, setAllLoans] = useState<any[]>([]);
+  const [allPayments, setAllPayments] = useState<any[]>([]);
   const [search, setSearch] = useSessionState("customers_search", "");
+  const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
 
   const load = async () => {
     try {
-      const data = await getCustomers();
-      setRows((data ?? []) as Customer[]);
+      const [custData, loansData, paymentsData] = await Promise.all([
+        getCustomers(),
+        getLoans().catch(() => []),
+        getPayments().catch(() => []),
+      ]);
+      setRows((custData ?? []) as Customer[]);
+      setAllLoans(loansData ?? []);
+      setAllPayments(paymentsData ?? []);
     } catch (e: any) {
       toast.error("Error: " + e.message);
     }
@@ -67,13 +78,38 @@ function Customers() {
   
   useEffect(() => { load(); }, []);
 
+  // Compute credit profiles for all customers
+  const profilesMap = useMemo(() => {
+    const map: Record<string, CustomerCreditProfile> = {};
+    rows.forEach((c) => {
+      const cLoans = allLoans.filter((l) => (l.customerId || l.customer_id) === c.id);
+      const cPayments = allPayments.filter((p) => cLoans.some((l) => l.id === p.loanId));
+      map[c.id] = calcCustomerCreditProfile(c, cLoans, cPayments);
+    });
+    return map;
+  }, [rows, allLoans, allPayments]);
+
   const filtered = rows.filter((r) => {
     const q = search.toLowerCase();
-    return !q || 
-           r.fullName.toLowerCase().includes(q) || 
-           (r.phone && r.phone.toLowerCase().includes(q)) || 
-           (r.idCard && r.idCard.toLowerCase().includes(q));
+    const matchSearch = !q || 
+                        r.fullName.toLowerCase().includes(q) || 
+                        (r.phone && r.phone.toLowerCase().includes(q)) || 
+                        (r.idCard && r.idCard.toLowerCase().includes(q));
+    
+    const prof = profilesMap[r.id];
+    const matchGrade = gradeFilter === "all" || (prof && prof.grade === gradeFilter);
+    return matchSearch && matchGrade;
   });
+
+  // Grade Counts for filter tabs
+  const gradeCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: rows.length, "A+": 0, A: 0, B: 0, C: 0, D: 0, NEW: 0 };
+    rows.forEach((r) => {
+      const g = profilesMap[r.id]?.grade || "NEW";
+      if (counts[g] !== undefined) counts[g]++;
+    });
+    return counts;
+  }, [rows, profilesMap]);
 
   const remove = async (id: string) => {
     try {
@@ -115,7 +151,7 @@ function Customers() {
   };
 
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 pb-16">
       <PageHeader
         title={t('customers.title')}
         description={`${t('common.total', 'ทั้งหมด')} ${rows.length} ${t('common.items', 'รายการ')}`}
@@ -130,6 +166,99 @@ function Customers() {
           </Dialog>
         }
       />
+
+      {/* Credit Grade Filter Chips */}
+      <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar text-xs font-bold">
+        <div className="flex items-center gap-1.5 text-muted-foreground shrink-0 pr-1">
+          <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+          <span>เกรดเครดิต:</span>
+        </div>
+        <button
+          onClick={() => setGradeFilter("all")}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap",
+            gradeFilter === "all"
+              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+              : "bg-card border-border hover:bg-muted text-muted-foreground"
+          )}
+        >
+          ทั้งหมด ({gradeCounts.all})
+        </button>
+        <button
+          onClick={() => setGradeFilter("A+")}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
+            gradeFilter === "A+"
+              ? "bg-emerald-600 text-white border-emerald-700 shadow-sm"
+              : "bg-card border-border hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+          )}
+        >
+          <span>⭐ เกรด A+ (VIP)</span>
+          <span className="opacity-80 text-[10px]">({gradeCounts["A+"]})</span>
+        </button>
+        <button
+          onClick={() => setGradeFilter("A")}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
+            gradeFilter === "A"
+              ? "bg-teal-600 text-white border-teal-700 shadow-sm"
+              : "bg-card border-border hover:bg-teal-500/10 text-teal-600 dark:text-teal-400"
+          )}
+        >
+          <span>🟢 เกรด A (ดีมาก)</span>
+          <span className="opacity-80 text-[10px]">({gradeCounts.A})</span>
+        </button>
+        <button
+          onClick={() => setGradeFilter("B")}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
+            gradeFilter === "B"
+              ? "bg-amber-600 text-white border-amber-700 shadow-sm"
+              : "bg-card border-border hover:bg-amber-500/10 text-amber-600 dark:text-amber-400"
+          )}
+        >
+          <span>🟡 เกรด B (ปานกลาง)</span>
+          <span className="opacity-80 text-[10px]">({gradeCounts.B})</span>
+        </button>
+        <button
+          onClick={() => setGradeFilter("C")}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
+            gradeFilter === "C"
+              ? "bg-orange-600 text-white border-orange-700 shadow-sm"
+              : "bg-card border-border hover:bg-orange-500/10 text-orange-600 dark:text-orange-400"
+          )}
+        >
+          <span>🟠 เกรด C (เฝ้าระวัง)</span>
+          <span className="opacity-80 text-[10px]">({gradeCounts.C})</span>
+        </button>
+        {gradeCounts.D > 0 && (
+          <button
+            onClick={() => setGradeFilter("D")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
+              gradeFilter === "D"
+                ? "bg-rose-600 text-white border-rose-700 shadow-sm"
+                : "bg-card border-border hover:bg-rose-500/10 text-rose-600 dark:text-rose-400"
+            )}
+          >
+            <span>🔴 เกรด D (เสี่ยงสูง)</span>
+            <span className="opacity-80 text-[10px]">({gradeCounts.D})</span>
+          </button>
+        )}
+        <button
+          onClick={() => setGradeFilter("NEW")}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
+            gradeFilter === "NEW"
+              ? "bg-slate-600 text-white border-slate-700 shadow-sm"
+              : "bg-card border-border hover:bg-muted text-muted-foreground"
+          )}
+        >
+          <span>⚪ ลูกค้าใหม่</span>
+          <span className="opacity-80 text-[10px]">({gradeCounts.NEW})</span>
+        </button>
+      </div>
 
       <div className="mb-6 flex items-center gap-2">
         <div className="relative flex-1 max-w-md w-full">
@@ -148,113 +277,138 @@ function Customers() {
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50 border-b border-border">
               <TableHead className="font-bold">{t('customers.table.name', 'ชื่อ-นามสกุล')}</TableHead>
+              <TableHead className="font-bold">เกรดเครดิต (Credit Score)</TableHead>
+              <TableHead className="font-bold">ประวัติการผ่อนชำระ</TableHead>
               <TableHead className="font-bold">{t('customers.table.phone', 'เบอร์โทรศัพท์')}</TableHead>
               <TableHead className="font-bold">{t('customers.table.id_card', 'เลขบัตรประชาชน')}</TableHead>
-              <TableHead className="font-bold">{t('customers.table.category', 'ระดับลูกค้า')}</TableHead>
-              <TableHead className="font-bold">{t('customers.table.risk', 'ความเสี่ยง')}</TableHead>
               <TableHead className="font-bold">{t('customers.table.created_at', 'วันที่เพิ่ม')}</TableHead>
               <TableHead className="text-right font-bold">{t('customers.table.actions', 'จัดการ')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((c) => (
-              <TableRow key={c.id} className="hover:bg-muted/20 transition-colors">
-                <TableCell>
-                  <Link to="/customers/$id" params={{ id: c.id }} className="font-semibold text-primary hover:underline">
-                    {c.fullName}
-                  </Link>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{c.phone || "—"}</TableCell>
-                 <TableCell className="text-muted-foreground font-mono text-xs">{c.idCard || "—"}</TableCell>
-                <TableCell>
-                  <StatusBadge tone={c.category === "blocked" ? "destructive" : c.category === "good" ? "success" : c.category === "regular" ? "info" : "muted"}>
-                    {t(`customers.category.${c.category ?? "new"}`)}
-                  </StatusBadge>
-                </TableCell>
-                <TableCell>
-                  <StatusBadge tone={c.riskLevel === "high" ? "destructive" : c.riskLevel === "medium" ? "warning" : "success"}>
-                    {t(`customers.risk.${c.riskLevel}`)}
-                  </StatusBadge>
-                </TableCell>
-                <TableCell className="text-muted-foreground text-xs">{formatDate(c.createdAt)}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => { setEditing(c); setOpen(true); }} className="h-8 w-8">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <ConfirmDelete
-                      onConfirm={() => remove(c.id)}
-                      title="ยืนยันการลบลูกค้า"
-                      description={`คุณแน่ใจหรือไม่ว่าต้องการลบลูกค้ารายนี้?\nข้อมูลสัญญาที่เกี่ยวข้องทั้งหมดจะยังคงอยู่ แต่ลูกค้านี้จะถูกลบออกจากรายชื่อ`}
-                    >
-                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
+            {filtered.map((c) => {
+              const prof = profilesMap[c.id] || calcCustomerCreditProfile(c, [], []);
+              return (
+                <TableRow key={c.id} className="hover:bg-muted/20 transition-colors">
+                  <TableCell>
+                    <Link to="/customers/$id" params={{ id: c.id }} className="font-bold text-foreground hover:text-primary hover:underline flex items-center gap-1.5">
+                      {c.fullName}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <CreditScoreBadge profile={prof} size="sm" showScore />
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-xs space-y-0.5">
+                      <p className="font-bold text-foreground">
+                        {prof.totalLoansCount === 0 ? (
+                          <span className="text-muted-foreground">ยังไม่มีสัญญา</span>
+                        ) : (
+                          <span>กู้ {prof.totalLoansCount} สัญญา <span className="text-emerald-600 dark:text-emerald-400 font-black">(ปิด {prof.completedLoansCount})</span></span>
+                        )}
+                      </p>
+                      {prof.totalLoansCount > 0 && (
+                        <p className="text-[11px] text-muted-foreground">
+                          จ่ายตรง <span className="font-bold text-foreground">{prof.onTimePaymentRate}%</span>
+                          {prof.rollPenaltyCount > 0 && <span className="text-amber-600 dark:text-amber-400 font-bold ml-1">· ท+ป {prof.rollPenaltyCount} ครั้ง</span>}
+                        </p>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{c.phone || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground font-mono text-xs">{c.idCard || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{formatDate(c.createdAt)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => { setEditing(c); setOpen(true); }} className="h-8 w-8">
+                        <Pencil className="h-4 w-4" />
                       </Button>
-                    </ConfirmDelete>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                      <ConfirmDelete
+                        onConfirm={() => remove(c.id)}
+                        title="ยืนยันการลบลูกค้า"
+                        description={`คุณแน่ใจหรือไม่ว่าต้องการลบลูกค้ารายนี้?\nข้อมูลสัญญาที่เกี่ยวข้องทั้งหมดจะยังคงอยู่ แต่ลูกค้านี้จะถูกลบออกจากรายชื่อ`}
+                      >
+                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </ConfirmDelete>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
 
       {/* Mobile Card List */}
       <div className="grid grid-cols-1 gap-4 md:hidden pb-10">
-        {filtered.map((c) => (
-          <div key={c.id} className="group rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] active:scale-[0.98] transition-all relative cursor-pointer">
-            {/* Full card clickable link overlay */}
-            <Link
-              to="/customers/$id"
-              params={{ id: c.id }}
-              className="absolute inset-0 z-0 rounded-2xl"
-              aria-label={`ข้อมูลลูกค้า ${c.fullName}`}
-            />
+        {filtered.map((c) => {
+          const prof = profilesMap[c.id] || calcCustomerCreditProfile(c, [], []);
+          return (
+            <div key={c.id} className="group rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-elevated)] active:scale-[0.98] transition-all relative cursor-pointer">
+              {/* Full card clickable link overlay */}
+              <Link
+                to="/customers/$id"
+                params={{ id: c.id }}
+                className="absolute inset-0 z-0 rounded-2xl"
+                aria-label={`ข้อมูลลูกค้า ${c.fullName}`}
+              />
 
-            <div className="relative z-10 pointer-events-none">
-              <div className="flex justify-between items-start mb-2">
-                <div className="font-bold text-primary text-lg group-hover:underline">
-                  {c.fullName}
+              <div className="relative z-10 pointer-events-none">
+                <div className="flex justify-between items-start mb-2.5">
+                  <div>
+                    <div className="font-bold text-foreground text-lg group-hover:text-primary transition-colors">
+                      {c.fullName}
+                    </div>
+                    <div className="mt-1">
+                      <CreditScoreBadge profile={prof} size="xs" showScore />
+                    </div>
+                  </div>
+                  <div className="text-right text-xs">
+                    <span className="font-black text-foreground">{prof.totalLoansCount} สัญญา</span>
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">ปิดแล้ว {prof.completedLoansCount}</p>
+                  </div>
                 </div>
-                <div className="flex flex-col items-end gap-1">
-                  <StatusBadge tone={c.category === "blocked" ? "destructive" : c.category === "good" ? "success" : c.category === "regular" ? "info" : "muted"}>
-                    {t(`customers.category.${c.category ?? "new"}`)}
-                  </StatusBadge>
-                  <StatusBadge tone={c.riskLevel === "high" ? "destructive" : c.riskLevel === "medium" ? "warning" : "success"}>
-                    {t(`customers.risk.${c.riskLevel}`)}
-                  </StatusBadge>
+
+                <div className="space-y-1.5 text-xs text-muted-foreground bg-muted/20 p-2.5 rounded-xl border border-border/50">
+                  <div className="flex justify-between items-center">
+                    <span>จ่ายตรงเวลา:</span>
+                    <span className="font-bold text-foreground">{prof.onTimePaymentRate}%</span>
+                  </div>
+                  {prof.rollPenaltyCount > 0 && (
+                    <div className="flex justify-between items-center text-amber-600 dark:text-amber-400 font-bold">
+                      <span>ประวัติทบดอก (ท+ป):</span>
+                      <span>{prof.rollPenaltyCount} ครั้ง</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 pt-1 border-t border-border/40 text-muted-foreground">
+                    <Phone className="h-3 w-3" />
+                    <span>{c.phone || "—"}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-1.5 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Phone className="h-3.5 w-3.5" />
-                  <span>{c.phone || "—"}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-3.5 w-3.5" />
-                  <span className="font-mono text-xs">{c.idCard || "—"}</span>
-                </div>
-              </div>
-              <div className="mt-4 pt-3 border-t border-border flex justify-between items-center">
-                <span className="text-[11px] text-muted-foreground">{formatDate(c.createdAt)}</span>
-                <div className="flex gap-2 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="outline" size="sm" onClick={() => { setEditing(c); setOpen(true); }} className="h-8 px-3">
-                    <Pencil className="mr-1 h-3.5 w-3.5" />{t('actions.edit', 'แก้ไข')}
-                  </Button>
-                  <ConfirmDelete
-                    onConfirm={() => remove(c.id)}
-                    title="ยืนยันการลบลูกค้า"
-                    description="คุณแน่ใจหรือไม่ว่าต้องการลบลูกค้ารายนี้?"
-                  >
-                    <Button variant="outline" size="sm" className="h-8 px-3 text-destructive border-destructive/20 hover:bg-destructive/10">
-                      <Trash2 className="mr-1 h-3.5 w-3.5" />{t('actions.delete', 'ลบ')}
+
+                <div className="mt-3 pt-2 border-t border-border flex justify-between items-center">
+                  <span className="text-[11px] text-muted-foreground">{formatDate(c.createdAt)}</span>
+                  <div className="flex gap-2 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="outline" size="sm" onClick={() => { setEditing(c); setOpen(true); }} className="h-8 px-3">
+                      <Pencil className="mr-1 h-3.5 w-3.5" />{t('actions.edit', 'แก้ไข')}
                     </Button>
-                  </ConfirmDelete>
+                    <ConfirmDelete
+                      onConfirm={() => remove(c.id)}
+                      title="ยืนยันการลบลูกค้า"
+                      description="คุณแน่ใจหรือไม่ว่าต้องการลบลูกค้ารายนี้?"
+                    >
+                      <Button variant="outline" size="sm" className="h-8 px-3 text-destructive border-destructive/20 hover:bg-destructive/10">
+                        <Trash2 className="mr-1 h-3.5 w-3.5" />{t('actions.delete', 'ลบ')}
+                      </Button>
+                    </ConfirmDelete>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {filtered.length === 0 && (

@@ -1,6 +1,6 @@
-import { logActivity, getLoans, createLoan, getCustomers, createPayment, createBulkPayments } from "@/lib/services";
+import { logActivity, getLoans, createLoan, getCustomers, createPayment, createBulkPayments, getPayments } from "@/lib/services";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -22,6 +22,8 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { CustomerSelect } from "@/components/CustomerSelect";
 import { EditLoanModal } from "@/components/EditLoanModal";
 import { RecordPaymentModal } from "@/components/RecordPaymentModal";
+import { calcCustomerCreditProfile } from "@/utils/creditScore";
+import { CreditScoreBadge } from "@/components/CreditScoreBadge";
 import { cn } from "@/utils/utils";
 import { useSessionState } from "@/hooks/useSessionState";
 
@@ -238,7 +240,7 @@ function Loans() {
                 <Plus className="mr-2 h-5 w-5" />{t('loans.create_new')}
               </Button>
             </DialogTrigger>
-            <NewLoanForm onDone={() => { setOpen(false); load(); }} />
+            <NewLoanForm onDone={() => { setOpen(false); load(); }} existingLoans={rows} />
           </Dialog>
         }
       />
@@ -832,10 +834,11 @@ function Loans() {
   );
 }
 
-function NewLoanForm({ onDone }: { onDone: () => void }) {
+function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; existingLoans?: any[] }) {
   const { t } = useTranslation();
   const { lending } = useSettings();
   const [customers, setCustomers] = useState<any[]>([]);
+  const [allPayments, setAllPayments] = useState<any[]>([]);
   const [form, setForm] = useState({
     customerId: "",
     principal: 10000,
@@ -862,7 +865,16 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
 
   useEffect(() => { 
     getCustomers().then(data => setCustomers(data ?? []));
+    getPayments().then(data => setAllPayments(data ?? [])).catch(() => {});
   }, []);
+
+  const selectedCustomer = useMemo(() => customers.find((c) => c.id === form.customerId), [customers, form.customerId]);
+  const customerLoans = useMemo(() => existingLoans.filter((l) => (l.customerId || l.customer_id) === form.customerId), [existingLoans, form.customerId]);
+  const customerPayments = useMemo(() => allPayments.filter((p) => customerLoans.some((l) => l.id === p.loanId)), [allPayments, customerLoans]);
+  const selectedCreditProfile = useMemo(() => {
+    if (!selectedCustomer) return null;
+    return calcCustomerCreditProfile(selectedCustomer, customerLoans, customerPayments);
+  }, [selectedCustomer, customerLoans, customerPayments]);
   
   const isIndefiniteLoan = Boolean(form.isPawn || isZeroInterestDebt);
 
@@ -964,6 +976,42 @@ function NewLoanForm({ onDone }: { onDone: () => void }) {
             customers={customers}
             placeholder="พิมพ์ค้นหาชื่อ หรือเบอร์โทรศัพท์ลูกค้า..."
           />
+
+          {/* Customer Credit Assessment Banner */}
+          {selectedCreditProfile && (
+            <div className={cn(
+              "rounded-xl border p-3 text-xs space-y-1.5 transition-all animate-in fade-in",
+              selectedCreditProfile.grade === 'A+' || selectedCreditProfile.grade === 'A'
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
+                : selectedCreditProfile.grade === 'B'
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300"
+                : selectedCreditProfile.grade === 'C'
+                ? "bg-orange-500/10 border-orange-500/30 text-orange-800 dark:text-orange-300"
+                : selectedCreditProfile.grade === 'D'
+                ? "bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-300"
+                : "bg-muted/40 border-border text-muted-foreground"
+            )}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-black text-sm">
+                  <CreditScoreBadge profile={selectedCreditProfile} size="xs" showScore />
+                  <span>{selectedCreditProfile.gradeLabel}</span>
+                </div>
+                <span className="font-bold">
+                  {selectedCreditProfile.totalLoansCount === 0
+                    ? "ลูกค้าใหม่"
+                    : `เคยกู้ ${selectedCreditProfile.totalLoansCount} สัญญา (ปิดแล้ว ${selectedCreditProfile.completedLoansCount})`}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] pt-1 border-t border-current/15">
+                <span>{selectedCreditProfile.recommendation}</span>
+                {selectedCreditProfile.recommendedNextCreditLimit > 0 && (
+                  <span className="font-black shrink-0 ml-2">
+                    วงเงินแนะนำ: {formatTHB(selectedCreditProfile.recommendedNextCreditLimit)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
