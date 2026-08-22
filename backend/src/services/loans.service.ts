@@ -230,9 +230,11 @@ export async function getOverdueNotifications(tenantId: string) {
 
 export async function getLoansByCustomerId(customerId: string, tenantId: string) {
   return await sql`
-    SELECT * FROM loans 
-    WHERE customer_id = ${customerId} AND tenant_id = ${tenantId}
-    ORDER BY created_at DESC
+    SELECT l.*,
+           (SELECT COUNT(*)::int FROM payments p WHERE p.loan_id = l.id AND p.tenant_id = l.tenant_id) as paid_installments_count
+    FROM loans l
+    WHERE l.customer_id = ${customerId} AND l.tenant_id = ${tenantId}
+    ORDER BY l.created_at DESC
   `;
 }
 

@@ -44,11 +44,20 @@ function Detail() {
       const cust = await getCustomerById(id);
       setC(cust);
       const ls = await getLoansByCustomer(id);
-      setLoans(ls ?? []);
-
       // Get all payments for this customer's loans
       const allPayments = await getPayments();
-      const customerPayments = allPayments.filter((p: any) => ls.some((l: any) => l.id === p.loanId));
+      const customerPayments = (allPayments ?? []).filter((p: any) => (ls ?? []).some((l: any) => l.id === p.loanId));
+      
+      const loansWithPaidCount = (ls ?? []).map((l: any) => {
+        const count = customerPayments.filter((p: any) => p.loanId === l.id).length;
+        return {
+          ...l,
+          paidInstallmentsCount: l.paidInstallmentsCount ?? l.paid_installments_count ?? count,
+          paid_installments_count: l.paid_installments_count ?? l.paidInstallmentsCount ?? count,
+        };
+      });
+
+      setLoans(loansWithPaidCount);
       setPayments(customerPayments);
 
       const atts = await getCustomerAttachments(id);
