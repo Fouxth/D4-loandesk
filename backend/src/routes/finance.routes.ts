@@ -78,6 +78,15 @@ router.post('/payments', upload.single('slip'), async (req: AuthRequest, res) =>
   catch (e) { handleRouteError(e, res, 'POST /finance/payments'); }
 });
 
+router.post('/payments/bulk', async (req: AuthRequest, res) => {
+  try {
+    const { payments } = req.body;
+    res.json(await financeService.dbCreateBulkPayments(payments, req.userId!, req.tenantId!));
+  } catch (e) {
+    handleRouteError(e, res, 'POST /finance/payments/bulk');
+  }
+});
+
 router.delete('/payments/:id', async (req: AuthRequest, res) => {
   try { res.json(await financeService.dbDeletePayment(req.params.id as string, req.tenantId!)); }
   catch (e) { handleRouteError(e, res, 'DELETE /finance/payments/:id'); }

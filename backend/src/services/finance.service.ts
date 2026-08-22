@@ -217,6 +217,34 @@ export async function dbDeletePayment(id: string, tenantId: string) {
   return result;
 }
 
+export async function dbCreateBulkPayments(
+  paymentsList: Array<any>,
+  userId: string,
+  tenantId: string
+) {
+  if (!Array.isArray(paymentsList) || paymentsList.length === 0) {
+    throw new Error('กรุณาระบุรายการชำระเงิน');
+  }
+
+  const results: any[] = [];
+  for (const item of paymentsList) {
+    try {
+      const res = await dbCreatePayment(item, userId, tenantId);
+      results.push({ success: true, payment: res });
+    } catch (err: any) {
+      results.push({ success: false, loanId: item.loanId, error: err.message });
+    }
+  }
+
+  const successCount = results.filter((r) => r.success).length;
+  return {
+    success: true,
+    total: paymentsList.length,
+    successCount,
+    results,
+  };
+}
+
 export async function dbGetExpenses(tenantId: string) {
   return await sql`SELECT * FROM expenses WHERE tenant_id = ${tenantId} ORDER BY expense_date DESC`;
 }

@@ -71,6 +71,7 @@ export const createPayment = (data: any, slipFile?: File | null) => {
     headers: { 'Content-Type': 'multipart/form-data' }
   }).then(r => r.data);
 };
+export const createBulkPayments = (payments: any[]) => api.post('/finance/payments/bulk', { payments }).then(r => r.data);
 export const deletePayment = (id: string) => api.delete(`/finance/payments/${id}`).then(r => r.data);
 
 export const getExpenses = () => api.get('/finance/expenses').then(r => r.data);

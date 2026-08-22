@@ -33,8 +33,11 @@ export function createApp() {
 
   const allowedOriginsList = [
     'http://localhost:5173',
+    'http://127.0.0.1:5173',
     'http://localhost:5174',
+    'http://127.0.0.1:5174',
     'http://localhost:9876',
+    'http://127.0.0.1:9876',
     'https://d4-loandesk.vercel.app',
     ...(process.env.FRONTEND_ORIGIN ? process.env.FRONTEND_ORIGIN.split(',') : []),
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
@@ -57,8 +60,8 @@ export function createApp() {
           return cb(null, true);
         }
 
-        // Local dev: allow any localhost port (Vite, etc.)
-        if (process.env.NODE_ENV !== 'production' && /^http:\/\/localhost(:\d+)?$/.test(normalizedOrigin)) {
+        // Local dev: allow any localhost or 127.0.0.1 port (Vite, etc.)
+        if (process.env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalizedOrigin)) {
           return cb(null, true);
         }
 

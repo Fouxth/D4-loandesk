@@ -1,4 +1,4 @@
-import { logActivity, getLoans, createLoan, getCustomers } from "@/lib/services";
+import { logActivity, getLoans, createLoan, getCustomers, createPayment, createBulkPayments } from "@/lib/services";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel, getLoanNextDueDate } from "@/components/StatusBadge";
-import { Plus, Search, Calendar, User, DollarSign, Pencil } from "lucide-react";
+import { Plus, Search, Calendar, User, DollarSign, Pencil, Zap, Loader2, CheckCircle2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { calcLoan } from "@/utils/loanCalc";
 import { formatTHB, formatDate, getThaiDateStr } from "@/utils/format";
@@ -28,8 +29,6 @@ export const Route = createFileRoute("/loans/")({
   component: () => (<ProtectedRoute><AppLayout><Loans /></AppLayout></ProtectedRoute>),
 });
 
-
-
 function Loans() {
   const { t } = useTranslation();
   const [rows, setRows] = useState<any[]>([]);
@@ -37,6 +36,14 @@ function Loans() {
   const [filter, setFilter] = useSessionState("loans_status_filter", "all");
   const [typeFilter, setTypeFilter] = useSessionState("loans_type_filter", "all");
   const [open, setOpen] = useState(false);
+
+  // Quick Pay & Bulk Pay State
+  const [selectedLoanIds, setSelectedLoanIds] = useState<Set<string>>(new Set());
+  const [quickPayingId, setQuickPayingId] = useState<string | null>(null);
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkPaymentDate, setBulkPaymentDate] = useState(getThaiDateStr());
+  const [bulkMethod, setBulkMethod] = useState<"cash" | "bank_transfer" | "other">("cash");
 
   const load = async () => {
     try {
@@ -66,18 +73,147 @@ function Loans() {
     };
   }, []);
 
+  const todayStr = getThaiDateStr();
+  const isTodayDue = (r: any) => {
+    const nextDue = getLoanNextDueDate(r) || r.dueDate;
+    const status = getEffectiveStatus(r);
+    if (["completed", "cancelled", "forfeited"].includes(status)) return false;
+    return nextDue === todayStr || status === "due_today";
+  };
+
+  const countAll = rows.length;
+  const countTodayDue = rows.filter(isTodayDue).length;
+  const countOverdue = rows.filter((r) => getEffectiveStatus(r) === "overdue").length;
+  const countCompleted = rows.filter((r) => getEffectiveStatus(r) === "completed").length;
+
   const filtered = rows.filter((r) => {
     const q = search.toLowerCase();
     const matchSearch = !q ||
                         r.loanNumber.toLowerCase().includes(q) ||
                         r.customerName.toLowerCase().includes(q);
-    const matchStatus = filter === "all" || getEffectiveStatus(r) === filter || (filter === "active" && getEffectiveStatus(r) === "due_today");
+    const status = getEffectiveStatus(r);
+    const matchStatus =
+      filter === "all" ||
+      (filter === "today_due" && isTodayDue(r)) ||
+      (filter === "active" && (status === "active" || status === "due_today")) ||
+      status === filter;
     const matchType = typeFilter === "all" || getLoanCategory(r) === typeFilter;
     return matchSearch && matchStatus && matchType;
   });
 
+  // Active / Eligible for Bulk Pay from currently filtered loans
+  const activeEligibleLoans = filtered.filter(
+    (l) => !["completed", "cancelled", "forfeited"].includes(getEffectiveStatus(l))
+  );
+  const isAllSelected =
+    activeEligibleLoans.length > 0 &&
+    activeEligibleLoans.every((l) => selectedLoanIds.has(l.id));
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedLoanIds(new Set());
+    } else {
+      setSelectedLoanIds(new Set(activeEligibleLoans.map((l) => l.id)));
+    }
+  };
+
+  const toggleSelect = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSelectedLoanIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleQuickPay = async (loan: any) => {
+    const loanId = loan.id;
+    const customerName = loan.customerName || loan.customer_name || "—";
+    const isInterestOnly = Boolean(loan.isInterestOnly || loan.isPawn || loan.is_interest_only || loan.is_pawn);
+    const instAmount = Number(loan.installmentAmount ?? loan.installment_amount ?? 0);
+    const nextNum = Number(loan.paidInstallmentsCount ?? loan.paid_installments_count ?? 0) + 1;
+
+    if (instAmount <= 0) {
+      toast.error("ไม่สามารถชำระด่วนได้ เนื่องจากยอดค่างวดเป็น 0");
+      return;
+    }
+
+    setQuickPayingId(loanId);
+    try {
+      await createPayment({
+        loanId,
+        amount: instAmount,
+        installmentNumber: nextNum,
+        paymentDate: getThaiDateStr(),
+        method: "cash",
+        category: isInterestOnly ? "interest" : "principal",
+        notes: "ชำระด่วน 1-Click",
+      });
+      try {
+        await logActivity({
+          action: "record_payment",
+          entity_type: "payment",
+          details: { loanId, amount: instAmount, loanNumber: loan.loanNumber, customerName, isQuickPay: true },
+        });
+      } catch (e) {}
+      toast.success(`⚡️ บันทึกชำระ ${customerName} ฿${instAmount.toLocaleString()} (งวดที่ ${nextNum}) เรียบร้อยแล้ว`);
+      await load();
+    } catch (error: any) {
+      toast.error(error.message || "เกิดข้อผิดพลาดในการบันทึกชำระด่วน");
+    } finally {
+      setQuickPayingId(null);
+    }
+  };
+
+  const selectedLoansList = rows.filter((r) => selectedLoanIds.has(r.id));
+  const selectedTotalAmount = selectedLoansList.reduce(
+    (sum, l) => sum + Number(l.installmentAmount ?? l.installment_amount ?? 0),
+    0
+  );
+
+  const handleBulkSubmit = async () => {
+    if (selectedLoansList.length === 0) return;
+
+    setBulkBusy(true);
+    try {
+      const payloads = selectedLoansList.map((l) => {
+        const isInterestOnly = Boolean(l.isInterestOnly || l.isPawn || l.is_interest_only || l.is_pawn);
+        const instAmount = Number(l.installmentAmount ?? l.installment_amount ?? 0);
+        const nextNum = Number(l.paidInstallmentsCount ?? l.paid_installments_count ?? 0) + 1;
+        return {
+          loanId: l.id,
+          amount: instAmount,
+          installmentNumber: nextNum,
+          paymentDate: bulkPaymentDate,
+          method: bulkMethod,
+          category: isInterestOnly ? "interest" : "principal",
+          notes: `บันทึกกลุ่ม ${bulkPaymentDate}`,
+        };
+      });
+
+      const res = await createBulkPayments(payloads);
+      try {
+        await logActivity({
+          action: "bulk_record_payments",
+          entity_type: "payment",
+          details: { count: res.successCount, total: payloads.length, totalAmount: selectedTotalAmount },
+        });
+      } catch (e) {}
+
+      toast.success(`⚡️ บันทึกรับชำระพร้อมกัน ${res.successCount} สัญญา (รวม ฿${selectedTotalAmount.toLocaleString()}) เรียบร้อยแล้ว`);
+      setSelectedLoanIds(new Set());
+      setBulkConfirmOpen(false);
+      await load();
+    } catch (err: any) {
+      toast.error(err.message || "เกิดข้อผิดพลาดในการบันทึกกลุ่ม");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 pb-20">
       <PageHeader
         title={t('loans.title')} 
         description={`${t('common.total', 'ทั้งหมด')} ${rows.length} ${t('common.items', 'รายการ')}`}
@@ -92,6 +228,63 @@ function Loans() {
           </Dialog>
         }
       />
+
+      {/* Quick Filter Tabs / Chips */}
+      <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar text-xs font-bold">
+        <button
+          onClick={() => setFilter("all")}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
+            filter === "all"
+              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+              : "bg-card border-border hover:bg-muted text-muted-foreground"
+          )}
+        >
+          <span>ทั้งหมด</span>
+          <span className="opacity-80 text-[11px]">({countAll})</span>
+        </button>
+
+        <button
+          onClick={() => setFilter("today_due")}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
+            filter === "today_due"
+              ? "bg-amber-500 text-white border-amber-600 shadow-sm"
+              : "bg-card border-border hover:bg-amber-500/10 text-amber-600 dark:text-amber-400"
+          )}
+        >
+          <span>⚡️ ต้องเก็บวันนี้</span>
+          <span className="bg-amber-500/20 text-amber-700 dark:text-amber-300 px-1.5 py-0.2 rounded-full text-[10px] font-black">
+            {countTodayDue}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setFilter("overdue")}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
+            filter === "overdue"
+              ? "bg-rose-500 text-white border-rose-600 shadow-sm"
+              : "bg-card border-border hover:bg-rose-500/10 text-rose-600 dark:text-rose-400"
+          )}
+        >
+          <span>🔴 ค้างชำระ</span>
+          <span className="opacity-80 text-[11px]">({countOverdue})</span>
+        </button>
+
+        <button
+          onClick={() => setFilter("completed")}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl border transition-all whitespace-nowrap flex items-center gap-1.5",
+            filter === "completed"
+              ? "bg-blue-600 text-white border-blue-700 shadow-sm"
+              : "bg-card border-border hover:bg-muted text-muted-foreground"
+          )}
+        >
+          <span>🔵 ปิดยอดแล้ว</span>
+          <span className="opacity-80 text-[11px]">({countCompleted})</span>
+        </button>
+      </div>
 
       <div className="mb-6 flex flex-col sm:flex-row flex-wrap items-center gap-3">
         <div className="relative max-w-md flex-1 w-full">
@@ -109,8 +302,7 @@ function Loans() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('loans.status.all')}</SelectItem>
-            <SelectItem value="active">{t('loans.status.active')}</SelectItem>
-            <SelectItem value="due_today">{t('loans.status.due_today')}</SelectItem>
+            <SelectItem value="today_due">⚡️ ต้องเก็บวันนี้</SelectItem>
             <SelectItem value="overdue">{t('loans.status.overdue')}</SelectItem>
             <SelectItem value="completed">{t('loans.status.completed')}</SelectItem>
             <SelectItem value="cancelled">{t('loans.status.cancelled')}</SelectItem>
@@ -133,6 +325,13 @@ function Loans() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50 border-b border-border">
+              <TableHead className="w-10 px-3 text-center">
+                <Checkbox
+                  checked={isAllSelected}
+                  onCheckedChange={toggleSelectAll}
+                  aria-label="เลือกทั้งหมด"
+                />
+              </TableHead>
               <TableHead className="font-bold">{t('loans.table.loan_number', 'เลขที่สัญญา')}</TableHead>
               <TableHead className="font-bold">{t('loans.table.customer', 'ชื่อลูกค้า')}</TableHead>
               <TableHead className="font-bold">{t('loans.table.type', 'ประเภท')}</TableHead>
@@ -140,100 +339,198 @@ function Loans() {
               <TableHead className="font-bold">{t('loans.table.total', 'ยอดรวม')}</TableHead>
               <TableHead className="font-bold">{t('loans.table.due_date', 'ครบกำหนด')}</TableHead>
               <TableHead className="font-bold text-center">{t('loans.table.status', 'สถานะ')}</TableHead>
-              <TableHead className="font-bold text-center pr-6">จัดการ</TableHead>
+              <TableHead className="font-bold text-center pr-6">จัดการ / รับชำระ</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((l) => (
-              <TableRow key={l.id} className="hover:bg-muted/20 transition-colors">
-                <TableCell>
-                  <Link to="/loans/$loanId" params={{ loanId: l.id }} className="font-bold text-primary hover:underline flex items-center gap-2">
-                    {l.loanNumber}
-                    {l.isPawn && <span className="bg-primary/20 text-primary text-[11px] px-1 rounded">จำนำ</span>}
-                  </Link>
-                </TableCell>
-                <TableCell className="font-medium">{l.customerName}</TableCell>
-                <TableCell>
-                  <StatusBadge tone="info">{getLoanCategory(l)}</StatusBadge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{formatTHB(l.principal)}</TableCell>
-                <TableCell className="font-bold">{formatTHB(l.totalPayable)}</TableCell>
-                <TableCell className="text-muted-foreground text-xs">{formatDate(getLoanNextDueDate(l) || l.dueDate)}</TableCell>
-                <TableCell className="text-center">
-                  <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
-                    {getLoanStatusLabel(l, t)}
-                  </StatusBadge>
-                </TableCell>
-                <TableCell className="text-center pr-6">
-                  <div className="flex items-center justify-center gap-1.5">
-                    <RecordPaymentModal
-                      loan={l}
-                      onDone={load}
-                      trigger={
+            {filtered.map((l) => {
+              const isEligible = !["completed", "cancelled", "forfeited"].includes(getEffectiveStatus(l));
+              const isSelected = selectedLoanIds.has(l.id);
+              const instAmt = Number(l.installmentAmount ?? l.installment_amount ?? 0);
+              const isPayingThis = quickPayingId === l.id;
+
+              return (
+                <TableRow
+                  key={l.id}
+                  className={cn(
+                    "hover:bg-muted/20 transition-colors cursor-pointer",
+                    isSelected && "bg-primary/5 hover:bg-primary/10"
+                  )}
+                  onClick={() => isEligible && toggleSelect(l.id)}
+                >
+                  <TableCell className="px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleSelect(l.id)}
+                      disabled={!isEligible}
+                      aria-label={`เลือก ${l.customerName}`}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Link to="/loans/$loanId" params={{ loanId: l.id }} className="font-bold text-primary hover:underline flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      {l.loanNumber}
+                      {l.isPawn && <span className="bg-primary/20 text-primary text-[11px] px-1 rounded">จำนำ</span>}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="font-medium">{l.customerName}</TableCell>
+                  <TableCell>
+                    <StatusBadge tone="info">{getLoanCategory(l)}</StatusBadge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{formatTHB(l.principal)}</TableCell>
+                  <TableCell className="font-bold">{formatTHB(l.totalPayable)}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{formatDate(getLoanNextDueDate(l) || l.dueDate)}</TableCell>
+                  <TableCell className="text-center">
+                    <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
+                      {getLoanStatusLabel(l, t)}
+                    </StatusBadge>
+                  </TableCell>
+                  <TableCell className="text-center pr-6" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-center gap-1.5">
+                      {/* Quick 1-Click Pay */}
+                      {isEligible && instAmt > 0 && (
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-8 px-2.5 rounded-lg border-primary/30 text-primary hover:bg-primary/10 font-bold text-xs gap-1"
-                          title="บันทึกการชำระเงิน"
+                          disabled={isPayingThis}
+                          onClick={() => handleQuickPay(l)}
+                          className="h-8 px-2.5 rounded-lg border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold text-xs gap-1 shadow-sm active:scale-95 transition-all"
+                          title={`จ่ายด่วนงวดปกติ ฿${instAmt.toLocaleString()}`}
                         >
-                          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-                          <span>รับชำระ</span>
+                          {isPayingThis ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Zap className="h-3.5 w-3.5 text-emerald-500 fill-emerald-500" />
+                          )}
+                          <span>฿{instAmt.toLocaleString()}</span>
                         </Button>
-                      }
-                    />
-                    <EditLoanModal
-                      loan={l}
-                      onDone={load}
-                      trigger={
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
-                          title="แก้ไขสัญญา"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      }
-                    />
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                      )}
+
+                      <RecordPaymentModal
+                        loan={l}
+                        onDone={load}
+                        trigger={
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2.5 rounded-lg border-primary/30 text-primary hover:bg-primary/10 font-bold text-xs gap-1"
+                            title="บันทึกการชำระเงิน (ท+ป / ปรับยอด)"
+                          >
+                            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                            <span>รับชำระ</span>
+                          </Button>
+                        }
+                      />
+                      <EditLoanModal
+                        loan={l}
+                        onDone={load}
+                        trigger={
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            title="แก้ไขสัญญา"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        }
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
 
       {/* Mobile Card List */}
       <div className="grid grid-cols-1 gap-4 md:hidden pb-10">
-        {filtered.map((l) => (
-          <div
-            key={l.id} 
-            className="group rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] active:scale-[0.99] transition-all block relative cursor-pointer"
-          >
-            {/* Full card clickable link overlay */}
-            <Link
-              to="/loans/$loanId"
-              params={{ loanId: l.id }}
-              className="absolute inset-0 z-0 rounded-2xl"
-              aria-label={`สัญญา ${l.loanNumber} ${l.customerName}`}
-            />
+        {filtered.map((l) => {
+          const isEligible = !["completed", "cancelled", "forfeited"].includes(getEffectiveStatus(l));
+          const isSelected = selectedLoanIds.has(l.id);
+          const instAmt = Number(l.installmentAmount ?? l.installment_amount ?? 0);
+          const isPayingThis = quickPayingId === l.id;
 
-            <div className="relative z-10 pointer-events-none">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground bg-muted px-1.5 py-0.5 rounded mb-1 inline-flex items-center gap-1">
-                    {l.loanNumber}
-                    {l.isPawn && <span className="bg-primary text-white text-[10px] px-1 rounded ml-1">จำนำ</span>}
-                  </span>
-                  <div className="font-bold text-foreground text-lg flex items-center gap-2 group-hover:text-primary transition-colors">
-                    <User className="h-4 w-4 text-primary" /> {l.customerName}
+          return (
+            <div
+              key={l.id} 
+              className={cn(
+                "group rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-elevated)] active:scale-[0.99] transition-all block relative cursor-pointer",
+                isSelected && "border-primary ring-2 ring-primary/20 bg-primary/5"
+              )}
+            >
+              {/* Full card clickable link overlay */}
+              <Link
+                to="/loans/$loanId"
+                params={{ loanId: l.id }}
+                className="absolute inset-0 z-0 rounded-2xl"
+                aria-label={`สัญญา ${l.loanNumber} ${l.customerName}`}
+              />
+
+              <div className="relative z-10 pointer-events-none">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-start gap-2.5">
+                    {isEligible && (
+                      <div className="pointer-events-auto pt-0.5" onClick={(e) => toggleSelect(l.id, e)}>
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSelect(l.id)}
+                          aria-label={`เลือก ${l.customerName}`}
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground bg-muted px-1.5 py-0.5 rounded mb-1 inline-flex items-center gap-1">
+                        {l.loanNumber}
+                        {l.isPawn && <span className="bg-primary text-white text-[10px] px-1 rounded ml-1">จำนำ</span>}
+                      </span>
+                      <div className="font-bold text-foreground text-lg flex items-center gap-2 group-hover:text-primary transition-colors">
+                        <User className="h-4 w-4 text-primary" /> {l.customerName}
+                      </div>
+                      <StatusBadge tone="info">{getLoanCategory(l)}</StatusBadge>
+                    </div>
                   </div>
-                  <StatusBadge tone="info">{getLoanCategory(l)}</StatusBadge>
+                  <div className="flex items-center gap-1.5 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+                    <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
+                      {getLoanStatusLabel(l, t)}
+                    </StatusBadge>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
-                  <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
-                    {getLoanStatusLabel(l, t)}
-                  </StatusBadge>
+                
+                <div className="grid grid-cols-2 gap-4 mt-2 mb-3">
+                  <div className="space-y-1">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <DollarSign className="h-3 w-3" /> ยอดรวมทั้งหมด
+                    </p>
+                    <p className="font-black text-primary">{formatTHB(l.totalPayable)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <Calendar className="h-3 w-3" /> ครบกำหนด
+                    </p>
+                    <p className="text-xs font-bold text-foreground">{formatDate(getLoanNextDueDate(l) || l.dueDate)}</p>
+                  </div>
+                </div>
+
+                {/* Mobile Action Buttons */}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+                  {isEligible && instAmt > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isPayingThis}
+                      onClick={() => handleQuickPay(l)}
+                      className="h-8 px-2.5 rounded-lg border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold text-xs gap-1 shadow-sm active:scale-95 transition-all"
+                      title={`จ่ายด่วน ฿${instAmt.toLocaleString()}`}
+                    >
+                      {isPayingThis ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Zap className="h-3.5 w-3.5 text-emerald-500 fill-emerald-500" />
+                      )}
+                      <span>จ่ายด่วน ฿{instAmt.toLocaleString()}</span>
+                    </Button>
+                  )}
                   <RecordPaymentModal
                     loan={l}
                     onDone={load}
@@ -264,25 +561,155 @@ function Loans() {
                   />
                 </div>
               </div>
-              
-              <div className="grid grid-cols-2 gap-4 mt-2">
-                <div className="space-y-1">
-                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    <DollarSign className="h-3 w-3" /> ยอดรวมทั้งหมด
-                  </p>
-                  <p className="font-black text-primary">{formatTHB(l.totalPayable)}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    <Calendar className="h-3 w-3" /> ครบกำหนด
-                  </p>
-                  <p className="text-xs font-bold text-foreground">{formatDate(getLoanNextDueDate(l) || l.dueDate)}</p>
-                </div>
-              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Floating Sticky Bulk Pay Action Bar */}
+      {selectedLoanIds.size > 0 && (
+        <div className="fixed bottom-6 inset-x-4 max-w-2xl mx-auto z-40 bg-card/95 backdrop-blur-md border border-primary/40 p-3.5 sm:p-4 rounded-2xl shadow-[var(--shadow-elevated)] flex flex-col sm:flex-row items-center justify-between gap-3 animate-in slide-in-from-bottom-5">
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+            <div className="h-9 w-9 rounded-xl bg-primary/20 flex items-center justify-center text-primary font-black text-sm">
+              {selectedLoanIds.size}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">
+                เลือก {selectedLoanIds.size} สัญญา
+              </p>
+              <p className="text-xs text-muted-foreground font-medium">
+                ยอดรวมงวดปกติ: <span className="font-black text-emerald-600 dark:text-emerald-400">{formatTHB(selectedTotalAmount)}</span>
+              </p>
             </div>
           </div>
-        ))}
-      </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedLoanIds(new Set())}
+              className="text-xs rounded-xl h-9 font-medium"
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setBulkConfirmOpen(true)}
+              className="h-9 px-4 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-md gap-1.5 active:scale-95 transition-all"
+            >
+              <Zap className="h-3.5 w-3.5 fill-white" />
+              <span>บันทึกจ่ายปกติทุกคน ({selectedLoanIds.size} คน)</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Pay Confirmation Dialog */}
+      <Dialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}>
+        <DialogContent className="w-[95vw] sm:w-full max-w-lg max-h-[85vh] overflow-y-auto border-border shadow-[var(--shadow-elevated)]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Zap className="h-5 w-5 text-emerald-500 fill-emerald-500" />
+              <span>ยืนยันบันทึกการชำระเงินกลุ่ม ({selectedLoansList.length} สัญญา)</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  วันที่ชำระ
+                </Label>
+                <Input
+                  type="date"
+                  value={bulkPaymentDate}
+                  onChange={(e) => setBulkPaymentDate(e.target.value)}
+                  className="bg-muted/20"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  ช่องทางการชำระ
+                </Label>
+                <Select value={bulkMethod} onValueChange={(v: any) => setBulkMethod(v)}>
+                  <SelectTrigger className="bg-muted/20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">เงินสด</SelectItem>
+                    <SelectItem value="bank_transfer">โอนผ่านธนาคาร</SelectItem>
+                    <SelectItem value="other">อื่นๆ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                รายชื่อและยอดเงินที่จะตัดงวด ({selectedLoansList.length} รายการ)
+              </Label>
+              <div className="max-h-60 overflow-y-auto rounded-xl border border-border bg-muted/10 divide-y divide-border/40 p-1">
+                {selectedLoansList.map((l) => {
+                  const instAmt = Number(l.installmentAmount ?? l.installment_amount ?? 0);
+                  const nextNum = Number(l.paidInstallmentsCount ?? l.paid_installments_count ?? 0) + 1;
+                  return (
+                    <div key={l.id} className="p-2.5 flex items-center justify-between text-xs">
+                      <div>
+                        <p className="font-bold text-foreground flex items-center gap-1.5">
+                          <span>{l.customerName}</span>
+                          <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.2 rounded">
+                            {l.loanNumber}
+                          </span>
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">งวดที่ {nextNum}</p>
+                      </div>
+                      <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm">
+                        {formatTHB(instAmt)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 flex justify-between items-center text-xs">
+              <span className="font-bold text-emerald-700 dark:text-emerald-300">
+                ยอดรวมทั้งสิ้น ({selectedLoansList.length} คน):
+              </span>
+              <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+                {formatTHB(selectedTotalAmount)}
+              </span>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-2 gap-2">
+            <Button
+              variant="outline"
+              disabled={bulkBusy}
+              onClick={() => setBulkConfirmOpen(false)}
+              className="rounded-xl"
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              disabled={bulkBusy}
+              onClick={handleBulkSubmit}
+              className="rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md gap-1.5"
+            >
+              {bulkBusy ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>กำลังบันทึก...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>ยืนยันบันทึกทั้ง {selectedLoansList.length} รายการ</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {filtered.length === 0 && (
         <div className="py-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border mt-4">
