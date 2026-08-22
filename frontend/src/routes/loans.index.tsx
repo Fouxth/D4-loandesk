@@ -20,6 +20,7 @@ import { getLoanCategory, LOAN_CATEGORY_OPTIONS } from "@/utils/loanType";
 import { useSettings } from "@/contexts/SettingsContext";
 import { CustomerSelect } from "@/components/CustomerSelect";
 import { EditLoanModal } from "@/components/EditLoanModal";
+import { RecordPaymentModal } from "@/components/RecordPaymentModal";
 import { cn } from "@/utils/utils";
 import { useSessionState } from "@/hooks/useSessionState";
 
@@ -164,20 +165,37 @@ function Loans() {
                   </StatusBadge>
                 </TableCell>
                 <TableCell className="text-center pr-6">
-                  <EditLoanModal
-                    loan={l}
-                    onDone={load}
-                    trigger={
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
-                        title="แก้ไขสัญญา"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    }
-                  />
+                  <div className="flex items-center justify-center gap-1.5">
+                    <RecordPaymentModal
+                      loan={l}
+                      onDone={load}
+                      trigger={
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2.5 rounded-lg border-primary/30 text-primary hover:bg-primary/10 font-bold text-xs gap-1"
+                          title="บันทึกการชำระเงิน"
+                        >
+                          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                          <span>รับชำระ</span>
+                        </Button>
+                      }
+                    />
+                    <EditLoanModal
+                      loan={l}
+                      onDone={load}
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
+                          title="แก้ไขสัญญา"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      }
+                    />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -216,6 +234,20 @@ function Loans() {
                   <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
                     {getLoanStatusLabel(l, t)}
                   </StatusBadge>
+                  <RecordPaymentModal
+                    loan={l}
+                    onDone={load}
+                    trigger={
+                      <Button
+                        size="sm"
+                        className="h-8 px-2.5 rounded-lg bg-primary/15 text-primary border border-primary/30 hover:bg-primary hover:text-primary-foreground text-xs font-bold gap-1 active:scale-95 transition-all"
+                        title="บันทึกการชำระเงิน"
+                      >
+                        <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                        <span>รับชำระ</span>
+                      </Button>
+                    }
+                  />
                   <EditLoanModal
                     loan={l}
                     onDone={load}
