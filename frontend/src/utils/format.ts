@@ -18,17 +18,36 @@ export function formatTHB(value: number | string | null | undefined) {
 
 export function formatDate(d: string | Date | null | undefined) {
   if (!d) return "ไม่มีกำหนด";
+  if (typeof d === "string") {
+    const clean = d.split("T")[0];
+    const parts = clean.split("-").map(Number);
+    if (parts.length === 3 && !parts.some(isNaN)) {
+      const date = new Date(parts[0], parts[1] - 1, parts[2]);
+      return date.toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" });
+    }
+  }
   const date = typeof d === "string" ? new Date(d) : d;
-  return date.toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" });
+  return isNaN(date.getTime()) ? "ไม่มีกำหนด" : date.toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export function daysBetween(a: string | Date | null | undefined, b: string | Date | null | undefined) {
   if (!a || !b) return 0;
-  const d1 = typeof a === "string" ? new Date(a.split("T")[0]) : a;
-  const d2 = typeof b === "string" ? new Date(b.split("T")[0]) : b;
+  const parseLocal = (v: string | Date) => {
+    if (typeof v === "string") {
+      const clean = v.split("T")[0];
+      const parts = clean.split("-").map(Number);
+      if (parts.length === 3 && !parts.some(isNaN)) {
+        return new Date(parts[0], parts[1] - 1, parts[2]);
+      }
+      return new Date(v);
+    }
+    return new Date(v.getTime());
+  };
+
+  const d1 = parseLocal(a);
+  const d2 = parseLocal(b);
   if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return 0;
 
-  // Set both to midnight to ignore time part
   d1.setHours(0, 0, 0, 0);
   d2.setHours(0, 0, 0, 0);
 

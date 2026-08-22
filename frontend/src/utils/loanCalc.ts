@@ -3,20 +3,31 @@ export function calcLoan(
   interestRate: number,
   installmentsCount: number,
   paymentType: "daily" | "weekly" | "monthly",
-  startDate: Date,
+  startDate: Date | string,
   isInterestOnly: boolean = false,
   isIndefinite: boolean = false,
   isPrincipalInterestAtEnd: boolean = false
 ) {
   const interest = (principal * interestRate) / 100;
   const total = isInterestOnly ? principal : principal + interest;
-  const installment = isPrincipalInterestAtEnd ? total : isInterestOnly ? interest : total / installmentsCount;
+  const installment = isPrincipalInterestAtEnd ? total : isInterestOnly ? interest : total / Math.max(installmentsCount, 1);
 
   if (isIndefinite) {
-    return { interest, total, installment, due: null };
+    return { interest, total, installment, due: null, dueStr: null };
   }
 
-  const due = new Date(startDate);
+  let due: Date;
+  if (typeof startDate === "string") {
+    const parts = startDate.split("T")[0].split("-").map(Number);
+    if (parts.length === 3 && !parts.some(isNaN)) {
+      due = new Date(parts[0], parts[1] - 1, parts[2]);
+    } else {
+      due = new Date(startDate);
+    }
+  } else {
+    due = new Date(startDate.getTime());
+  }
+
   const count = Math.max(Number(installmentsCount) || 1, 1);
   const offset = count > 1 ? count - 1 : 0;
 
@@ -28,10 +39,13 @@ export function calcLoan(
     due.setMonth(due.getMonth() + offset);
   }
 
+  const dueStr = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
+
   return {
     interest,
     total,
     installment,
     due,
+    dueStr,
   };
 }

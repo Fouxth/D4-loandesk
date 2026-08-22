@@ -12,6 +12,14 @@ export function setupMobileKeyboardDismiss() {
       return;
     }
 
+    // Do not blur native date/time pickers (iOS/Android renders native wheels/popovers)
+    if (
+      activeEl instanceof HTMLInputElement &&
+      ["date", "time", "datetime-local", "month", "week"].includes(activeEl.type)
+    ) {
+      return;
+    }
+
     const target = e.target as HTMLElement | null;
     if (!target) return;
 

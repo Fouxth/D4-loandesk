@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Pencil, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
-import { formatTHB } from "@/utils/format";
+import { formatTHB, getThaiDateStr } from "@/utils/format";
 import { calcLoan } from "@/utils/loanCalc";
 import { updateLoan, logActivity } from "@/lib/services";
 
@@ -77,15 +77,14 @@ export function EditLoanModal({
     const r = Number(form.interestRate || 0);
     const count = Number(form.installmentsCount || 1);
     const type = form.paymentType || "daily";
-    const start = form.startDate ? new Date(form.startDate) : new Date();
-
     return calcLoan(
       p,
       r,
       count,
       type,
-      start,
+      form.startDate || getThaiDateStr(),
       form.isInterestOnly,
+      form.isIndefinite,
       form.isPrincipalInterestAtEnd
     );
   }, [
@@ -95,6 +94,7 @@ export function EditLoanModal({
     form.paymentType,
     form.startDate,
     form.isInterestOnly,
+    form.isIndefinite,
     form.isPrincipalInterestAtEnd,
   ]);
 
@@ -112,7 +112,7 @@ export function EditLoanModal({
       setBusy(true);
       const computedDueDate = form.isIndefinite
         ? null
-        : form.dueDate || (calc.due ? calc.due.toISOString().substring(0, 10) : null);
+        : form.dueDate || calc.dueStr || (calc.due ? calc.due.toISOString().substring(0, 10) : null);
 
       const payload = {
         principal: Number(form.principal),
