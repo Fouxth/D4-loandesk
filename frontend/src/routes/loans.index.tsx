@@ -189,54 +189,64 @@ function Loans() {
         {filtered.map((l) => (
           <div
             key={l.id} 
-            className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] active:scale-[0.99] transition-all block relative"
+            className="group rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] active:scale-[0.99] transition-all block relative cursor-pointer"
           >
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground bg-muted px-1.5 py-0.5 rounded mb-1 inline-flex items-center gap-1">
-                  {l.loanNumber}
-                  {l.isPawn && <span className="bg-primary text-white text-[10px] px-1 rounded ml-1">จำนำ</span>}
-                </span>
-                <Link to="/loans/$loanId" params={{ loanId: l.id }} className="font-bold text-foreground text-lg flex items-center gap-2 hover:text-primary transition-colors">
-                  <User className="h-4 w-4 text-primary" /> {l.customerName}
-                </Link>
-                <StatusBadge tone="info">{getLoanCategory(l)}</StatusBadge>
+            {/* Full card clickable link overlay */}
+            <Link
+              to="/loans/$loanId"
+              params={{ loanId: l.id }}
+              className="absolute inset-0 z-0 rounded-2xl"
+              aria-label={`สัญญา ${l.loanNumber} ${l.customerName}`}
+            />
+
+            <div className="relative z-10 pointer-events-none">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground bg-muted px-1.5 py-0.5 rounded mb-1 inline-flex items-center gap-1">
+                    {l.loanNumber}
+                    {l.isPawn && <span className="bg-primary text-white text-[10px] px-1 rounded ml-1">จำนำ</span>}
+                  </span>
+                  <div className="font-bold text-foreground text-lg flex items-center gap-2 group-hover:text-primary transition-colors">
+                    <User className="h-4 w-4 text-primary" /> {l.customerName}
+                  </div>
+                  <StatusBadge tone="info">{getLoanCategory(l)}</StatusBadge>
+                </div>
+                <div className="flex items-center gap-1.5 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+                  <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
+                    {getLoanStatusLabel(l, t)}
+                  </StatusBadge>
+                  <EditLoanModal
+                    loan={l}
+                    onDone={load}
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
+                        title="แก้ไขสัญญา"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <StatusBadge tone={loanStatusTone(getEffectiveStatus(l))}>
-                  {getLoanStatusLabel(l, t)}
-                </StatusBadge>
-                <EditLoanModal
-                  loan={l}
-                  onDone={load}
-                  trigger={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
-                      title="แก้ไขสัญญา"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  }
-                />
+              
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="space-y-1">
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <DollarSign className="h-3 w-3" /> ยอดรวมทั้งหมด
+                  </p>
+                  <p className="font-black text-primary">{formatTHB(l.totalPayable)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-3 w-3" /> ครบกำหนด
+                  </p>
+                  <p className="text-xs font-bold text-foreground">{formatDate(getLoanNextDueDate(l) || l.dueDate)}</p>
+                </div>
               </div>
             </div>
-            
-            <Link to="/loans/$loanId" params={{ loanId: l.id }} className="grid grid-cols-2 gap-4 mt-2">
-              <div className="space-y-1">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                  <DollarSign className="h-3 w-3" /> ยอดรวมทั้งหมด
-                </p>
-                <p className="font-black text-primary">{formatTHB(l.totalPayable)}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                  <Calendar className="h-3 w-3" /> ครบกำหนด
-                </p>
-                <p className="text-xs font-bold text-foreground">{formatDate(l.dueDate)}</p>
-              </div>
-            </Link>
           </div>
         ))}
       </div>

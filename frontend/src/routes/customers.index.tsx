@@ -200,45 +200,55 @@ function Customers() {
       {/* Mobile Card List */}
       <div className="grid grid-cols-1 gap-4 md:hidden pb-10">
         {filtered.map((c) => (
-          <div key={c.id} className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] active:scale-[0.98] transition-all">
-            <div className="flex justify-between items-start mb-2">
-              <Link to="/customers/$id" params={{ id: c.id }} className="font-bold text-primary text-lg">
-                {c.fullName}
-              </Link>
-               <div className="flex flex-col items-end gap-1">
-                <StatusBadge tone={c.category === "blocked" ? "destructive" : c.category === "good" ? "success" : c.category === "regular" ? "info" : "muted"}>
-                  {t(`customers.category.${c.category ?? "new"}`)}
-                </StatusBadge>
-                <StatusBadge tone={c.riskLevel === "high" ? "destructive" : c.riskLevel === "medium" ? "warning" : "success"}>
-                  {t(`customers.risk.${c.riskLevel}`)}
-                </StatusBadge>
+          <div key={c.id} className="group rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)] active:scale-[0.98] transition-all relative cursor-pointer">
+            {/* Full card clickable link overlay */}
+            <Link
+              to="/customers/$id"
+              params={{ id: c.id }}
+              className="absolute inset-0 z-0 rounded-2xl"
+              aria-label={`ข้อมูลลูกค้า ${c.fullName}`}
+            />
+
+            <div className="relative z-10 pointer-events-none">
+              <div className="flex justify-between items-start mb-2">
+                <div className="font-bold text-primary text-lg group-hover:underline">
+                  {c.fullName}
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <StatusBadge tone={c.category === "blocked" ? "destructive" : c.category === "good" ? "success" : c.category === "regular" ? "info" : "muted"}>
+                    {t(`customers.category.${c.category ?? "new"}`)}
+                  </StatusBadge>
+                  <StatusBadge tone={c.riskLevel === "high" ? "destructive" : c.riskLevel === "medium" ? "warning" : "success"}>
+                    {t(`customers.risk.${c.riskLevel}`)}
+                  </StatusBadge>
+                </div>
               </div>
-            </div>
-            <div className="space-y-1.5 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Phone className="h-3.5 w-3.5" />
-                <span>{c.phone || "—"}</span>
+              <div className="space-y-1.5 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Phone className="h-3.5 w-3.5" />
+                  <span>{c.phone || "—"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-3.5 w-3.5" />
+                  <span className="font-mono text-xs">{c.idCard || "—"}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-3.5 w-3.5" />
-                <span className="font-mono text-xs">{c.idCard || "—"}</span>
-              </div>
-            </div>
-            <div className="mt-4 pt-3 border-t border-border flex justify-between items-center">
-              <span className="text-[11px] text-muted-foreground">{formatDate(c.createdAt)}</span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => { setEditing(c); setOpen(true); }} className="h-8 px-3">
-                  <Pencil className="mr-1 h-3.5 w-3.5" />{t('actions.edit', 'แก้ไข')}
-                </Button>
-                <ConfirmDelete
-                  onConfirm={() => remove(c.id)}
-                  title="ยืนยันการลบลูกค้า"
-                  description="คุณแน่ใจหรือไม่ว่าต้องการลบลูกค้ารายนี้?"
-                >
-                  <Button variant="outline" size="sm" className="h-8 px-3 text-destructive border-destructive/20 hover:bg-destructive/10">
-                    <Trash2 className="mr-1 h-3.5 w-3.5" />{t('actions.delete', 'ลบ')}
+              <div className="mt-4 pt-3 border-t border-border flex justify-between items-center">
+                <span className="text-[11px] text-muted-foreground">{formatDate(c.createdAt)}</span>
+                <div className="flex gap-2 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+                  <Button variant="outline" size="sm" onClick={() => { setEditing(c); setOpen(true); }} className="h-8 px-3">
+                    <Pencil className="mr-1 h-3.5 w-3.5" />{t('actions.edit', 'แก้ไข')}
                   </Button>
-                </ConfirmDelete>
+                  <ConfirmDelete
+                    onConfirm={() => remove(c.id)}
+                    title="ยืนยันการลบลูกค้า"
+                    description="คุณแน่ใจหรือไม่ว่าต้องการลบลูกค้ารายนี้?"
+                  >
+                    <Button variant="outline" size="sm" className="h-8 px-3 text-destructive border-destructive/20 hover:bg-destructive/10">
+                      <Trash2 className="mr-1 h-3.5 w-3.5" />{t('actions.delete', 'ลบ')}
+                    </Button>
+                  </ConfirmDelete>
+                </div>
               </div>
             </div>
           </div>
