@@ -5,14 +5,12 @@ import { Sparkles, Users, Gem, AlertTriangle, Ban } from "lucide-react";
 interface CreditScoreBadgeProps {
   profile: CustomerCreditProfile;
   size?: "xs" | "sm" | "md" | "lg";
-  showRate?: boolean;
   className?: string;
 }
 
 export function CreditScoreBadge({
   profile,
   size = "sm",
-  showRate = false,
   className,
 }: CreditScoreBadgeProps) {
   const getIcon = () => {
@@ -52,11 +50,6 @@ export function CreditScoreBadge({
     >
       {getIcon()}
       <span>{profile.categoryLabel}</span>
-      {showRate && profile.totalLoansCount > 0 && (
-        <span className="opacity-75 text-[10px] font-mono ml-0.5">
-          ({profile.onTimePaymentRate}%)
-        </span>
-      )}
     </div>
   );
 }

@@ -285,7 +285,7 @@ function Customers() {
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <CreditScoreBadge profile={prof} size="sm" showRate />
+                    <CreditScoreBadge profile={prof} size="sm" />
                   </TableCell>
                   <TableCell>
                     <div className="text-xs space-y-0.5">
@@ -351,7 +351,7 @@ function Customers() {
                       {c.fullName}
                     </div>
                     <div className="mt-1">
-                      <CreditScoreBadge profile={prof} size="xs" showRate />
+                      <CreditScoreBadge profile={prof} size="xs" />
                     </div>
                   </div>
                   <div className="text-right text-xs">
