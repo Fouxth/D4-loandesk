@@ -7,6 +7,9 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { SettingsProvider } from '@/contexts/SettingsContext'
 import './styles/styles.css'
 import './i18n'
+import { setupMobileKeyboardDismiss } from '@/utils/mobileKeyboard'
+
+setupMobileKeyboardDismiss()
 
 const router = createRouter({ routeTree })
 
