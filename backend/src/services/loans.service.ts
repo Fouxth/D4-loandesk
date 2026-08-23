@@ -487,6 +487,110 @@ export async function dbUpdateLoanLateFee(
   return result;
 }
 
+export async function dbTopupLoanPrincipal(
+  id: string,
+  data: {
+    addedPrincipal: number;
+    newInstallmentAmount?: number;
+    newInterestRate?: number;
+    topupDate?: string;
+    notes?: string;
+  },
+  userId: string,
+  tenantId: string
+) {
+  const addedPrincipal = Number(data.addedPrincipal || 0);
+  if (addedPrincipal <= 0) {
+    throw new ApiError(400, 'กรุณาระบุยอดเงินต้นที่เบิกเพิ่มให้ถูกต้อง (มากกว่า 0)');
+  }
+
+  const [loan] = await sql`
+    SELECT l.*, c.full_name as customer_name
+    FROM loans l
+    LEFT JOIN customers c ON l.customer_id = c.id
+    WHERE l.id = ${id} AND l.tenant_id = ${tenantId}
+  `;
+  if (!loan) throw new ApiError(404, 'ไม่พบสัญญา');
+
+  const oldPrincipal = Number(loan.principal || 0);
+  const newPrincipal = oldPrincipal + addedPrincipal;
+
+  const oldInstallment = Number(loan.installmentAmount ?? loan.installment_amount ?? 0);
+  const newInstallmentAmount = data.newInstallmentAmount != null && Number(data.newInstallmentAmount) > 0
+    ? Number(data.newInstallmentAmount)
+    : oldInstallment;
+
+  const newInterestRate = data.newInterestRate != null && Number(data.newInterestRate) >= 0
+    ? Number(data.newInterestRate)
+    : Number(loan.interestRate ?? loan.interest_rate ?? 0);
+
+  const topupDateStr = data.topupDate ? String(data.topupDate).substring(0, 10) : getBangkokDateStr();
+  const topupNoteEntry = `[${topupDateStr}] เบิกเงินต้นเพิ่ม +฿${addedPrincipal.toLocaleString()} (ยอดเดิม ฿${oldPrincipal.toLocaleString()} → ยอดใหม่ ฿${newPrincipal.toLocaleString()}${data.notes ? ` : ${data.notes}` : ''})`;
+  const existingNotes = loan.notes ? String(loan.notes).trim() : '';
+  const updatedNotes = existingNotes ? `${existingNotes}\n${topupNoteEntry}` : topupNoteEntry;
+
+  const isInterestOnly = Boolean(loan.isInterestOnly || loan.is_interest_only);
+  const newTotalPayable = isInterestOnly ? newPrincipal : (Number(loan.totalPayable || loan.total_payable || 0) + addedPrincipal);
+
+  const result = await sql`
+    UPDATE loans SET
+      principal = ${newPrincipal},
+      installment_amount = ${newInstallmentAmount},
+      interest_rate = ${newInterestRate},
+      total_payable = ${newTotalPayable},
+      notes = ${updatedNotes},
+      updated_at = ${new Date()}
+    WHERE id = ${id} AND tenant_id = ${tenantId}
+    RETURNING *
+  `;
+
+  if (result.length > 0) {
+    const customerName = loan.customerName || loan.customer_name || 'ลูกค้า';
+    const formattedAdded = addedPrincipal.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    const formattedNewPrincipal = newPrincipal.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    const formattedNewInstallment = newInstallmentAmount.toLocaleString('en-US', { minimumFractionDigits: 2 });
+
+    try {
+      await sendLineNotify(
+        `➕ เบิกเงินต้นดอกลอยเพิ่ม\n👤 ${customerName}\n📝 ${loan.loanNumber}\n💰 เพิ่ม: ฿${formattedAdded}\n💸 เงินต้นรวมใหม่: ฿${formattedNewPrincipal}`,
+        'loan',
+        {
+          title: '➕ เบิกเงินต้นเพิ่ม (ดอกลอย)',
+          accentColor: '#0ea5e9',
+          items: [
+            { label: 'ลูกค้า', value: customerName },
+            { label: 'เลขที่สัญญา', value: loan.loanNumber },
+            { label: 'ยอดเบิกเพิ่ม', value: `+${formattedAdded} บาท`, color: '#10b981' },
+            { label: 'เงินต้นรวมใหม่', value: `${formattedNewPrincipal} บาท`, color: '#0ea5e9' },
+            { label: 'ดอกเบี้ย/งวดใหม่', value: `${formattedNewInstallment} บาท` },
+            { label: 'หมายเหตุ', value: data.notes || '—' },
+          ],
+          footer: 'อัปเดตยอดเงินต้นในสัญญาเรียบร้อยแล้ว',
+        },
+        tenantId
+      );
+    } catch (lineErr) {
+      console.error('[LINE Notify] Failed to send top-up notification:', lineErr);
+    }
+
+    try {
+      await dbLogActivity(tenantId, userId, 'topup_loan', 'loan', id, {
+        loanNumber: loan.loanNumber || loan.loan_number,
+        customerName,
+        addedPrincipal,
+        oldPrincipal,
+        newPrincipal,
+        newInstallmentAmount,
+        notes: data.notes,
+      });
+    } catch (logErr) {
+      console.error('Failed to log top-up activity:', logErr);
+    }
+  }
+
+  return result[0];
+}
+
 export async function dbDeleteLoan(id: string, tenantId: string) {
   const loans = await sql`
     SELECT l.loan_number, c.full_name as customer_name, l.principal

@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Plus, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatTHB, getThaiDateStr } from "@/utils/format";
+import { cn } from "@/utils/utils";
 import { createPayment, getPaymentsByLoan, logActivity } from "@/lib/services";
 import { useSettings } from "@/contexts/SettingsContext";
 
@@ -56,6 +57,7 @@ export function RecordPaymentModal({
   const [calcSuggested, setCalcSuggested] = useState<number>(precalcSuggested ?? instAmount);
 
   const [baseNextNum, setBaseNextNum] = useState<number>(precalcNextNum ?? 1);
+  const [interestDays, setInterestDays] = useState<number | "">(1);
 
   const [form, setForm] = useState({
     amount: precalcSuggested ?? instAmount,
@@ -63,7 +65,7 @@ export function RecordPaymentModal({
     installmentNumber: precalcNextNum ?? 1,
     method: "cash" as "cash" | "bank_transfer" | "mobile" | "other",
     category: (isInterestOnlyMode ? "interest" : "principal") as "interest" | "principal" | "roll_penalty",
-    notes: "",
+    notes: isInterestOnlyMode ? "ชำระดอกเบี้ย 1 วัน" : "",
   });
 
   const [rollDays, setRollDays] = useState<number | "">(1);
@@ -95,13 +97,14 @@ export function RecordPaymentModal({
     if (precalcSuggested !== undefined && precalcNextNum !== undefined) {
       setCalcSuggested(precalcSuggested);
       setBaseNextNum(precalcNextNum);
+      setInterestDays(1);
       setForm({
         amount: precalcSuggested,
         paymentDate: getThaiDateStr(),
         installmentNumber: precalcNextNum,
         method: "cash",
         category: isInterestOnlyMode ? "interest" : "principal",
-        notes: "",
+        notes: isInterestOnlyMode ? "ชำระดอกเบี้ย 1 วัน" : "",
       });
       setRollDays(1);
       setSlipFile(null);
@@ -140,13 +143,14 @@ export function RecordPaymentModal({
 
         setCalcSuggested(suggested);
         setBaseNextNum(nextNum);
+        setInterestDays(1);
         setForm({
           amount: suggested,
           paymentDate: getThaiDateStr(),
           installmentNumber: nextNum,
           method: "cash",
           category: isInterestOnlyMode ? "interest" : "principal",
-          notes: "",
+          notes: isInterestOnlyMode ? "ชำระดอกเบี้ย 1 วัน" : "",
         });
         setRollDays(1);
         setSlipFile(null);
@@ -156,6 +160,17 @@ export function RecordPaymentModal({
       })
       .finally(() => setLoadingData(false));
   }, [isOpen, loanId, precalcSuggested, precalcNextNum, isInterestOnlyMode, instAmount]);
+
+  const handleInterestDaysChange = (val: number | "") => {
+    setInterestDays(val);
+    const days = val === "" ? 1 : Number(val);
+    const totalAmt = days * instAmount;
+    setForm((prev) => ({
+      ...prev,
+      amount: totalAmt,
+      notes: `ชำระดอกเบี้ย ${days} วัน (วันละ ${formatTHB(instAmount)})`,
+    }));
+  };
 
   const handleCategoryChange = (v: "interest" | "principal" | "roll_penalty") => {
     if (v === "roll_penalty") {
@@ -167,6 +182,15 @@ export function RecordPaymentModal({
         installmentNumber: baseNextNum + days,
         amount: calcResult.totalTp > 0 ? calcResult.totalTp : current.amount,
         notes: `ชำระ ท+ป ${days} วัน (${calcResult.totalDaysToPay} งวด ฿${calcResult.totalInst} + ปรับ ฿${calcResult.totalPen})`,
+      }));
+    } else if (v === "interest" && isInterestOnlyMode) {
+      const days = interestDays === "" ? 1 : Number(interestDays);
+      setForm((current) => ({
+        ...current,
+        category: v,
+        installmentNumber: baseNextNum,
+        amount: days * instAmount,
+        notes: `ชำระดอกเบี้ย ${days} วัน`,
       }));
     } else {
       setForm((current) => ({
@@ -375,7 +399,7 @@ export function RecordPaymentModal({
                   </SelectContent>
                 </Select>
               </div>
-              <div className={form.category === "roll_penalty" ? "space-y-2" : "space-y-2 col-span-1 sm:col-span-2"}>
+              <div className={form.category === "roll_penalty" || (isInterestOnlyMode && form.category === "interest") ? "space-y-2" : "space-y-2 col-span-1 sm:col-span-2"}>
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   ประเภทการชำระ
                 </Label>
@@ -384,12 +408,29 @@ export function RecordPaymentModal({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="principal">ชำระเงินต้น / ปิดยอด</SelectItem>
                     <SelectItem value="interest">ชำระดอกเบี้ย</SelectItem>
+                    <SelectItem value="principal">{isInterestOnlyMode ? "ตัดเงินต้น / คืนต้น" : "ชำระเงินต้น / ปิดยอด"}</SelectItem>
                     <SelectItem value="roll_penalty">ชำระ ท+ป (ทบ + ปรับ)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {isInterestOnlyMode && form.category === "interest" && (
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-primary flex items-center justify-between">
+                    <span>จำนวนวันที่จ่ายดอก (วัน)</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={interestDays}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => handleInterestDaysChange(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="bg-primary/10 border-primary/40 font-bold text-primary"
+                  />
+                </div>
+              )}
+
               {form.category === "roll_penalty" && (
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-wider text-warning flex items-center justify-between">
@@ -417,6 +458,34 @@ export function RecordPaymentModal({
                 </div>
               )}
             </div>
+
+            {/* Quick Days Selector Pills for Floating Interest */}
+            {isInterestOnlyMode && form.category === "interest" && (
+              <div className="space-y-2 pt-1 border-t border-border/50">
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  <span className="text-[11px] font-bold text-muted-foreground mr-1">เลือกด่วน:</span>
+                  {[1, 2, 3, 5, 7, 10, 15, 30].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => handleInterestDaysChange(d)}
+                      className={cn(
+                        "px-2.5 py-1 text-xs font-bold rounded-lg border transition-all",
+                        interestDays === d
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : "bg-muted/30 text-muted-foreground border-border/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                      )}
+                    >
+                      {d} วัน
+                    </button>
+                  ))}
+                </div>
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-2.5 text-xs flex justify-between items-center text-primary font-bold">
+                  <span>💡 คำนวณดอกเบี้ย {interestDays || 1} วัน (วันละ {formatTHB(instAmount)}):</span>
+                  <span className="text-sm font-black">{formatTHB(form.amount)}</span>
+                </div>
+              </div>
+            )}
 
             {form.category === "roll_penalty" && (
               <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 space-y-1.5 text-xs animate-in fade-in">

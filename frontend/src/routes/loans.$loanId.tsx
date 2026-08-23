@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel, getLoanNextDueDate } from "@/components/StatusBadge";
-import { ArrowLeft, Plus, Trash2, Camera, Image as ImageIcon, X, Loader2, Pencil, RefreshCw } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Camera, Image as ImageIcon, X, Loader2, Pencil, RefreshCw, PlusCircle, Flame } from "lucide-react";
 import { cn } from "@/utils/utils";
 import { toast } from "sonner";
 import { formatTHB, formatDate, daysBetween, getThaiDateStr } from "@/utils/format";
@@ -21,6 +21,7 @@ import { resolveLateFee } from "@/utils/lateFee";
 import { LateFeeEditor } from "@/components/LateFeeEditor";
 import { PromiseDateEditor } from "@/components/PromiseDateEditor";
 import { EditLoanModal } from "@/components/EditLoanModal";
+import { TopupLoanModal } from "@/components/TopupLoanModal";
 import { getLoanCategory } from "@/utils/loanType";
 import {
   calcLoanPaidTotal,
@@ -167,6 +168,17 @@ function LoanDetail() {
     ? installmentAmount
     : Math.max(Math.min(dueAmountBase, contractRemaining || dueAmountBase), 0);
 
+  // Floating Interest (ดอกลอย) calculations
+  const dailyFloatingRate = Number(loan.installmentAmount ?? loan.installment_amount ?? (Number(loan.principal) * Number(loan.interestRate || 0) / 100));
+  const interestPayments = payments.filter((p) => p.category === 'interest');
+  const lastInterestPaymentDate = interestPayments.length > 0
+    ? String(interestPayments[0].paymentDate || interestPayments[0].payment_date).substring(0, 10)
+    : String(loan.startDate || loan.start_date || '').substring(0, 10);
+  const todayDateStr = getThaiDateStr();
+  const floatingDaysUnpaid = lastInterestPaymentDate ? Math.max(0, daysBetween(lastInterestPaymentDate, todayDateStr)) : 1;
+  const floatingDueTodayDays = floatingDaysUnpaid > 0 ? floatingDaysUnpaid : 1;
+  const floatingDueTodayAmount = floatingDueTodayDays * dailyFloatingRate;
+
   const removePayment = async (id: string) => {
     try {
       await deletePayment(id);
@@ -266,10 +278,15 @@ function LoanDetail() {
                 isInterestOnly={isInterestOnlyMode}
                 installmentAmount={loan.installmentAmount ?? loan.installment_amount ?? 0}
                 tpPenaltyAmount={lending.tpPenaltyAmount ?? 100}
+                floatingDaysDue={floatingDueTodayDays}
                 isOpen={open}
                 onDone={() => { setOpen(false); load(); }} 
               />
             </Dialog>
+
+            {loan.isInterestOnly && (
+              <TopupLoanModal loan={loan} onDone={load} />
+            )}
 
             <EditLoanModal loan={loan} onDone={load} />
 
@@ -292,6 +309,60 @@ function LoanDetail() {
         }
       />
 
+      {/* ─── FLOATING INTEREST (ดอกลอย) HIGHLIGHT CARD ───────── */}
+      {loan.isInterestOnly && (
+        <div className="mb-6 rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-5 shadow-[var(--shadow-elevated)] animate-in fade-in">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary/20 pb-3 mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary shadow-sm">
+                <Flame className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                  สัญญาเงินกู้แบบดอกลอย (Floating Interest)
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-primary/20 text-primary">เก็บแต่ดอกเบี้ย</span>
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  เก็บดอกเบี้ยตามรอบรายวัน/รายงวด · คืนเงินต้นเมื่อต้องการปิดยอดหรือตัดต้น
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <TopupLoanModal loan={loan} onDone={load} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-background/90 backdrop-blur rounded-xl p-3.5 border border-border shadow-sm">
+              <span className="text-[11px] font-bold text-muted-foreground block uppercase tracking-wider">เงินต้นคงค้าง</span>
+              <span className="text-base sm:text-lg font-black text-primary block mt-0.5">{formatTHB(contractRemaining)}</span>
+              <span className="text-[10px] text-muted-foreground">ยอดเดิม {formatTHB(loan.principal)}</span>
+            </div>
+            <div className="bg-background/90 backdrop-blur rounded-xl p-3.5 border border-border shadow-sm">
+              <span className="text-[11px] font-bold text-muted-foreground block uppercase tracking-wider">ดอกเบี้ยต่อวัน</span>
+              <span className="text-base sm:text-lg font-black text-warning block mt-0.5">
+                {formatTHB(dailyFloatingRate)} <span className="text-xs font-normal text-muted-foreground">/วัน</span>
+              </span>
+              <span className="text-[10px] text-muted-foreground">อัตรา {loan.interestRate}%</span>
+            </div>
+            <div className="bg-background/90 backdrop-blur rounded-xl p-3.5 border border-primary/30 bg-primary/5 shadow-sm">
+              <span className="text-[11px] font-bold text-primary block uppercase tracking-wider">ดอกเบี้ยที่ต้องชำระวันนี้</span>
+              <span className="text-base sm:text-lg font-black text-primary block mt-0.5">
+                {formatTHB(floatingDueTodayAmount)}
+              </span>
+              <span className="text-[10px] text-primary/80 font-semibold block">
+                {floatingDaysUnpaid > 1 ? `ค้าง ${floatingDueTodayDays} วัน (${formatTHB(dailyFloatingRate)}/วัน)` : `งวดประจำวันนี้ 1 วัน`}
+              </span>
+            </div>
+            <div className="bg-background/90 backdrop-blur rounded-xl p-3.5 border border-border shadow-sm">
+              <span className="text-[11px] font-bold text-muted-foreground block uppercase tracking-wider">ดอกเบี้ยที่เก็บแล้วรวม</span>
+              <span className="text-base sm:text-lg font-black text-success block mt-0.5">{formatTHB(interestPaid)}</span>
+              <span className="text-[10px] text-muted-foreground">{interestPayments.length} รายการ</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── MOBILE STICKY ACTION BAR ─────────────────────── */}
       <div className="fixed bottom-[calc(3.8rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 md:hidden px-4 pb-2">
         <div className="flex gap-3 rounded-2xl bg-background/90 backdrop-blur-xl border border-border shadow-2xl p-3">
@@ -309,10 +380,28 @@ function LoanDetail() {
               isInterestOnly={isInterestOnlyMode}
               installmentAmount={loan.installmentAmount ?? loan.installment_amount ?? 0}
               tpPenaltyAmount={lending.tpPenaltyAmount ?? 100}
+              floatingDaysDue={floatingDueTodayDays}
               isOpen={openMobile}
               onDone={() => { setOpenMobile(false); load(); }} 
             />
           </Dialog>
+
+          {loan.isInterestOnly && (
+            <TopupLoanModal
+              loan={loan}
+              onDone={load}
+              trigger={
+                <Button
+                  variant="outline"
+                  className="h-12 px-3 rounded-xl shrink-0 border-primary/30 text-primary font-bold gap-1.5"
+                  title="เบิกเงินต้นเพิ่ม"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  <span className="text-xs">เบิกเพิ่ม</span>
+                </Button>
+              }
+            />
+          )}
 
           <EditLoanModal
             loan={loan}
@@ -715,6 +804,7 @@ function PaymentForm({
   isInterestOnly,
   installmentAmount = 0,
   tpPenaltyAmount = 100,
+  floatingDaysDue = 1,
   isOpen = true,
   onDone,
 }: {
@@ -724,16 +814,22 @@ function PaymentForm({
   isInterestOnly: boolean;
   installmentAmount?: number;
   tpPenaltyAmount?: number;
+  floatingDaysDue?: number;
   isOpen?: boolean;
   onDone: () => void;
 }) {
+  const dailyRate = installmentAmount > 0 ? installmentAmount : suggested;
+  const initialDays = isInterestOnly ? (floatingDaysDue || 1) : 1;
+  const initialAmount = isInterestOnly ? (initialDays * dailyRate) : suggested;
+
+  const [interestDays, setInterestDays] = useState<number | "">(initialDays);
   const [form, setForm] = useState({
-    amount: suggested,
+    amount: initialAmount,
     paymentDate: getThaiDateStr(),
     installmentNumber: nextNum, 
     method: "cash" as "cash" | "bank_transfer" | "mobile" | "other", 
     category: (isInterestOnly ? "interest" : "principal") as "interest" | "principal" | "roll_penalty",
-    notes: "",
+    notes: isInterestOnly ? `ชำระดอกเบี้ย ${initialDays} วัน` : "",
   });
   const [rollDays, setRollDays] = useState<number | "">(1);
   const [slipFile, setSlipFile] = useState<File | null>(null);
@@ -743,19 +839,22 @@ function PaymentForm({
   // Re-initialize form whenever modal is opened
   useEffect(() => {
     if (isOpen && !prevOpenRef.current) {
+      const days = isInterestOnly ? (floatingDaysDue || 1) : 1;
+      const amt = isInterestOnly ? (days * dailyRate) : suggested;
+      setInterestDays(days);
       setForm({
-        amount: suggested,
+        amount: amt,
         paymentDate: getThaiDateStr(),
         installmentNumber: nextNum,
         method: "cash",
         category: isInterestOnly ? "interest" : "principal",
-        notes: "",
+        notes: isInterestOnly ? `ชำระดอกเบี้ย ${days} วัน` : "",
       });
       setRollDays(1);
       setSlipFile(null);
     }
     prevOpenRef.current = isOpen;
-  }, [isOpen, suggested, nextNum, isInterestOnly]);
+  }, [isOpen, suggested, nextNum, isInterestOnly, floatingDaysDue, dailyRate]);
 
   const calcTpForDays = (daysCount: number) => {
     const days = Math.max(1, daysCount);
@@ -773,6 +872,17 @@ function PaymentForm({
 
   const currentTpCalc = calcTpForDays(rollDays === "" ? 1 : Number(rollDays));
 
+  const handleInterestDaysChange = (val: number | "") => {
+    setInterestDays(val);
+    const days = val === "" ? 1 : Number(val);
+    const totalAmt = days * dailyRate;
+    setForm((prev) => ({
+      ...prev,
+      amount: totalAmt,
+      notes: `ชำระดอกเบี้ย ${days} วัน (วันละ ${formatTHB(dailyRate)})`,
+    }));
+  };
+
   const handleCategoryChange = (v: "interest" | "principal" | "roll_penalty") => {
     if (v === "roll_penalty") {
       const days = rollDays === "" ? 1 : Number(rollDays);
@@ -783,6 +893,15 @@ function PaymentForm({
         installmentNumber: nextNum + days,
         amount: calcResult.totalTp > 0 ? calcResult.totalTp : current.amount,
         notes: `ชำระ ท+ป ${days} วัน (${calcResult.totalDaysToPay} งวด ฿${calcResult.totalInst} + ปรับ ฿${calcResult.totalPen})`,
+      }));
+    } else if (v === "interest" && isInterestOnly) {
+      const days = interestDays === "" ? 1 : Number(interestDays);
+      setForm((current) => ({
+        ...current,
+        category: v,
+        installmentNumber: nextNum,
+        amount: days * dailyRate,
+        notes: `ชำระดอกเบี้ย ${days} วัน`,
       }));
     } else {
       setForm((current) => ({
@@ -888,8 +1007,10 @@ function PaymentForm({
       <form onSubmit={submit} className="space-y-4 pt-2">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">จำนวนเงิน (บาท)</Label>
-            <Input type="number" min={0} step={0.01} value={form.amount} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, amount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
+            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {isInterestOnly && form.category === "principal" ? "จำนวนเงินต้นที่ตัดคืน (บาท)" : "จำนวนเงิน (บาท)"}
+            </Label>
+            <Input type="number" min={0} step={0.01} value={form.amount} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, amount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20 font-bold text-primary" />
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ชำระงวดที่</Label>
@@ -915,17 +1036,35 @@ function PaymentForm({
               </SelectContent>
             </Select>
           </div>
-          <div className={form.category === "roll_penalty" ? "space-y-2" : "space-y-2 col-span-1 sm:col-span-2"}>
+          <div className={form.category === "roll_penalty" || (isInterestOnly && form.category === "interest") ? "space-y-2" : "space-y-2 col-span-1 sm:col-span-2"}>
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ประเภทการชำระ</Label>
             <Select value={form.category} onValueChange={handleCategoryChange}>
               <SelectTrigger className="bg-muted/20"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="principal">ชำระเงินต้น / ปิดยอด</SelectItem>
                 <SelectItem value="interest">ชำระดอกเบี้ย</SelectItem>
+                <SelectItem value="principal">{isInterestOnly ? "ตัดเงินต้น / คืนต้น" : "ชำระเงินต้น / ปิดยอด"}</SelectItem>
                 <SelectItem value="roll_penalty">ชำระ ท+ป (ทบ + ปรับ)</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {/* Floating Interest Quick Days selector */}
+          {isInterestOnly && form.category === "interest" && (
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-primary flex items-center justify-between">
+                <span>จำนวนวันที่จ่ายดอก (วัน)</span>
+              </Label>
+              <Input
+                type="number"
+                min={1}
+                value={interestDays}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => handleInterestDaysChange(e.target.value === "" ? "" : Number(e.target.value))}
+                className="bg-primary/10 border-primary/40 font-bold text-primary"
+              />
+            </div>
+          )}
+
           {form.category === "roll_penalty" && (
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase tracking-wider text-warning flex items-center justify-between">
@@ -953,6 +1092,34 @@ function PaymentForm({
             </div>
           )}
         </div>
+
+        {/* Quick Days Selector Pills for Floating Interest */}
+        {isInterestOnly && form.category === "interest" && (
+          <div className="space-y-2 pt-1 border-t border-border/50">
+            <div className="flex flex-wrap gap-1.5 items-center">
+              <span className="text-[11px] font-bold text-muted-foreground mr-1">เลือกด่วน:</span>
+              {[1, 2, 3, 5, 7, 10, 15, 30].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => handleInterestDaysChange(d)}
+                  className={cn(
+                    "px-2.5 py-1 text-xs font-bold rounded-lg border transition-all",
+                    interestDays === d
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-muted/30 text-muted-foreground border-border/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                  )}
+                >
+                  {d} วัน
+                </button>
+              ))}
+            </div>
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-2.5 text-xs flex justify-between items-center text-primary font-bold">
+              <span>💡 คำนวณดอกเบี้ย {interestDays || 1} วัน (วันละ {formatTHB(dailyRate)}):</span>
+              <span className="text-sm font-black">{formatTHB(form.amount)}</span>
+            </div>
+          </div>
+        )}
         {form.category === "roll_penalty" && (
           <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 space-y-1.5 text-xs animate-in fade-in">
             <div className="flex justify-between items-center font-bold text-warning">

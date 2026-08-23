@@ -38,6 +38,10 @@ export const updateLoanLateFee = (
   id: string,
   data: { mode: 'auto' | 'waive' | 'custom'; amount?: number; note?: string },
 ) => api.patch(`/loans/${id}/late-fee`, data).then(r => r.data);
+export const topupLoan = (
+  id: string,
+  data: { addedPrincipal: number; newInstallmentAmount?: number; newInterestRate?: number; topupDate?: string; notes?: string },
+) => api.post(`/loans/${id}/topup`, data).then(r => r.data);
 export const deleteLoan = (id: string) => api.delete(`/loans/${id}`).then(r => r.data);
 export const getNotifications = () => api.get('/loans/notifications').then(r => r.data);
 

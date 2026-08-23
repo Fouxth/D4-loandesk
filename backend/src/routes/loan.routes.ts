@@ -85,9 +85,22 @@ router.patch('/:id/late-fee', async (req: AuthRequest, res) => {
       req.userId!,
       req.tenantId!,
     );
-    res.json(result[0]);
   } catch (e) {
     handleRouteError(e, res, 'PATCH /loans/:id/late-fee');
+  }
+});
+
+router.post('/:id/topup', async (req: AuthRequest, res) => {
+  try {
+    const result = await loanService.dbTopupLoanPrincipal(
+      req.params.id as string,
+      req.body,
+      req.userId!,
+      req.tenantId!
+    );
+    res.json(result);
+  } catch (e) {
+    handleRouteError(e, res, 'POST /loans/:id/topup');
   }
 });
 
