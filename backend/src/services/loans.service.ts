@@ -593,34 +593,49 @@ export async function dbTopupLoanPrincipal(
 
 export async function dbDeleteLoan(id: string, tenantId: string) {
   const loans = await sql`
-    SELECT l.loan_number, c.full_name as customer_name, l.principal
+    SELECT l.loan_number, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name, l.principal
     FROM loans l
-    JOIN customers c ON l.customer_id = c.id
+    LEFT JOIN customers c ON l.customer_id = c.id
     WHERE l.id = ${id} AND l.tenant_id = ${tenantId}
   `;
 
   if (loans.length === 0) throw new Error("Loan not found");
   const loan = loans[0];
+  const customerName = loan.customerName || loan.customer_name || 'จำนำไม่ระบุชื่อ';
+  const loanNumber = loan.loanNumber || loan.loan_number || id;
 
   return await sql.begin(async sql => {
     // Clear references from other loans (refinanced chains)
     await sql`UPDATE loans SET refinanced_from = NULL WHERE refinanced_from = ${id} AND tenant_id = ${tenantId}`;
     
+    // Delete attachments
+    try {
+      await sql`DELETE FROM loan_attachments WHERE loan_id = ${id}`;
+    } catch (attErr) {
+      console.warn('Could not delete loan attachments:', attErr);
+    }
+
+    // Delete payments and the loan itself
     await sql`DELETE FROM payments WHERE loan_id = ${id} AND tenant_id = ${tenantId}`;
     const result = await sql`DELETE FROM loans WHERE id = ${id} AND tenant_id = ${tenantId}`;
 
-    const formattedPrincipal = Number(loan.principal).toLocaleString('en-US', {minimumFractionDigits: 2});
-    const message = `🚨 แจ้งเตือนการลบสัญญา\n👤 ลูกค้า: ${loan.customerName}\n📝 สัญญา: ${loan.loanNumber}\n💸 ยอดเงินต้น: ${formattedPrincipal} บาท`;
-    await sendLineNotify(message, 'fraud', {
-      title: '🚨 ระงับ/ลบสัญญา',
-      accentColor: '#ef4444',
-      items: [
-        { label: 'ลูกค้า', value: loan.customerName },
-        { label: 'เลขที่สัญญา', value: loan.loanNumber },
-        { label: 'ยอดเงินต้น', value: `${formattedPrincipal} บาท` }
-      ],
-      footer: 'มีการลบข้อมูลนี้ออกจากระบบ'
-    }, tenantId);
+    const formattedPrincipal = Number(loan.principal || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+    const message = `🚨 แจ้งเตือนการลบสัญญา\n👤 ลูกค้า: ${customerName}\n📝 สัญญา: ${loanNumber}\n💸 ยอดเงินต้น: ${formattedPrincipal} บาท`;
+    
+    try {
+      await sendLineNotify(message, 'fraud', {
+        title: '🚨 ระงับ/ลบสัญญา',
+        accentColor: '#ef4444',
+        items: [
+          { label: 'ลูกค้า', value: customerName },
+          { label: 'เลขที่สัญญา', value: loanNumber },
+          { label: 'ยอดเงินต้น', value: `${formattedPrincipal} บาท` }
+        ],
+        footer: 'มีการลบข้อมูลนี้ออกจากระบบ'
+      }, tenantId);
+    } catch (lineErr) {
+      console.error('Failed to send delete loan line notification:', lineErr);
+    }
 
     return result;
   });
