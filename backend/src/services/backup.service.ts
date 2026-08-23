@@ -117,7 +117,7 @@ export async function runTenantBackup(targetTenantId: string): Promise<BackupRes
  */
 export async function runAllTenantsBackup(): Promise<BackupResult[]> {
   const tenants = await getAllTenants();
-  const activeTenants = tenants.filter((t: any) => t.is_active && t.id !== 'system');
+  const activeTenants = tenants.filter((t: any) => (t.isActive ?? t.is_active ?? true) && t.id !== 'system');
 
   const results: BackupResult[] = [];
   for (const tenant of activeTenants) {
