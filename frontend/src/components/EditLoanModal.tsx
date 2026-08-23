@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,10 +32,11 @@ export function EditLoanModal({
 
   const [form, setForm] = useState<any>({});
   const [busy, setBusy] = useState(false);
+  const prevOpenRef = useRef(false);
 
-  // Initialize form whenever loan changes or modal opens
+  // Initialize form ONLY when modal opens (transition from false to true)
   useEffect(() => {
-    if (loan && isOpen) {
+    if (loan && isOpen && !prevOpenRef.current) {
       const startDateStr = loan.startDate
         ? (loan.startDate instanceof Date ? loan.startDate.toISOString().substring(0, 10) : String(loan.startDate).substring(0, 10))
         : (loan.start_date ? String(loan.start_date).substring(0, 10) : "");
@@ -69,6 +70,7 @@ export function EditLoanModal({
         parkingFee: Number(loan.parkingFee || loan.parking_fee || 0),
       });
     }
+    prevOpenRef.current = isOpen;
   }, [loan, isOpen]);
 
   // Recalculate loan summary preview

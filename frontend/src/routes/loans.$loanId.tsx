@@ -80,12 +80,14 @@ function LoanDetail() {
   useEffect(() => {
     load();
     const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !open && !openMobile) {
         load();
       }
     }, 10000);
 
-    const onFocus = () => load();
+    const onFocus = () => {
+      if (!open && !openMobile) load();
+    };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onFocus);
 
@@ -94,7 +96,7 @@ function LoanDetail() {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
     };
-  }, [loanId]);
+  }, [loanId, open, openMobile]);
 
   if (!loan) return <div className="flex h-64 items-center justify-center text-muted-foreground animate-pulse">กำลังโหลดข้อมูลสัญญา...</div>;
 
@@ -749,19 +751,6 @@ function PaymentForm({
 
   const currentTpCalc = calcTpForDays(rollDays === "" ? 1 : Number(rollDays));
 
-  useEffect(() => {
-    setForm({
-      amount: suggested,
-      paymentDate: getThaiDateStr(),
-      installmentNumber: nextNum, 
-      method: "cash", 
-      category: isInterestOnly ? "interest" : "principal",
-      notes: "",
-    });
-    setRollDays(1);
-    setSlipFile(null);
-  }, [suggested, nextNum, isInterestOnly]);
-
   const handleCategoryChange = (v: "interest" | "principal" | "roll_penalty") => {
     if (v === "roll_penalty") {
       setForm((current) => ({
@@ -939,50 +928,39 @@ function PaymentForm({
 }
 
 function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: number; onDone: () => void }) {
-  const navigate = useNavigate();
-  const { lending } = useSettings();
   const [open, setOpen] = useState(false);
+  const { lending } = useSettings();
+  const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
 
-  const defaultNewPrincipal = Number(loan?.principal || remaining || 10000);
+  const initFormData = () => {
+    const initPrin = Number(loan?.principal || remaining || 10000);
+    return {
+      principal: initPrin,
+      interestRate: Number(loan?.interestRate ?? loan?.interest_rate ?? 20),
+      installmentsCount: Number(loan?.installmentsCount ?? loan?.installments_count ?? 30),
+      paymentType: (loan?.paymentType || loan?.payment_type || "daily") as "daily" | "weekly" | "monthly",
+      startDate: getThaiDateStr(),
+      promiseDate: "",
+      notes: `รียอดใหม่จากสัญญา ${loan?.loanNumber || ""}`,
+      isInterestOnly: Boolean(loan?.isInterestOnly || loan?.is_interest_only),
+      isPrincipalInterestAtEnd: Boolean(loan?.isPrincipalInterestAtEnd || loan?.is_principal_interest_at_end),
+      isPawn: Boolean(loan?.isPawn || loan?.is_pawn),
+      pawnItem: loan?.pawnItem || loan?.pawn_item || "",
+    };
+  };
 
-  const [form, setForm] = useState({
-    principal: defaultNewPrincipal,
-    interestRate: Number(loan?.interestRate ?? loan?.interest_rate ?? 20),
-    installmentsCount: Number(loan?.installmentsCount ?? loan?.installments_count ?? 30),
-    paymentType: (loan?.paymentType || loan?.payment_type || "daily") as "daily" | "weekly" | "monthly",
-    startDate: getThaiDateStr(),
-    promiseDate: "",
-    notes: `รียอดใหม่จากสัญญา ${loan?.loanNumber || ""}`,
-    isInterestOnly: Boolean(loan?.isInterestOnly || loan?.is_interest_only),
-    isPrincipalInterestAtEnd: Boolean(loan?.isPrincipalInterestAtEnd || loan?.is_principal_interest_at_end),
-    isPawn: Boolean(loan?.isPawn || loan?.is_pawn),
-    pawnItem: loan?.pawnItem || loan?.pawn_item || "",
-  });
-
+  const [form, setForm] = useState(initFormData);
   const [applyDocumentFee, setApplyDocumentFee] = useState(false);
   const [documentFee, setDocumentFee] = useState<number | string>(lending.documentFeeAmount || 300);
   const [applyAdvanceFee, setApplyAdvanceFee] = useState(false);
   const [advanceFee, setAdvanceFee] = useState<number | string>(lending.advanceFeeAmount || 500);
   const [applyParkingFee, setApplyParkingFee] = useState(false);
   const [parkingFee, setParkingFee] = useState<number | string>(lending.parkingFeeAmount || 500);
-
-  useEffect(() => {
-    if (open) {
-      const initPrin = Number(loan?.principal || remaining || 10000);
-      setForm({
-        principal: initPrin,
-        interestRate: Number(loan?.interestRate ?? loan?.interest_rate ?? 20),
-        installmentsCount: Number(loan?.installmentsCount ?? loan?.installments_count ?? 30),
-        paymentType: (loan?.paymentType || loan?.payment_type || "daily") as "daily" | "weekly" | "monthly",
-        startDate: getThaiDateStr(),
-        promiseDate: "",
-        notes: `รียอดใหม่จากสัญญา ${loan?.loanNumber || ""}`,
-        isInterestOnly: Boolean(loan?.isInterestOnly || loan?.is_interest_only),
-        isPrincipalInterestAtEnd: Boolean(loan?.isPrincipalInterestAtEnd || loan?.is_principal_interest_at_end),
-        isPawn: Boolean(loan?.isPawn || loan?.is_pawn),
-        pawnItem: loan?.pawnItem || loan?.pawn_item || "",
-      });
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen) {
+      setForm(initFormData());
       setApplyDocumentFee(false);
       setDocumentFee(lending.documentFeeAmount || 300);
       setApplyAdvanceFee(false);
@@ -990,7 +968,7 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
       setApplyParkingFee(false);
       setParkingFee(lending.parkingFeeAmount || 500);
     }
-  }, [open, loan, remaining, lending]);
+  };
 
   const isIndefiniteLoan = Boolean(form.isPawn);
 
@@ -1060,7 +1038,7 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline" className="flex-1 sm:flex-initial border-primary/20 text-primary hover:bg-primary/5 h-11 px-6 rounded-xl font-bold shadow-sm">
           <RefreshCw className="mr-2 h-5 w-5" />รียอดใหม่
