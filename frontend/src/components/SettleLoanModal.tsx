@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CheckCircle2, Loader2, CheckCheck, Upload, X, ShieldAlert, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { formatTHB, getThaiDateStr, daysBetween } from "@/utils/format";
@@ -202,22 +202,30 @@ export function SettleLoanModal({
         </DialogTrigger>
       )}
 
-      <DialogContent className="w-[95vw] sm:w-full max-w-lg max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] p-5 sm:p-6 border-border shadow-[var(--shadow-elevated)]">
+      <DialogContent
+        className="w-[95vw] sm:w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] p-4 sm:p-6 border-border shadow-2xl"
+        onPointerDown={(e) => {
+          const target = e.target as HTMLElement;
+          if (!target.closest('input, textarea, select, [contenteditable="true"], button')) {
+            (document.activeElement as HTMLElement)?.blur();
+          }
+        }}
+      >
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-              <span>ปิดยอดสัญญา (Payoff)</span>
+          <DialogTitle className="text-lg sm:text-xl font-bold flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+              <CheckCircle2 className="h-5 w-5" />
             </div>
-            {loan?.loanNumber && (
-              <span className="text-xs font-mono font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
-                {loan.loanNumber}
-              </span>
-            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span>ปิดยอดสัญญา (Payoff)</span>
+              {loan?.loanNumber && (
+                <span className="text-xs font-mono font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
+                  {loan.loanNumber}
+                </span>
+              )}
+            </div>
           </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground text-left">
+          <DialogDescription className="text-xs text-muted-foreground text-left mt-1">
             รับชำระยอดคงเหลือทั้งหมดพร้อมค่าปรับล่าช้า (ถ้ามี) เพื่อปิดยอดสัญญาให้เสร็จสิ้น
           </DialogDescription>
         </DialogHeader>
@@ -290,13 +298,15 @@ export function SettleLoanModal({
                 </Label>
                 <Input
                   type="number"
+                  inputMode="decimal"
+                  enterKeyHint="done"
                   min={0}
                   step={0.01}
                   value={lateFee}
                   placeholder="0"
                   onFocus={(e) => e.target.select()}
                   onChange={(e) => setLateFee(e.target.value === "" ? "" : Number(e.target.value))}
-                  className="bg-muted/20 text-destructive font-bold"
+                  className="bg-muted/20 text-destructive font-bold text-base sm:text-sm h-11 sm:h-10"
                 />
               </div>
 
@@ -306,13 +316,15 @@ export function SettleLoanModal({
                 </Label>
                 <Input
                   type="number"
+                  inputMode="decimal"
+                  enterKeyHint="done"
                   min={0}
                   step={0.01}
                   value={discount}
                   onFocus={(e) => e.target.select()}
                   onChange={(e) => setDiscount(e.target.value === "" ? "" : Number(e.target.value))}
                   placeholder="0"
-                  className="bg-muted/20"
+                  className="bg-muted/20 text-base sm:text-sm h-11 sm:h-10"
                 />
               </div>
 
@@ -324,7 +336,7 @@ export function SettleLoanModal({
                   type="date"
                   value={paymentDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
-                  className="bg-muted/20 font-bold"
+                  className="bg-muted/20 font-bold text-base sm:text-sm h-11 sm:h-10"
                 />
               </div>
 
@@ -333,10 +345,10 @@ export function SettleLoanModal({
                   ช่องทางการชำระ
                 </Label>
                 <Select value={method} onValueChange={(v: any) => setMethod(v)}>
-                  <SelectTrigger className="bg-muted/20 font-medium">
+                  <SelectTrigger className="bg-muted/20 font-medium text-base sm:text-sm h-11 sm:h-10">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[70]">
                     <SelectItem value="cash">เงินสด</SelectItem>
                     <SelectItem value="bank_transfer">โอนผ่านธนาคาร</SelectItem>
                     <SelectItem value="other">อื่นๆ</SelectItem>
@@ -360,7 +372,7 @@ export function SettleLoanModal({
                     type="button"
                     variant="outline"
                     onClick={() => document.getElementById("settle-slip-upload")?.click()}
-                    className="w-full justify-start text-muted-foreground font-normal rounded-xl border-dashed h-10 gap-2"
+                    className="w-full justify-start text-muted-foreground font-normal rounded-xl border-dashed h-11 sm:h-10 gap-2"
                   >
                     <Upload className="h-4 w-4 shrink-0" />
                     <span className="truncate text-xs">
@@ -373,7 +385,7 @@ export function SettleLoanModal({
                       variant="ghost"
                       size="icon"
                       onClick={() => setSlipFile(null)}
-                      className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
+                      className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 text-muted-foreground hover:text-destructive"
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -387,21 +399,28 @@ export function SettleLoanModal({
                 </Label>
                 <Input
                   value={notes}
+                  enterKeyHint="done"
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="เช่น ปิดยอดเงินสด / ลูกค้าจ่ายครบแล้ว"
-                  className="bg-muted/20"
+                  className="bg-muted/20 text-base sm:text-sm h-11 sm:h-10"
                 />
               </div>
             </div>
 
-            <DialogFooter className="pt-2 gap-2">
-              <Button type="button" variant="ghost" onClick={() => setIsOpen(false)} disabled={busy} className="rounded-xl">
+            <div className="pt-3 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pb-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsOpen(false)}
+                disabled={busy}
+                className="h-11 sm:h-10 rounded-xl font-semibold w-full sm:w-auto border-border/60"
+              >
                 ยกเลิก
               </Button>
               <Button
                 type="submit"
                 disabled={busy || finalPayoffAmount <= 0}
-                className="rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-[var(--shadow-elevated)] min-w-[160px] gap-1.5"
+                className="h-12 sm:h-10 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-[var(--shadow-elevated)] w-full sm:w-auto min-w-[160px] gap-1.5 text-sm"
               >
                 {busy ? (
                   <>
@@ -415,7 +434,7 @@ export function SettleLoanModal({
                   </>
                 )}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         )}
       </DialogContent>

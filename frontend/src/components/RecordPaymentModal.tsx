@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatTHB, getThaiDateStr } from "@/utils/format";
@@ -317,12 +317,20 @@ export function RecordPaymentModal({
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent className="w-[95vw] sm:w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6 border-border shadow-[var(--shadow-elevated)]">
+      <DialogContent
+        className="w-[95vw] sm:w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] p-4 sm:p-6 border-border shadow-2xl"
+        onPointerDown={(e) => {
+          const target = e.target as HTMLElement;
+          if (!target.closest('input, textarea, select, [contenteditable="true"], button')) {
+            (document.activeElement as HTMLElement)?.blur();
+          }
+        }}
+      >
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold flex items-center justify-between gap-2">
+          <DialogTitle className="text-lg sm:text-xl font-bold flex items-center gap-2 flex-wrap">
             <span>บันทึกการชำระเงิน</span>
             {loanNumber && (
-              <span className="text-xs font-mono font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
+              <span className="text-xs font-mono font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
                 {loanNumber}
               </span>
             )}
@@ -348,6 +356,8 @@ export function RecordPaymentModal({
                 </Label>
                 <Input
                   type="number"
+                  inputMode="decimal"
+                  enterKeyHint="done"
                   min={0}
                   step={0.01}
                   value={form.amount}
@@ -358,7 +368,7 @@ export function RecordPaymentModal({
                       amount: e.target.value === "" ? ("" as any) : Number(e.target.value),
                     })
                   }
-                  className="bg-muted/20 font-bold text-primary text-base"
+                  className="bg-muted/20 font-bold text-primary text-base sm:text-sm h-11 sm:h-10"
                 />
               </div>
               <div className="space-y-2">
@@ -564,11 +574,20 @@ export function RecordPaymentModal({
               )}
             </div>
 
-            <DialogFooter className="pt-4">
+            <div className="pt-3 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pb-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsOpen(false)}
+                disabled={busy}
+                className="h-11 sm:h-10 rounded-xl font-semibold w-full sm:w-auto border-border/60"
+              >
+                ยกเลิก
+              </Button>
               <Button
                 type="submit"
                 disabled={busy}
-                className="w-full py-6 text-base font-bold shadow-[var(--shadow-elevated)]"
+                className="h-12 sm:h-10 rounded-xl font-bold bg-primary text-primary-foreground shadow-[var(--shadow-elevated)] w-full sm:w-auto min-w-[160px] gap-1.5 text-sm"
               >
                 {busy ? (
                   <span className="flex items-center gap-2">
@@ -579,7 +598,7 @@ export function RecordPaymentModal({
                   "ยืนยันการชำระเงิน"
                 )}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         )}
       </DialogContent>

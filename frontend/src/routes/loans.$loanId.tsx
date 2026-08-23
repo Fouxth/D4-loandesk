@@ -1040,9 +1040,17 @@ function PaymentForm({
   };
 
   return (
-    <DialogContent className="w-[95vw] sm:w-full max-w-md border-border shadow-[var(--shadow-elevated)]">
+    <DialogContent
+      className="w-[95vw] sm:w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] p-4 sm:p-6 border-border shadow-2xl"
+      onPointerDown={(e) => {
+        const target = e.target as HTMLElement;
+        if (!target.closest('input, textarea, select, [contenteditable="true"], button')) {
+          (document.activeElement as HTMLElement)?.blur();
+        }
+      }}
+    >
       <DialogHeader>
-        <DialogTitle className="text-xl font-bold">บันทึกการชำระเงิน</DialogTitle>
+        <DialogTitle className="text-lg sm:text-xl font-bold">บันทึกการชำระเงิน</DialogTitle>
       </DialogHeader>
       <form onSubmit={submit} className="space-y-4 pt-2">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1050,7 +1058,17 @@ function PaymentForm({
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               {isInterestOnly && form.category === "principal" ? "จำนวนเงินต้นที่ตัดคืน (บาท)" : "จำนวนเงิน (บาท)"}
             </Label>
-            <Input type="number" min={0} step={0.01} value={form.amount} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, amount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20 font-bold text-primary" />
+            <Input
+              type="number"
+              inputMode="decimal"
+              enterKeyHint="done"
+              min={0}
+              step={0.01}
+              value={form.amount}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => setForm({ ...form, amount: e.target.value === "" ? "" : Number(e.target.value) as any })}
+              className="bg-muted/20 font-bold text-primary text-base sm:text-sm h-11 sm:h-10"
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ชำระงวดที่</Label>
@@ -1209,11 +1227,24 @@ function PaymentForm({
             </p>
           )}
         </div>
-        <DialogFooter className="pt-4">
-          <Button type="submit" disabled={busy} className="w-full py-6 text-base font-bold shadow-[var(--shadow-elevated)]">
+        <div className="pt-3 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pb-1">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onDone()}
+            disabled={busy}
+            className="h-11 sm:h-10 rounded-xl font-semibold w-full sm:w-auto border-border/60"
+          >
+            ยกเลิก
+          </Button>
+          <Button
+            type="submit"
+            disabled={busy}
+            className="h-12 sm:h-10 rounded-xl font-bold bg-primary text-primary-foreground shadow-[var(--shadow-elevated)] w-full sm:w-auto min-w-[160px] gap-1.5 text-sm"
+          >
             {busy ? "กำลังบันทึก..." : "ยืนยันการชำระเงิน"}
           </Button>
-        </DialogFooter>
+        </div>
       </form>
     </DialogContent>
   );
