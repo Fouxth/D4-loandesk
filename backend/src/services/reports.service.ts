@@ -225,10 +225,10 @@ export async function fetchReportRawData(tenantId: string, ms?: string) {
   const today = getLogicalDateStr(new Date());
 
   const [allPayments, allExpenses, allLoans, allCustomers, settingsRes] = await Promise.all([
-    sql`SELECT p.loan_id, p.amount, p.payment_date, p.category, c.full_name as customer_name
+    sql`SELECT p.loan_id, p.amount, p.payment_date, p.category, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name
         FROM payments p
         JOIN loans l ON p.loan_id = l.id
-        JOIN customers c ON l.customer_id = c.id
+        LEFT JOIN customers c ON l.customer_id = c.id
         WHERE p.tenant_id = ${tenantId}`,
     sql`SELECT amount, expense_date FROM expenses WHERE expense_date >= ${monthStart} AND tenant_id = ${tenantId}`,
     sql`SELECT id, customer_id, total_payable, due_date, status, principal, installment_amount, payment_type, is_interest_only, is_indefinite, late_fee_mode, late_fee_amount FROM loans WHERE tenant_id = ${tenantId}`,

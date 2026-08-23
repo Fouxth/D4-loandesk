@@ -11,9 +11,9 @@ function fmt(n: number) {
 export async function fetchDueTodayLoans(tenantId: string, limit = DIGEST_LIMIT) {
   const today = getBangkokDateStr();
   return sql`
-    SELECT l.loan_number, l.installment_amount, c.full_name as customer_name
+    SELECT l.loan_number, l.installment_amount, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name
     FROM loans l
-    JOIN customers c ON l.customer_id = c.id
+    LEFT JOIN customers c ON l.customer_id = c.id
     WHERE l.tenant_id = ${tenantId}
       AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled'))
       AND COALESCE(l.is_indefinite, FALSE) = FALSE
@@ -31,9 +31,9 @@ export async function fetchDueTodayLoans(tenantId: string, limit = DIGEST_LIMIT)
 export async function fetchOverdueLoans(tenantId: string, limit = DIGEST_LIMIT) {
   const today = getBangkokDateStr();
   const loans = await sql`
-    SELECT l.*, c.full_name as customer_name
+    SELECT l.*, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name
     FROM loans l
-    JOIN customers c ON l.customer_id = c.id
+    LEFT JOIN customers c ON l.customer_id = c.id
     WHERE l.tenant_id = ${tenantId}
       AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled', 'refinanced'))
   `;
@@ -92,9 +92,9 @@ export async function fetchPendingCollectionToday(tenantId: string, limit = DIGE
 
   // Pull all active loans, then compute next due date to filter correctly
   const loans = await sql`
-    SELECT l.*, c.full_name as customer_name
+    SELECT l.*, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name
     FROM loans l
-    JOIN customers c ON l.customer_id = c.id
+    LEFT JOIN customers c ON l.customer_id = c.id
     WHERE l.tenant_id = ${tenantId}
       AND (l.status IS NULL OR LOWER(l.status) NOT IN ('completed', 'closed', 'deleted', 'cancelled', 'refinanced', 'forfeited'))
       -- Exclude non-installment contracts at the query boundary. Keep the

@@ -26,10 +26,10 @@ function paymentMethodLabel(method?: string | null) {
 
 export async function dbGetPayments(tenantId: string) {
   return await sql`
-    SELECT p.*, l.loan_number, c.full_name as customer_name
+    SELECT p.*, l.loan_number, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name
     FROM payments p
     JOIN loans l ON p.loan_id = l.id
-    JOIN customers c ON l.customer_id = c.id
+    LEFT JOIN customers c ON l.customer_id = c.id
     WHERE p.tenant_id = ${tenantId}
     ORDER BY p.payment_date DESC
   `;

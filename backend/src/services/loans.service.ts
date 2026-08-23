@@ -149,9 +149,9 @@ export async function getOverdueNotifications(tenantId: string) {
   const today = getBangkokDateStr();
   const [loans, payments] = await Promise.all([
     sql`
-      SELECT l.*, c.full_name as customer_name
+      SELECT l.*, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name
       FROM loans l
-      JOIN customers c ON l.customer_id = c.id
+      LEFT JOIN customers c ON l.customer_id = c.id
       WHERE l.tenant_id = ${tenantId}
     `,
     sql`SELECT loan_id, amount, payment_date FROM payments WHERE tenant_id = ${tenantId}`
