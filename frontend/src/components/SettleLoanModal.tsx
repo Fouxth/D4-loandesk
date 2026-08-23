@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,7 +40,7 @@ export function SettleLoanModal({
 
   const [loading, setLoading] = useState(false);
   const [contractRemaining, setContractRemaining] = useState<number>(precalcRemaining ?? 0);
-  const [lateFee, setLateFee] = useState<number>(precalcEffectiveFee ?? 0);
+  const [lateFee, setLateFee] = useState<number | "">(precalcEffectiveFee && precalcEffectiveFee > 0 ? precalcEffectiveFee : "");
   const [discount, setDiscount] = useState<number | "">("");
   const [customPayoff, setCustomPayoff] = useState<number | "">("");
   const [paymentDate, setPaymentDate] = useState(getThaiDateStr());
@@ -50,13 +50,24 @@ export function SettleLoanModal({
   const [busy, setBusy] = useState(false);
   const [nextInstallmentNumber, setNextInstallmentNumber] = useState<number>(1);
 
-  // Load contract details and payments when modal opens
+  const prevOpenRef = useRef(false);
+
+  // Load contract details and payments ONLY on open transition (false -> true)
   useEffect(() => {
-    if (!isOpen || !loan?.id) return;
+    if (!isOpen || !loan?.id) {
+      prevOpenRef.current = isOpen;
+      return;
+    }
+
+    if (prevOpenRef.current) {
+      // Modal was already open, do not clobber user inputs on background refresh!
+      return;
+    }
+    prevOpenRef.current = true;
 
     if (precalcRemaining !== undefined) {
       setContractRemaining(precalcRemaining);
-      setLateFee(precalcEffectiveFee ?? 0);
+      setLateFee(precalcEffectiveFee && precalcEffectiveFee > 0 ? precalcEffectiveFee : "");
       setDiscount("");
       setCustomPayoff("");
       setPaymentDate(getThaiDateStr());
@@ -97,7 +108,7 @@ export function SettleLoanModal({
           : payments.length + 1;
 
         setContractRemaining(remainingBase);
-        setLateFee(finalLateFee);
+        setLateFee(finalLateFee > 0 ? finalLateFee : "");
         setDiscount("");
         setCustomPayoff("");
         setPaymentDate(getThaiDateStr());
@@ -270,7 +281,7 @@ export function SettleLoanModal({
                   {numLateFee > 0 && (
                     <button
                       type="button"
-                      onClick={() => setLateFee(0)}
+                      onClick={() => setLateFee("")}
                       className="text-[10px] text-muted-foreground hover:text-destructive underline"
                     >
                       ยกเว้นค่าปรับ
@@ -282,8 +293,9 @@ export function SettleLoanModal({
                   min={0}
                   step={0.01}
                   value={lateFee}
+                  placeholder="0"
                   onFocus={(e) => e.target.select()}
-                  onChange={(e) => setLateFee(e.target.value === "" ? 0 : Number(e.target.value))}
+                  onChange={(e) => setLateFee(e.target.value === "" ? "" : Number(e.target.value))}
                   className="bg-muted/20 text-destructive font-bold"
                 />
               </div>

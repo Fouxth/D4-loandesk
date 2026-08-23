@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -90,9 +90,20 @@ export function RecordPaymentModal({
 
   const currentTpCalc = calcTpForDays(rollDays === "" ? 1 : Number(rollDays));
 
+  const prevOpenRef = useRef(false);
+
   // Load latest payment stats when modal opens (if not precalculated)
   useEffect(() => {
-    if (!isOpen || !loanId) return;
+    if (!isOpen || !loanId) {
+      prevOpenRef.current = isOpen;
+      return;
+    }
+
+    if (prevOpenRef.current) {
+      // Modal was already open, do not clobber user inputs on background refresh!
+      return;
+    }
+    prevOpenRef.current = true;
 
     if (precalcSuggested !== undefined && precalcNextNum !== undefined) {
       setCalcSuggested(precalcSuggested);

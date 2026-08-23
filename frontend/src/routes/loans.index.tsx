@@ -64,12 +64,16 @@ function Loans() {
   useEffect(() => {
     load();
     const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !document.querySelector('[role="dialog"]')) {
         load();
       }
-    }, 10000);
+    }, 30000);
 
-    const onFocus = () => load();
+    const onFocus = () => {
+      if (!document.querySelector('[role="dialog"]')) {
+        load();
+      }
+    };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onFocus);
 

@@ -82,13 +82,13 @@ function LoanDetail() {
   useEffect(() => {
     load();
     const interval = setInterval(() => {
-      if (document.visibilityState === 'visible' && !open && !openMobile) {
+      if (document.visibilityState === 'visible' && !open && !openMobile && !document.querySelector('[role="dialog"]')) {
         load();
       }
-    }, 10000);
+    }, 30000);
 
     const onFocus = () => {
-      if (!open && !openMobile) load();
+      if (!open && !openMobile && !document.querySelector('[role="dialog"]')) load();
     };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onFocus);
