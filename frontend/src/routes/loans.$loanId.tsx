@@ -146,11 +146,14 @@ function LoanDetail() {
   ].filter(Boolean);
   const lateFeeUnit = lateFeeUnitParts.length > 0 ? lateFeeUnitParts.join(' ') : '0 ชม.';
 
+  const isPawnLoan = Boolean(loan.isPawn || loan.is_pawn);
+  const isFloatingInterest = Boolean((loan.isInterestOnly || loan.is_interest_only) && !isPawnLoan);
+  const isInterestOnlyMode = Boolean(isFloatingInterest || isPawnLoan);
+
   const totalOwed = hasTpAccounting
     ? calcLoanTotalOwed(Number(loan.totalPayable), tpCount, installmentAmount, tpConfig)
-    : Number(loan.isInterestOnly ? loan.principal : loan.totalPayable);
+    : Number(isInterestOnlyMode ? loan.principal : loan.totalPayable);
 
-  const isInterestOnlyMode = Boolean(loan.isInterestOnly || loan.isPawn || loan.is_interest_only || loan.is_pawn);
   const contractRemaining = isInterestOnlyMode
     ? Math.max(Number(loan.principal) - principalPaid, 0)
     : Math.max(totalOwed - totalPaid, 0);
@@ -165,7 +168,7 @@ function LoanDetail() {
     ? Math.max(...recordedInstallmentNumbers) + 1
     : payments.length + 1;
   const dueAmountBase = isPrincipalInterestAtEnd ? contractRemaining : installmentAmount;
-  const suggestedPaymentAmount = loan.isInterestOnly
+  const suggestedPaymentAmount = isFloatingInterest
     ? installmentAmount
     : Math.max(Math.min(dueAmountBase, contractRemaining || dueAmountBase), 0);
 
@@ -276,7 +279,7 @@ function LoanDetail() {
                 loanId={loanId} 
                 suggested={suggestedPaymentAmount} 
                 nextNum={nextInstallmentNumber} 
-                isInterestOnly={isInterestOnlyMode}
+                isInterestOnly={isFloatingInterest}
                 installmentAmount={loan.installmentAmount ?? loan.installment_amount ?? 0}
                 tpPenaltyAmount={lending.tpPenaltyAmount ?? 100}
                 floatingDaysDue={floatingDueTodayDays}
@@ -285,7 +288,7 @@ function LoanDetail() {
               />
             </Dialog>
 
-            {loan.isInterestOnly && (
+            {isFloatingInterest && (
               <TopupLoanModal loan={loan} onDone={load} />
             )}
 
@@ -320,7 +323,7 @@ function LoanDetail() {
       />
 
       {/* ─── FLOATING INTEREST (ดอกลอย) HIGHLIGHT CARD ───────── */}
-      {loan.isInterestOnly && (
+      {isFloatingInterest && (
         <div className="mb-6 rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-5 shadow-[var(--shadow-elevated)] animate-in fade-in">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary/20 pb-3 mb-4">
             <div className="flex items-center gap-2.5">
@@ -395,7 +398,7 @@ function LoanDetail() {
               loanId={loanId} 
               suggested={suggestedPaymentAmount} 
               nextNum={nextInstallmentNumber} 
-              isInterestOnly={isInterestOnlyMode}
+              isInterestOnly={isFloatingInterest}
               installmentAmount={loan.installmentAmount ?? loan.installment_amount ?? 0}
               tpPenaltyAmount={lending.tpPenaltyAmount ?? 100}
               floatingDaysDue={floatingDueTodayDays}
@@ -404,7 +407,7 @@ function LoanDetail() {
             />
           </Dialog>
 
-          {loan.isInterestOnly && (
+          {isFloatingInterest && (
             <TopupLoanModal
               loan={loan}
               onDone={load}
@@ -477,7 +480,7 @@ function LoanDetail() {
                 <StatusBadge tone={loanStatusTone(getEffectiveStatus(loan))}>
                   {getLoanStatusLabel(loan)}
                 </StatusBadge>
-                {loan.isInterestOnly && (
+                {isFloatingInterest && (
                   <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-primary/20 text-primary">
                     ดอกลอย
                   </span>

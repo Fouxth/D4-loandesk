@@ -392,7 +392,7 @@ function Loans() {
                   <TableCell className="font-medium">{l.customerName}</TableCell>
                   <TableCell>
                     <StatusBadge tone="info">{getLoanCategory(l)}</StatusBadge>
-                    {l.isInterestOnly && (
+                    {l.isInterestOnly && !l.isPawn && (
                       <span className="block text-[10px] font-bold text-primary mt-0.5">
                         💎 ดอกลอย ฿{instAmt}/วัน
                       </span>
@@ -400,7 +400,7 @@ function Loans() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{formatTHB(l.principal)}</TableCell>
                   <TableCell className="font-bold">
-                    {l.isInterestOnly ? (
+                    {l.isInterestOnly && !l.isPawn ? (
                       <div>
                         <span>{formatTHB(l.principal)}</span>
                         <span className="block text-[10px] text-warning font-semibold">ดอก {formatTHB(instAmt)}/วัน</span>
@@ -425,14 +425,14 @@ function Loans() {
                           disabled={isPayingThis}
                           onClick={(e) => onTriggerQuickPay(l, e)}
                           className="h-8 px-2.5 rounded-lg border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold text-xs gap-1 shadow-sm active:scale-95 transition-all"
-                          title={l.isInterestOnly ? `จ่ายดอกเบี้ย ฿${instAmt.toLocaleString()}` : `จ่ายด่วนงวดปกติ ฿${instAmt.toLocaleString()}`}
+                          title={l.isInterestOnly && !l.isPawn ? `จ่ายดอกเบี้ย ฿${instAmt.toLocaleString()}` : `จ่ายด่วนงวดปกติ ฿${instAmt.toLocaleString()}`}
                         >
                           {isPayingThis ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
                             <Zap className="h-3.5 w-3.5 text-emerald-500 fill-emerald-500" />
                           )}
-                          <span>{l.isInterestOnly ? `จ่ายดอก ฿${instAmt.toLocaleString()}` : `฿${instAmt.toLocaleString()}`}</span>
+                          <span>{l.isInterestOnly && !l.isPawn ? `จ่ายดอก ฿${instAmt.toLocaleString()}` : `฿${instAmt.toLocaleString()}`}</span>
                         </Button>
                       )}
 
