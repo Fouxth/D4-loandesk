@@ -1,6 +1,6 @@
 import { logActivity, getLoanById, getPaymentsByLoan, createPayment, deletePayment, refinanceLoan, deleteLoan, updateLoan, getLoanAttachments, uploadAttachment, deleteAttachment } from "@/lib/services";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PageHeader } from "@/components/PageHeader";
@@ -157,7 +157,7 @@ function LoanDetail() {
   const loanCategory = getLoanCategory(loan);
   const totalInstallments = Number(loan.installmentsCount ?? 0);
   const recordedInstallmentNumbers = payments
-    .map((payment) => Number(payment.installmentNumber))
+    .map((payment) => Number(payment.installmentNumber ?? payment.installment_number ?? payment.installmentNo))
     .filter((installmentNumber) => Number.isFinite(installmentNumber) && installmentNumber > 0);
   const nextInstallmentNumber = recordedInstallmentNumbers.length > 0
     ? Math.max(...recordedInstallmentNumbers) + 1
@@ -266,6 +266,7 @@ function LoanDetail() {
                 isInterestOnly={isInterestOnlyMode}
                 installmentAmount={loan.installmentAmount ?? loan.installment_amount ?? 0}
                 tpPenaltyAmount={lending.tpPenaltyAmount ?? 100}
+                isOpen={open}
                 onDone={() => { setOpen(false); load(); }} 
               />
             </Dialog>
@@ -308,6 +309,7 @@ function LoanDetail() {
               isInterestOnly={isInterestOnlyMode}
               installmentAmount={loan.installmentAmount ?? loan.installment_amount ?? 0}
               tpPenaltyAmount={lending.tpPenaltyAmount ?? 100}
+              isOpen={openMobile}
               onDone={() => { setOpenMobile(false); load(); }} 
             />
           </Dialog>
@@ -713,6 +715,7 @@ function PaymentForm({
   isInterestOnly,
   installmentAmount = 0,
   tpPenaltyAmount = 100,
+  isOpen = true,
   onDone,
 }: {
   loanId: string;
@@ -721,6 +724,7 @@ function PaymentForm({
   isInterestOnly: boolean;
   installmentAmount?: number;
   tpPenaltyAmount?: number;
+  isOpen?: boolean;
   onDone: () => void;
 }) {
   const [form, setForm] = useState({
@@ -734,6 +738,24 @@ function PaymentForm({
   const [rollDays, setRollDays] = useState<number | "">(1);
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const prevOpenRef = useRef(false);
+
+  // Re-initialize form whenever modal is opened
+  useEffect(() => {
+    if (isOpen && !prevOpenRef.current) {
+      setForm({
+        amount: suggested,
+        paymentDate: getThaiDateStr(),
+        installmentNumber: nextNum,
+        method: "cash",
+        category: isInterestOnly ? "interest" : "principal",
+        notes: "",
+      });
+      setRollDays(1);
+      setSlipFile(null);
+    }
+    prevOpenRef.current = isOpen;
+  }, [isOpen, suggested, nextNum, isInterestOnly]);
 
   const calcTpForDays = (daysCount: number) => {
     const days = Math.max(1, daysCount);
