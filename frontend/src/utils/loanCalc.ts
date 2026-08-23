@@ -12,7 +12,7 @@ export function calcLoan(
   const total = isInterestOnly ? principal : principal + interest;
   const installment = isPrincipalInterestAtEnd ? total : isInterestOnly ? interest : total / Math.max(installmentsCount, 1);
 
-  if (isIndefinite) {
+  if (isIndefinite || isInterestOnly) {
     return { interest, total, installment, due: null, dueStr: null };
   }
 

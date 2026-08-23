@@ -907,7 +907,7 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
     return calcCustomerCreditProfile(selectedCustomer, customerLoans, customerPayments);
   }, [selectedCustomer, customerLoans, customerPayments]);
   
-  const isIndefiniteLoan = Boolean(form.isPawn || isZeroInterestDebt);
+  const isIndefiniteLoan = Boolean(form.isInterestOnly || form.isPawn || isZeroInterestDebt);
 
   const calc = calcLoan(
     form.principal,
@@ -939,9 +939,9 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
         interestRate: form.interestRate,
         interestAmount: calc.interest,
         totalPayable: calc.total,
-        installmentsCount: form.installmentsCount,
+        installmentsCount: form.isInterestOnly ? 1 : form.installmentsCount,
         installmentAmount: calc.installment,
-        paymentType: form.paymentType,
+        paymentType: form.isInterestOnly ? "daily" : form.paymentType,
         startDate: form.startDate,
         dueDate: isIndefiniteLoan ? null : (calc.dueStr || (calc.due ? calc.due.toISOString().split("T")[0] : null)),
         promiseDate: form.promiseDate || (form.isPrincipalInterestAtEnd ? (calc.dueStr || (calc.due ? calc.due.toISOString().split("T")[0] : null)) : null),
@@ -1054,15 +1054,38 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
             <Input type="number" min={0} step={0.1} value={form.interestRate} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, interestRate: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
           </div>
           <div className="space-y-2">
-            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">จำนวนงวด</Label>
-            <Input type="number" min={1} value={form.installmentsCount} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" : Number(e.target.value) as any })} className="bg-muted/20" />
+            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">จำนวนงวด / ระยะเวลา</Label>
+            {form.isInterestOnly ? (
+              <div className="h-10 px-3 rounded-md bg-primary/10 border border-primary/30 flex items-center text-xs font-bold text-primary">
+                ไม่มีกำหนด (เก็บดอกเบี้ยรายวันไปเรื่อยๆ)
+              </div>
+            ) : isIndefiniteLoan ? (
+              <div className="h-10 px-3 rounded-md bg-muted/40 border border-border flex items-center text-xs font-medium text-muted-foreground">
+                ไม่มีกำหนดสิ้นสุด
+              </div>
+            ) : (
+              <Input
+                type="number"
+                min={1}
+                value={form.installmentsCount}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" : Number(e.target.value) as any })}
+                className="bg-muted/20"
+              />
+            )}
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ความถี่ในการชำระ</Label>
-            <Select value={form.paymentType} onValueChange={(v: any) => setForm({ ...form, paymentType: v })}>
-              <SelectTrigger className="bg-muted/20"><SelectValue /></SelectTrigger>
+            <Select
+              value={form.isInterestOnly ? "daily" : form.paymentType}
+              disabled={form.isInterestOnly}
+              onValueChange={(v: any) => setForm({ ...form, paymentType: v })}
+            >
+              <SelectTrigger className="bg-muted/20 font-medium">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                <SelectItem value="daily">รายวัน</SelectItem>
+                <SelectItem value="daily">รายวัน (เก็บทุกวัน)</SelectItem>
                 <SelectItem value="weekly">รายสัปดาห์</SelectItem>
                 <SelectItem value="monthly">รายเดือน</SelectItem>
               </SelectContent>
@@ -1089,10 +1112,20 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
               id="isInterestOnly" 
               checked={form.isInterestOnly} 
               disabled={form.isPrincipalInterestAtEnd}
-              onChange={(e) => setForm({ ...form, isInterestOnly: e.target.checked })}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setForm({
+                  ...form,
+                  isInterestOnly: checked,
+                  isIndefinite: checked,
+                  paymentType: checked ? "daily" : form.paymentType,
+                  installmentsCount: checked ? 1 : (form.installmentsCount || 30),
+                  isPrincipalInterestAtEnd: checked ? false : form.isPrincipalInterestAtEnd,
+                });
+              }}
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
             />
-            <Label htmlFor="isInterestOnly" className="text-sm font-bold text-foreground cursor-pointer">เงินกู้แบบดอกลอย (เก็บแต่ดอกเบี้ย)</Label>
+            <Label htmlFor="isInterestOnly" className="text-sm font-bold text-foreground cursor-pointer">เงินกู้แบบดอกลอย (เก็บแต่ดอกเบี้ย / ไม่มีวันสิ้นสุด)</Label>
           </div>
           <div className="flex items-center space-x-2 pt-1">
             <input
@@ -1252,35 +1285,49 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
           <h4 className="text-[11px] font-bold uppercase tracking-widest text-primary mb-3">สรุปยอดเบื้องต้น</h4>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">ดอกเบี้ย</p>
-              <p className="text-sm font-bold text-primary">{formatTHB(calc.interest)}</p>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">
+                {form.isInterestOnly ? "ดอกเบี้ยต่อวัน" : "ดอกเบี้ย"}
+              </p>
+              <p className="text-sm font-bold text-primary">
+                {formatTHB(calc.interest)}
+                {form.isInterestOnly && <span className="text-xs font-normal text-muted-foreground"> /วัน</span>}
+              </p>
             </div>
             <div>
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">ยอดรวมทั้งหมด</p>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">
+                {form.isInterestOnly ? "เงินต้นคงค้าง" : "ยอดรวมทั้งหมด"}
+              </p>
               <p className="text-sm font-bold text-primary">{formatTHB(calc.total)}</p>
             </div>
             <div>
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{form.isPrincipalInterestAtEnd ? 'ยอดปิด' : 'ต่องวด'}</p>
-              <p className="text-sm font-bold text-primary">{formatTHB(calc.installment)}</p>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">
+                {form.isInterestOnly ? "ดอกเบี้ยที่ต้องเก็บ" : form.isPrincipalInterestAtEnd ? "ยอดปิด" : "ต่องวด"}
+              </p>
+              <p className="text-sm font-bold text-primary">
+                {formatTHB(calc.installment)}
+                {form.isInterestOnly && <span className="text-xs font-normal text-muted-foreground"> /วัน</span>}
+              </p>
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">กำหนดวันเก็บเงิน</p>
               <p className="text-sm font-bold text-primary">
-                {form.paymentType === 'monthly' ? (
+                {form.isInterestOnly ? (
+                  "รายวัน (ทุกวัน)"
+                ) : form.paymentType === "monthly" ? (
                   `ทุกวันที่ ${new Date(form.startDate).getDate() || 1} ของเดือน`
                 ) : isZeroInterestDebt ? (
-                  'ทยอยชำระคืน'
-                ) : form.paymentType === 'weekly' ? (
-                  'ทุกสัปดาห์'
+                  "ทยอยชำระคืน"
+                ) : form.paymentType === "weekly" ? (
+                  "ทุกสัปดาห์"
                 ) : (
-                  'รายวัน'
+                  "รายวัน"
                 )}
               </p>
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">สิ้นสุดวันที่</p>
               <p className="text-sm font-bold text-primary">
-                {isIndefiniteLoan ? 'ไม่มีกำหนด' : (calc.due ? formatDate(calc.due) : 'ไม่มีกำหนด')}
+                {isIndefiniteLoan ? "ไม่มีกำหนด (เก็บไปเรื่อยๆ)" : calc.due ? formatDate(calc.due) : "ไม่มีกำหนด"}
               </p>
             </div>
           </div>

@@ -236,15 +236,25 @@ export function EditLoanModal({
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 จำนวนงวด
               </Label>
-              <Input
-                type="number"
-                min={1}
-                value={form.installmentsCount ?? ""}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" : Number(e.target.value) })}
-                className="bg-muted/20"
-                required
-              />
+              {form.isInterestOnly ? (
+                <div className="h-10 px-3 rounded-md bg-primary/10 border border-primary/30 flex items-center text-xs font-bold text-primary">
+                  ไม่มีกำหนด (เก็บดอกเบี้ยรายวันไปเรื่อยๆ)
+                </div>
+              ) : form.isIndefinite ? (
+                <div className="h-10 px-3 rounded-md bg-muted/40 border border-border flex items-center text-xs font-medium text-muted-foreground">
+                  ไม่มีกำหนดสิ้นสุด
+                </div>
+              ) : (
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.installmentsCount ?? ""}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" : Number(e.target.value) })}
+                  className="bg-muted/20"
+                  required
+                />
+              )}
             </div>
 
             {/* Payment Frequency */}
@@ -253,14 +263,15 @@ export function EditLoanModal({
                 ความถี่ในการชำระ
               </Label>
               <Select
-                value={form.paymentType || "daily"}
+                value={form.isInterestOnly ? "daily" : (form.paymentType || "daily")}
+                disabled={form.isInterestOnly}
                 onValueChange={(v) => setForm({ ...form, paymentType: v })}
               >
                 <SelectTrigger className="bg-muted/20 font-medium">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="daily">รายวัน</SelectItem>
+                  <SelectItem value="daily">รายวัน (เก็บทุกวัน)</SelectItem>
                   <SelectItem value="weekly">รายสัปดาห์</SelectItem>
                   <SelectItem value="monthly">รายเดือน</SelectItem>
                 </SelectContent>
@@ -286,12 +297,18 @@ export function EditLoanModal({
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 วันครบกำหนดสัญญา
               </Label>
-              <Input
-                type="date"
-                value={form.dueDate || ""}
-                onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-                className="bg-muted/20"
-              />
+              {form.isInterestOnly || form.isIndefinite ? (
+                <div className="h-10 px-3 rounded-md bg-muted/40 border border-border flex items-center text-xs font-medium text-muted-foreground">
+                  ไม่มีกำหนด (เก็บไปเรื่อยๆ)
+                </div>
+              ) : (
+                <Input
+                  type="date"
+                  value={form.dueDate || ""}
+                  onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+                  className="bg-muted/20"
+                />
+              )}
             </div>
 
             {/* Promise Date */}
@@ -342,10 +359,20 @@ export function EditLoanModal({
                 <input
                   type="checkbox"
                   checked={form.isInterestOnly}
-                  onChange={(e) => setForm({ ...form, isInterestOnly: e.target.checked })}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setForm({
+                      ...form,
+                      isInterestOnly: checked,
+                      isIndefinite: checked ? true : form.isIndefinite,
+                      paymentType: checked ? "daily" : form.paymentType,
+                      installmentsCount: checked ? 1 : form.installmentsCount,
+                      isPrincipalInterestAtEnd: checked ? false : form.isPrincipalInterestAtEnd,
+                    });
+                  }}
                   className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
-                <span>ดอกลอย (เก็บแต่ดอก)</span>
+                <span>ดอกลอย (เก็บแต่ดอก / ไม่มีวันสิ้นสุด)</span>
               </label>
 
               <label className="flex items-center space-x-2 text-sm font-semibold cursor-pointer">
