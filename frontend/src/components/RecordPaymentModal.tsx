@@ -55,6 +55,8 @@ export function RecordPaymentModal({
   const [loadingData, setLoadingData] = useState(false);
   const [calcSuggested, setCalcSuggested] = useState<number>(precalcSuggested ?? instAmount);
 
+  const [baseNextNum, setBaseNextNum] = useState<number>(precalcNextNum ?? 1);
+
   const [form, setForm] = useState({
     amount: precalcSuggested ?? instAmount,
     paymentDate: getThaiDateStr(),
@@ -92,6 +94,7 @@ export function RecordPaymentModal({
 
     if (precalcSuggested !== undefined && precalcNextNum !== undefined) {
       setCalcSuggested(precalcSuggested);
+      setBaseNextNum(precalcNextNum);
       setForm({
         amount: precalcSuggested,
         paymentDate: getThaiDateStr(),
@@ -136,6 +139,7 @@ export function RecordPaymentModal({
           : Math.max(Math.min(dueAmountBase, contractRemaining || dueAmountBase), 0);
 
         setCalcSuggested(suggested);
+        setBaseNextNum(nextNum);
         setForm({
           amount: suggested,
           paymentDate: getThaiDateStr(),
@@ -155,16 +159,20 @@ export function RecordPaymentModal({
 
   const handleCategoryChange = (v: "interest" | "principal" | "roll_penalty") => {
     if (v === "roll_penalty") {
+      const days = rollDays === "" ? 1 : Number(rollDays);
+      const calcResult = calcTpForDays(days);
       setForm((current) => ({
         ...current,
         category: v,
-        amount: currentTpCalc.totalTp > 0 ? currentTpCalc.totalTp : current.amount,
-        notes: current.notes || `ชำระ ท+ป ${currentTpCalc.days} วัน (${currentTpCalc.totalDaysToPay} งวด ฿${currentTpCalc.totalInst} + ปรับ ฿${currentTpCalc.totalPen})`,
+        installmentNumber: baseNextNum + days,
+        amount: calcResult.totalTp > 0 ? calcResult.totalTp : current.amount,
+        notes: `ชำระ ท+ป ${days} วัน (${calcResult.totalDaysToPay} งวด ฿${calcResult.totalInst} + ปรับ ฿${calcResult.totalPen})`,
       }));
     } else {
       setForm((current) => ({
         ...current,
         category: v,
+        installmentNumber: baseNextNum,
         amount: calcSuggested,
         notes: "",
       }));
@@ -186,17 +194,69 @@ export function RecordPaymentModal({
 
     setBusy(true);
     try {
-      await createPayment({ ...form, loanId }, slipFile);
-      try {
-        await logActivity({
-          action: "record_payment",
-          entity_type: "payment",
-          details: { loanId, amount: form.amount, loanNumber, customerName },
-        });
-      } catch (logError) {
-        console.error("Activity log failed:", logError);
+      if (form.category === "roll_penalty") {
+        const days = Math.max(1, rollDays === "" ? 1 : Number(rollDays));
+        const totalInstallmentsCount = days + 1; // วันที่ทบ + วันนี้ 1 วัน
+        const baseInstAmount = instAmount > 0 ? instAmount : (Number(form.amount) / totalInstallmentsCount);
+        const penaltyPerDay = tpPenaltyAmount || 100;
+
+        // 1. Create rolled days payments (งวดที่ทบ)
+        for (let k = 0; k < days; k++) {
+          const instNum = baseNextNum + k;
+          const rolledPaymentAmount = baseInstAmount + penaltyPerDay;
+          const isFirst = k === 0;
+          await createPayment(
+            {
+              loanId,
+              amount: rolledPaymentAmount,
+              installmentNumber: instNum,
+              paymentDate: form.paymentDate,
+              method: form.method,
+              category: "roll_penalty",
+              notes: `ชำระ ท+ป วันที่ ${k + 1}/${days} (ทบ ฿${baseInstAmount.toLocaleString()} + ปรับ ฿${penaltyPerDay.toLocaleString()})`,
+            },
+            isFirst ? slipFile : null
+          );
+        }
+
+        // 2. Create current day payment (งวดปัจจุบัน วันที่ 4)
+        const currentInstNum = baseNextNum + days;
+        await createPayment(
+          {
+            loanId,
+            amount: baseInstAmount,
+            installmentNumber: currentInstNum,
+            paymentDate: form.paymentDate,
+            method: form.method,
+            category: isInterestOnlyMode ? "interest" : "principal",
+            notes: `ชำระค่างวดปกติ (วันที่ ${totalInstallmentsCount}/${totalInstallmentsCount})`,
+          },
+          days === 0 ? slipFile : null
+        );
+
+        try {
+          await logActivity({
+            action: "record_payment",
+            entity_type: "payment",
+            details: { loanId, amount: form.amount, category: "roll_penalty", days, startInstallment: baseNextNum, endInstallment: currentInstNum, loanNumber, customerName },
+          });
+        } catch (logError) {}
+
+        toast.success(`⚡️ บันทึกชำระ ท+ป ${days} วัน + วันนี้ 1 วัน รวม ${totalInstallmentsCount} งวด (งวดที่ ${baseNextNum} - ${currentInstNum}) เรียบร้อยแล้ว`);
+      } else {
+        await createPayment({ ...form, loanId }, slipFile);
+        try {
+          await logActivity({
+            action: "record_payment",
+            entity_type: "payment",
+            details: { loanId, amount: form.amount, loanNumber, customerName },
+          });
+        } catch (logError) {
+          console.error("Activity log failed:", logError);
+        }
+        toast.success("บันทึกการชำระเงินเรียบร้อยแล้ว");
       }
-      toast.success("บันทึกการชำระเงินเรียบร้อยแล้ว");
+
       setIsOpen(false);
       onDone?.();
     } catch (error: any) {
@@ -283,6 +343,11 @@ export function RecordPaymentModal({
                   }
                   className="bg-muted/20"
                 />
+                {form.category === "roll_penalty" && (
+                  <p className="text-[10px] text-warning font-semibold">
+                    ✨ ครอบคลุมงวดที่ {baseNextNum} ถึง {form.installmentNumber}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -338,11 +403,13 @@ export function RecordPaymentModal({
                     onChange={(e) => {
                       const val = e.target.value === "" ? "" : Number(e.target.value);
                       setRollDays(val);
-                      const calcResult = calcTpForDays(val === "" ? 1 : Number(val));
+                      const days = val === "" ? 1 : Number(val);
+                      const calcResult = calcTpForDays(days);
                       setForm((prev) => ({
                         ...prev,
+                        installmentNumber: baseNextNum + days,
                         amount: calcResult.totalTp,
-                        notes: `ชำระ ท+ป ${calcResult.days} วัน (${calcResult.totalDaysToPay} งวด ฿${calcResult.totalInst} + ปรับ ฿${calcResult.totalPen})`,
+                        notes: `ชำระ ท+ป ${days} วัน (${calcResult.totalDaysToPay} งวด ฿${calcResult.totalInst} + ปรับ ฿${calcResult.totalPen})`,
                       }));
                     }}
                     className="bg-warning/10 border-warning/40 font-bold text-warning"
