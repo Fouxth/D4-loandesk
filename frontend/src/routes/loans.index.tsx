@@ -22,6 +22,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { CustomerSelect } from "@/components/CustomerSelect";
 import { EditLoanModal } from "@/components/EditLoanModal";
 import { RecordPaymentModal } from "@/components/RecordPaymentModal";
+import { SettleLoanModal } from "@/components/SettleLoanModal";
 import { calcCustomerCreditProfile } from "@/utils/creditScore";
 import { CreditScoreBadge } from "@/components/CreditScoreBadge";
 import { cn } from "@/utils/utils";
@@ -450,6 +451,12 @@ function Loans() {
                           </Button>
                         }
                       />
+                      {l.status !== 'completed' && (
+                        <SettleLoanModal
+                          loan={l}
+                          onDone={load}
+                        />
+                      )}
                       <EditLoanModal
                         loan={l}
                         onDone={load}
@@ -575,6 +582,12 @@ function Loans() {
                       </Button>
                     }
                   />
+                  {l.status !== 'completed' && (
+                    <SettleLoanModal
+                      loan={l}
+                      onDone={load}
+                    />
+                  )}
                   <EditLoanModal
                     loan={l}
                     onDone={load}

@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { StatusBadge, loanStatusTone, getEffectiveStatus, getLoanStatusLabel, getLoanNextDueDate } from "@/components/StatusBadge";
-import { ArrowLeft, Plus, Trash2, Camera, Image as ImageIcon, X, Loader2, Pencil, RefreshCw, PlusCircle, Flame } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Camera, Image as ImageIcon, X, Loader2, Pencil, RefreshCw, PlusCircle, Flame, CheckCheck } from "lucide-react";
 import { cn } from "@/utils/utils";
 import { toast } from "sonner";
 import { formatTHB, formatDate, daysBetween, getThaiDateStr } from "@/utils/format";
@@ -22,6 +22,7 @@ import { LateFeeEditor } from "@/components/LateFeeEditor";
 import { PromiseDateEditor } from "@/components/PromiseDateEditor";
 import { EditLoanModal } from "@/components/EditLoanModal";
 import { TopupLoanModal } from "@/components/TopupLoanModal";
+import { SettleLoanModal } from "@/components/SettleLoanModal";
 import { getLoanCategory } from "@/utils/loanType";
 import {
   calcLoanPaidTotal,
@@ -288,6 +289,15 @@ function LoanDetail() {
               <TopupLoanModal loan={loan} onDone={load} />
             )}
 
+            {loan.status !== 'completed' && (
+              <SettleLoanModal
+                loan={loan}
+                remaining={remaining}
+                effectiveFee={effectiveFee}
+                onDone={load}
+              />
+            )}
+
             <EditLoanModal loan={loan} onDone={load} />
 
             <RefinanceDialog 
@@ -329,6 +339,14 @@ function LoanDetail() {
             </div>
             <div className="flex items-center gap-2">
               <TopupLoanModal loan={loan} onDone={load} />
+              {loan.status !== 'completed' && (
+                <SettleLoanModal
+                  loan={loan}
+                  remaining={contractRemaining}
+                  effectiveFee={effectiveFee}
+                  onDone={load}
+                />
+              )}
             </div>
           </div>
 
@@ -398,6 +416,25 @@ function LoanDetail() {
                 >
                   <PlusCircle className="h-4 w-4" />
                   <span className="text-xs">เบิกเพิ่ม</span>
+                </Button>
+              }
+            />
+          )}
+
+          {loan.status !== 'completed' && (
+            <SettleLoanModal
+              loan={loan}
+              remaining={remaining}
+              effectiveFee={effectiveFee}
+              onDone={load}
+              trigger={
+                <Button
+                  variant="outline"
+                  className="h-12 px-3 rounded-xl shrink-0 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold gap-1.5"
+                  title="ปิดยอดสัญญา"
+                >
+                  <CheckCheck className="h-4 w-4" />
+                  <span className="text-xs">ปิดยอด</span>
                 </Button>
               }
             />
