@@ -73,6 +73,51 @@ export async function dbUpdateCustomer(id: string, updates: any, tenantId: strin
 }
 
 export async function dbDeleteCustomer(id: string, tenantId: string) {
-  return await sql`DELETE FROM customers WHERE id = ${id} AND tenant_id = ${tenantId}`;
+  return await sql.begin(async (sql) => {
+    // 1. Find all loans belonging to this customer
+    const loans = await sql`
+      SELECT id FROM loans WHERE customer_id = ${id} AND tenant_id = ${tenantId}
+    `;
+    const loanIds = loans.map((l: any) => l.id);
+
+    if (loanIds.length > 0) {
+      // Clear refinanced_from references
+      await sql`
+        UPDATE loans SET refinanced_from = NULL 
+        WHERE refinanced_from IN ${sql(loanIds)} AND tenant_id = ${tenantId}
+      `;
+
+      // Delete loan attachments
+      try {
+        await sql`
+          DELETE FROM loan_attachments WHERE loan_id IN ${sql(loanIds)}
+        `;
+      } catch (attErr) {
+        console.warn('Could not delete loan attachments for customer:', attErr);
+      }
+
+      // Delete payments associated with these loans
+      await sql`
+        DELETE FROM payments WHERE loan_id IN ${sql(loanIds)} AND tenant_id = ${tenantId}
+      `;
+
+      // Delete loans
+      await sql`
+        DELETE FROM loans WHERE id IN ${sql(loanIds)} AND tenant_id = ${tenantId}
+      `;
+    }
+
+    // 2. Delete customer attachments
+    try {
+      await sql`
+        DELETE FROM customer_attachments WHERE customer_id = ${id}
+      `;
+    } catch (cAttErr) {
+      console.warn('Could not delete customer attachments:', cAttErr);
+    }
+
+    // 3. Delete customer
+    return await sql`DELETE FROM customers WHERE id = ${id} AND tenant_id = ${tenantId}`;
+  });
 }
 
