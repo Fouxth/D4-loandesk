@@ -232,13 +232,13 @@ export function RecordPaymentModal({
       if (form.category === "roll_penalty") {
         const days = Math.max(1, rollDays === "" ? 1 : Number(rollDays));
         const totalInstallmentsCount = days + 1; // วันที่ทบ + วันนี้ 1 วัน
-        const baseInstAmount = instAmount > 0 ? instAmount : (Number(form.amount) / totalInstallmentsCount);
-        const penaltyPerDay = tpPenaltyAmount || 100;
+        const baseInstAmount = Number(instAmount > 0 ? instAmount : (Number(form.amount) / totalInstallmentsCount));
+        const penaltyPerDay = Number(tpPenaltyAmount || 100);
 
         // 1. Create rolled days payments (งวดที่ทบ)
         for (let k = 0; k < days; k++) {
           const instNum = baseNextNum + k;
-          const rolledPaymentAmount = baseInstAmount + penaltyPerDay;
+          const rolledPaymentAmount = Number(baseInstAmount) + Number(penaltyPerDay);
           const isFirst = k === 0;
           await createPayment(
             {
