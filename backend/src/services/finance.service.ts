@@ -180,10 +180,11 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
 
 export async function dbDeletePayment(id: string, tenantId: string) {
   const payments = await sql`
-    SELECT p.amount, l.loan_number, c.full_name as customer_name
+    SELECT p.amount, p.loan_id, l.loan_number, l.status as loan_status, l.total_payable, l.principal, l.is_interest_only,
+           COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name
     FROM payments p
     JOIN loans l ON p.loan_id = l.id
-    JOIN customers c ON l.customer_id = c.id
+    LEFT JOIN customers c ON l.customer_id = c.id
     WHERE p.id = ${id} AND p.tenant_id = ${tenantId}
   `;
   
@@ -191,6 +192,26 @@ export async function dbDeletePayment(id: string, tenantId: string) {
   
   if (payments.length > 0) {
     const p = payments[0];
+    const loanId = p.loanId || p.loan_id;
+    
+    // If the loan was previously marked as completed, check if deleting this payment reopens debt
+    if (loanId && p.loanStatus === 'completed') {
+      const [remainingRes] = await sql`
+        SELECT COALESCE(SUM(amount::numeric), 0) as total_paid
+        FROM payments
+        WHERE loan_id = ${loanId} AND tenant_id = ${tenantId}
+      `;
+      const totalPaid = Number(remainingRes?.totalPaid ?? remainingRes?.total_paid ?? 0);
+      const totalTarget = Number(p.isInterestOnly ? p.principal : p.totalPayable);
+      if (totalPaid < totalTarget) {
+        await sql`
+          UPDATE loans
+          SET status = 'active'
+          WHERE id = ${loanId} AND tenant_id = ${tenantId}
+        `;
+      }
+    }
+
     const formattedAmount = Number(p.amount).toLocaleString('en-US', {minimumFractionDigits: 2});
     const message = `🚨 แจ้งเตือนความผิดปกติ (ลบข้อมูล)\n👤 ลูกค้า: ${p.customerName}\n📝 สัญญา: ${p.loanNumber}\n❌ ยอดที่ลบ: ${formattedAmount} บาท`;
     try {
@@ -226,21 +247,41 @@ export async function dbCreateBulkPayments(
     throw new Error('กรุณาระบุรายการชำระเงิน');
   }
 
-  const results: any[] = [];
-  for (const item of paymentsList) {
-    try {
-      const res = await dbCreatePayment(item, userId, tenantId);
-      results.push({ success: true, payment: res });
-    } catch (err: any) {
-      results.push({ success: false, loanId: item.loanId, error: err.message });
-    }
-  }
+  // Execute all payments in an atomic transaction
+  const results = await sql.begin(async (tx) => {
+    const resList: any[] = [];
+    for (const item of paymentsList) {
+      const amount = Number(item.amount);
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error(`จำนวนเงินของรายการชำระไม่ถูกต้อง (${item.amount})`);
+      }
+      const safeItem = {
+        loan_id: item.loanId || item.loan_id,
+        amount: String(amount),
+        installment_number: item.installmentNumber ?? item.installment_number ?? null,
+        payment_date: item.paymentDate || item.payment_date || new Date(),
+        method: item.method || 'cash',
+        category: item.category || 'principal',
+        notes: item.notes || '',
+        created_by: userId,
+        tenant_id: tenantId,
+        slip_url: item.slipUrl || null,
+        slip_file_name: item.slipFileName || null,
+      };
 
-  const successCount = results.filter((r) => r.success).length;
+      const [res] = await tx`
+        INSERT INTO payments ${tx(safeItem)}
+        RETURNING *
+      `;
+      resList.push(res);
+    }
+    return resList;
+  });
+
   return {
     success: true,
     total: paymentsList.length,
-    successCount,
+    successCount: results.length,
     results,
   };
 }
@@ -250,8 +291,17 @@ export async function dbGetExpenses(tenantId: string) {
 }
 
 export async function dbCreateExpense(data: any, userId: string, tenantId: string) {
+  const expenseData = {
+    category: data.category || 'other',
+    amount: String(data.amount || 0),
+    expense_date: data.expenseDate || data.expense_date || new Date(),
+    details: data.details || data.description || '',
+    created_by: userId,
+    tenant_id: tenantId,
+  };
+
   const result = await sql`
-    INSERT INTO expenses ${sql({ ...data, createdBy: userId, tenantId })}
+    INSERT INTO expenses ${sql(expenseData)}
     RETURNING *
   `;
   
@@ -282,7 +332,7 @@ export async function dbCreateExpense(data: any, userId: string, tenantId: strin
 
 export async function dbDeleteExpense(id: string, tenantId: string) {
   const expenses = await sql`
-    SELECT category, amount, details FROM expenses
+    SELECT category, amount, COALESCE(details, '') as details FROM expenses
     WHERE id = ${id} AND tenant_id = ${tenantId}
   `;
 

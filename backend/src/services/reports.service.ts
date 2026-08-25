@@ -65,7 +65,9 @@ export async function fetchDashboardRawData(tenantId: string, monthStartStr?: st
       return promiseDateStr || dueDateStr;
     }
 
-    const paidCount = payments.filter((p: any) => (p.loanId || p.loan_id) === l.id).length;
+    const loanPayments = payments.filter((p: any) => (p.loanId || p.loan_id) === l.id);
+    const maxInst = Math.max(0, ...loanPayments.map((p: any) => Number(p.installmentNumber ?? p.installment_number ?? 0)));
+    const paidCount = maxInst > 0 ? maxInst : loanPayments.length;
     const startDateStr = toDateStr(l.startDate || l.start_date);
     if (!startDateStr) {
       return toDateStr(l.dueDate || l.due_date) || null;
@@ -316,13 +318,19 @@ export async function fetchReportRawData(tenantId: string, ms?: string) {
     daily.push({ date: day, total });
   }
 
-  // Customer ranking by total paid
+  // Customer ranking by total paid in selected month
   const rankMap: Record<string, { name: string; total: number }> = {};
-  allPayments.forEach((p: any) => {
-    const name = p.customerName || 'ไม่ระบุ';
-    if (!rankMap[name]) rankMap[name] = { name, total: 0 };
-    rankMap[name].total += Number(p.amount);
-  });
+  allPayments
+    .filter((p: any) => {
+      if (ms === 'all') return true;
+      const d = toDateStr(p.paymentDate || p.payment_date);
+      return d >= monthStart && d <= monthEnd;
+    })
+    .forEach((p: any) => {
+      const name = p.customerName || 'ไม่ระบุ';
+      if (!rankMap[name]) rankMap[name] = { name, total: 0 };
+      rankMap[name].total += Number(p.amount);
+    });
   const ranking = Object.values(rankMap)
     .sort((a, b) => b.total - a.total)
     .slice(0, 10);

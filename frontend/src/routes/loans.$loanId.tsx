@@ -180,17 +180,12 @@ function LoanDetail() {
     : String(loan.startDate || loan.start_date || '').substring(0, 10);
   const todayDateStr = getThaiDateStr();
   const floatingDaysUnpaid = lastInterestPaymentDate ? Math.max(0, daysBetween(lastInterestPaymentDate, todayDateStr)) : 1;
-  const floatingDueTodayDays = floatingDaysUnpaid > 0 ? floatingDaysUnpaid : 1;
+  const floatingDueTodayDays = floatingDaysUnpaid;
   const floatingDueTodayAmount = floatingDueTodayDays * dailyFloatingRate;
 
   const removePayment = async (id: string) => {
     try {
       await deletePayment(id);
-      try {
-        await logActivity({ action: "delete_payment", entity_type: "payment", entity_id: id });
-      } catch (logError) {
-        console.error("Activity log failed:", logError);
-      }
       toast.success("ลบประวัติการชำระเงินเรียบร้อยแล้ว");
       load();
     } catch (error: any) {
@@ -295,8 +290,9 @@ function LoanDetail() {
             {loan.status !== 'completed' && (
               <SettleLoanModal
                 loan={loan}
-                remaining={remaining}
+                remaining={contractRemaining}
                 effectiveFee={effectiveFee}
+                nextInstallmentNumber={nextInstallmentNumber}
                 onDone={load}
               />
             )}
@@ -427,8 +423,9 @@ function LoanDetail() {
           {loan.status !== 'completed' && (
             <SettleLoanModal
               loan={loan}
-              remaining={remaining}
+              remaining={contractRemaining}
               effectiveFee={effectiveFee}
+              nextInstallmentNumber={nextInstallmentNumber}
               onDone={load}
               trigger={
                 <Button
@@ -956,8 +953,8 @@ function PaymentForm({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.amount === null || form.amount === undefined || (form.amount as any) === "" || Number(form.amount) < 0 || isNaN(Number(form.amount))) {
-      toast.error("กรุณาระบุจำนวนเงินที่ถูกต้อง");
+    if (form.amount === null || form.amount === undefined || (form.amount as any) === "" || Number(form.amount) <= 0 || isNaN(Number(form.amount))) {
+      toast.error("กรุณาระบุจำนวนเงินที่ถูกต้อง (มากกว่า 0)");
       return;
     }
     setBusy(true);
@@ -1002,22 +999,9 @@ function PaymentForm({
           days === 0 ? slipFile : null
         );
 
-        try {
-          await logActivity({
-            action: "record_payment",
-            entity_type: "payment",
-            details: { loanId, amount: form.amount, category: "roll_penalty", days, startInstallment: nextNum, endInstallment: currentInstNum },
-          });
-        } catch (logError) {}
-
         toast.success(`⚡️ บันทึกชำระ ท+ป ${days} วัน + วันนี้ 1 วัน รวม ${totalInstallmentsCount} งวด (งวดที่ ${nextNum} - ${currentInstNum}) เรียบร้อยแล้ว`);
       } else {
         await createPayment({ ...form, loanId }, slipFile);
-        try {
-          await logActivity({ action: "record_payment", entity_type: "payment", details: { loanId, amount: form.amount } });
-        } catch (logError) {
-          console.error("Activity log failed:", logError);
-        }
         toast.success("บันทึกการชำระเงินเรียบร้อยแล้ว");
       }
 

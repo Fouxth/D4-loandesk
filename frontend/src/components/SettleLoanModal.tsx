@@ -21,6 +21,7 @@ interface SettleLoanModalProps {
   // Optional precalculated values
   remaining?: number;
   effectiveFee?: number;
+  nextInstallmentNumber?: number;
 }
 
 export function SettleLoanModal({
@@ -31,6 +32,7 @@ export function SettleLoanModal({
   onOpenChange: setControlledOpen,
   remaining: precalcRemaining,
   effectiveFee: precalcEffectiveFee,
+  nextInstallmentNumber: precalcNextInstallmentNumber,
 }: SettleLoanModalProps) {
   const { lending } = useSettings();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -48,7 +50,7 @@ export function SettleLoanModal({
   const [notes, setNotes] = useState("ปิดยอดสัญญาครบถ้วน");
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const [nextInstallmentNumber, setNextInstallmentNumber] = useState<number>(1);
+  const [nextInstallmentNumber, setNextInstallmentNumber] = useState<number>(precalcNextInstallmentNumber || 1);
 
   const prevOpenRef = useRef(false);
 
@@ -74,7 +76,10 @@ export function SettleLoanModal({
       setMethod("cash");
       setNotes("ปิดยอดสัญญาครบถ้วน");
       setSlipFile(null);
-      return;
+      if (precalcNextInstallmentNumber) {
+        setNextInstallmentNumber(precalcNextInstallmentNumber);
+        return;
+      }
     }
 
     setLoading(true);

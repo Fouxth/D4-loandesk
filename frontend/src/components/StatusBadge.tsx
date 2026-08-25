@@ -73,7 +73,11 @@ export function getLoanNextDueDate(l: any): string | null {
   } else if (paymentType === 'weekly') {
     nextDate.setDate(nextDate.getDate() + paidCount * 7);
   } else if (paymentType === 'monthly') {
+    const expectedDay = nextDate.getDate();
     nextDate.setMonth(nextDate.getMonth() + paidCount);
+    if (nextDate.getDate() !== expectedDay) {
+      nextDate.setDate(0);
+    }
   }
 
   const nextDueDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;

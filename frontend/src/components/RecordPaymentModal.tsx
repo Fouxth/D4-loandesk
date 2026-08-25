@@ -8,7 +8,7 @@ import { Plus, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatTHB, getThaiDateStr } from "@/utils/format";
 import { cn } from "@/utils/utils";
-import { createPayment, getPaymentsByLoan, logActivity } from "@/lib/services";
+import { createPayment, getPaymentsByLoan } from "@/lib/services";
 import { useSettings } from "@/contexts/SettingsContext";
 
 interface RecordPaymentModalProps {
@@ -220,10 +220,10 @@ export function RecordPaymentModal({
       form.amount === null ||
       form.amount === undefined ||
       (form.amount as any) === "" ||
-      Number(form.amount) < 0 ||
+      Number(form.amount) <= 0 ||
       isNaN(Number(form.amount))
     ) {
-      toast.error("กรุณาระบุจำนวนเงินที่ถูกต้อง");
+      toast.error("กรุณาระบุจำนวนเงินที่ถูกต้อง (มากกว่า 0)");
       return;
     }
 
@@ -269,26 +269,9 @@ export function RecordPaymentModal({
           days === 0 ? slipFile : null
         );
 
-        try {
-          await logActivity({
-            action: "record_payment",
-            entity_type: "payment",
-            details: { loanId, amount: form.amount, category: "roll_penalty", days, startInstallment: baseNextNum, endInstallment: currentInstNum, loanNumber, customerName },
-          });
-        } catch (logError) {}
-
         toast.success(`⚡️ บันทึกชำระ ท+ป ${days} วัน + วันนี้ 1 วัน รวม ${totalInstallmentsCount} งวด (งวดที่ ${baseNextNum} - ${currentInstNum}) เรียบร้อยแล้ว`);
       } else {
         await createPayment({ ...form, loanId }, slipFile);
-        try {
-          await logActivity({
-            action: "record_payment",
-            entity_type: "payment",
-            details: { loanId, amount: form.amount, loanNumber, customerName },
-          });
-        } catch (logError) {
-          console.error("Activity log failed:", logError);
-        }
         toast.success("บันทึกการชำระเงินเรียบร้อยแล้ว");
       }
 

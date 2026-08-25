@@ -36,7 +36,11 @@ export function calcLoan(
   } else if (paymentType === "weekly") {
     due.setDate(due.getDate() + offset * 7);
   } else if (paymentType === "monthly") {
+    const expectedDay = due.getDate();
     due.setMonth(due.getMonth() + offset);
+    if (due.getDate() !== expectedDay) {
+      due.setDate(0); // Clamp to last day of month
+    }
   }
 
   const dueStr = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;

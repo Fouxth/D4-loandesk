@@ -227,10 +227,10 @@ function Expenses() {
                   <p className="text-xs font-bold">{CATEGORY_LABELS[e.category] || e.category}</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[11px] text-muted-foreground">{formatDate(e.expenseDate)}</span>
-                    {e.description && (
+                    {(e.details || e.description) && (
                       <>
                         <span className="h-0.5 w-0.5 rounded-full bg-muted-foreground/30" />
-                        <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">{e.description}</span>
+                        <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">{e.details || e.description}</span>
                       </>
                     )}
                   </div>
@@ -275,7 +275,10 @@ function ExpenseForm({ onDone }: { onDone: () => void }) {
     e.preventDefault(); 
     setBusy(true);
     try {
-      await createExpense(form);
+      await createExpense({
+        ...form,
+        details: form.description,
+      });
       toast.success("บันทึกค่าใช้จ่ายเรียบร้อยแล้ว"); 
       setForm({ 
         category: "fuel" as any, 

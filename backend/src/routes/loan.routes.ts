@@ -85,6 +85,7 @@ router.patch('/:id/late-fee', async (req: AuthRequest, res) => {
       req.userId!,
       req.tenantId!,
     );
+    res.json(result);
   } catch (e) {
     handleRouteError(e, res, 'PATCH /loans/:id/late-fee');
   }

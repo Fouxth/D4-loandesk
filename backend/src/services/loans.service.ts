@@ -178,8 +178,9 @@ export async function getOverdueNotifications(tenantId: string) {
       const promiseDateStr = toDateStr(l.promiseDate || l.promise_date);
       const dueDateStr = toDateStr(l.dueDate || l.due_date);
       nextDue = promiseDateStr || dueDateStr;
-    } else {
-      const paidCount = payments.filter((p: any) => (p.loanId || p.loan_id) === l.id).length;
+      const loanPayments = payments.filter((p: any) => (p.loanId || p.loan_id) === l.id);
+      const maxInst = Math.max(0, ...loanPayments.map((p: any) => Number(p.installmentNumber ?? p.installment_number ?? 0)));
+      const paidCount = maxInst > 0 ? maxInst : loanPayments.length;
       const startDateStr = toDateStr(l.startDate || l.start_date);
       if (startDateStr) {
         const startParts = startDateStr.split('-').map(Number);
