@@ -143,7 +143,7 @@ export function getLoanStatusLabel(l: any, t?: any): string {
   if (eff === 'completed' && isPawn) return 'ไถ่ถอนแล้ว';
   if (eff === 'completed') return 'เสร็จสิ้น';
   if (eff === 'forfeited') return 'หลุดจำนำ';
-  if (eff === 'refinanced') return 'ต่อดอกใหม่';
+  if (eff === 'refinanced') return 'รียอดแล้ว';
   if (eff === 'cancelled') return 'ยกเลิก';
   if (eff === 'overdue') return 'เกินกำหนด';
   if (eff === 'due_today') return 'ครบกำหนดวันนี้';

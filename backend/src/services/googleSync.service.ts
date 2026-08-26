@@ -9,6 +9,8 @@ import {
 import { dbLogActivity } from './activity.service';
 import { ApiError } from '../utils/apiError';
 
+import { transliterateThai } from '../utils/transliterate';
+
 export interface SyncOptions {
   sheetUrl?: string;
   beYear?: number;
@@ -58,8 +60,43 @@ export async function fetchSheetBuffer(inputUrl: string): Promise<Buffer> {
   }
 }
 
-function normName(name: string): string {
-  return name.trim().replace(/\s+/g, ' ').toLowerCase();
+export function normName(name: string): string {
+  return (name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+export function normalizeThaiText(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/\u0e40\u0e40/g, '\u0e41') // double sara-e -> sara-ae
+    .replace(/[\u0e48-\u0e4e\u0e3a]/g, '') // strip tone marks & garun
+    .replace(/^(พี่|น้อง|ป้า|ลุง|น้า|อา|ช่าง|หมอ|สจ\.|สจ|ผญ\.|ผญ|เฮีย|เจ๊)\s*/g, '')
+    .trim()
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
+export function isThaiNameFuzzyMatch(nameA: string, nameB: string): boolean {
+  if (!nameA || !nameB) return false;
+  const nA = normName(nameA);
+  const nB = normName(nameB);
+  if (nA === nB) return true;
+
+  const cleanA = normalizeThaiText(nameA);
+  const cleanB = normalizeThaiText(nameB);
+  if (cleanA && cleanB) {
+    if (cleanA === cleanB) return true;
+    if (cleanA.includes(cleanB) || cleanB.includes(cleanA)) return true;
+  }
+
+  // Transliterate phonetic check
+  const pA = transliterateThai(cleanA).replace(/[^a-z0-9]/g, '');
+  const pB = transliterateThai(cleanB).replace(/[^a-z0-9]/g, '');
+  if (pA && pB) {
+    if (pA === pB) return true;
+    if (pA.includes(pB) || pB.includes(pA)) return true;
+  }
+
+  return false;
 }
 
 function toIsoDate(value: unknown): string {
@@ -217,7 +254,6 @@ export async function auditGoogleSheetVsDb(
   const matchedDbIds = new Set<string>();
   const syncedLoans: LoanDiffItem[] = [];
   const mismatchedLoans: LoanDiffItem[] = [];
-
   for (const db of dbLoans) {
     const key = loanKey(
       toIsoDate(db.startDate),
@@ -225,12 +261,30 @@ export async function auditGoogleSheetVsDb(
       Number(db.installmentAmount),
       db.customerName || db.pawnItem || '',
     );
+    let parsed: ParsedLoan | undefined;
     const candidates = excelByKey.get(key);
-    if (!candidates?.length) continue;
-
-    const parsed = candidates.shift()!;
-    if (!candidates.length) excelByKey.delete(key);
-    else excelByKey.set(key, candidates);
+    if (candidates?.length) {
+      parsed = candidates.shift()!;
+      if (!candidates.length) excelByKey.delete(key);
+      else excelByKey.set(key, candidates);
+    } else {
+      // Fuzzy fallback: match by same date & amounts + Thai fuzzy name similarity
+      for (const [exKey, list] of excelByKey) {
+        if (!list.length) continue;
+        const candidate = list[0];
+        const sameNumbers =
+          candidate.startDate === toIsoDate(db.startDate) &&
+          Math.abs(candidate.principal - Number(db.principal)) < 0.01 &&
+          Math.abs(candidate.installmentAmount - Number(db.installmentAmount)) < 0.01;
+        if (sameNumbers && isThaiNameFuzzyMatch(db.customerName || db.pawnItem || '', candidate.customerName)) {
+          parsed = list.shift()!;
+          if (!list.length) excelByKey.delete(exKey);
+          else excelByKey.set(exKey, list);
+          break;
+        }
+      }
+    }
+    if (!parsed) continue;
 
     matchedDbIds.add(db.id);
 
@@ -420,6 +474,15 @@ export async function syncGoogleSheetToDb(
     for (const loan of audit.newLoans) {
       const cKey = normName(loan.customerName);
       let customerId = customerMap.get(cKey);
+
+      if (!customerId) {
+        for (const [existingKey, existingId] of customerMap) {
+          if (isThaiNameFuzzyMatch(loan.customerName, existingKey)) {
+            customerId = existingId;
+            break;
+          }
+        }
+      }
 
       if (!customerId) {
         const newCustomerId = crypto.randomUUID();
