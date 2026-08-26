@@ -1251,7 +1251,7 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
       promiseDate: "",
       notes: `รียอดใหม่จากสัญญา ${loan?.loanNumber || ""}`,
       isInterestOnly: Boolean(loan?.isInterestOnly || loan?.is_interest_only),
-      isPrincipalInterestAtEnd: Boolean(loan?.isPrincipalInterestAtEnd || loan?.is_principal_interest_at_end),
+      isPrincipalInterestAtEnd: false, // Default เป็น false เสมอเพื่อความปลอดภัย
       isPawn: Boolean(loan?.isPawn || loan?.is_pawn),
       pawnItem: loan?.pawnItem || loan?.pawn_item || "",
     };

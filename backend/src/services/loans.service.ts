@@ -251,9 +251,9 @@ export async function dbRefinanceLoan(oldLoanId: string, newData: any, newLoanNu
 
     await sql`UPDATE loans SET status = 'refinanced' WHERE id = ${oldLoanId} AND tenant_id = ${tenantId}`;
 
-    const isInterestOnly = Boolean(newData.isInterestOnly ?? oldLoan.isInterestOnly);
-    const isIndefinite = Boolean(newData.isIndefinite ?? oldLoan.isIndefinite);
-    const isPrincipalInterestAtEnd = Boolean(newData.isPrincipalInterestAtEnd ?? oldLoan.isPrincipalInterestAtEnd);
+    const isInterestOnly = Boolean(newData.isInterestOnly ?? false);
+    const isIndefinite = Boolean(newData.isIndefinite ?? false);
+    const isPrincipalInterestAtEnd = Boolean(newData.isPrincipalInterestAtEnd ?? false);
     const isPawn = Boolean(newData.isPawn ?? oldLoan.isPawn);
 
     const [newLoan] = await sql`
