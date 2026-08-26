@@ -864,7 +864,7 @@ function PaymentForm({
     amount: initialAmount,
     paymentDate: getThaiDateStr(),
     installmentNumber: nextNum, 
-    method: "cash" as "cash" | "bank_transfer" | "mobile" | "other", 
+    method: "bank_transfer" as "cash" | "bank_transfer" | "mobile" | "other", 
     category: (isInterestOnly ? "interest" : "principal") as "interest" | "principal" | "roll_penalty",
     notes: isInterestOnly ? (initialDays > 0 ? `ชำระดอกเบี้ย ${initialDays} วัน` : "") : "",
   });
@@ -883,7 +883,7 @@ function PaymentForm({
         amount: amt,
         paymentDate: getThaiDateStr(),
         installmentNumber: nextNum,
-        method: "cash",
+        method: "bank_transfer",
         category: isInterestOnly ? "interest" : "principal",
         notes: isInterestOnly ? (days > 0 ? `ชำระดอกเบี้ย ${days} วัน` : "") : "",
       });

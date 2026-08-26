@@ -44,13 +44,13 @@ function Loans() {
   const [selectedLoanIds, setSelectedLoanIds] = useState<Set<string>>(new Set());
   const [quickPayingId, setQuickPayingId] = useState<string | null>(null);
   const [quickPayTarget, setQuickPayTarget] = useState<any | null>(null);
-  const [quickPayMethod, setQuickPayMethod] = useState<"cash" | "bank_transfer" | "other">("cash");
+  const [quickPayMethod, setQuickPayMethod] = useState<"cash" | "bank_transfer" | "other">("bank_transfer");
   const [quickPayDate, setQuickPayDate] = useState(getThaiDateStr());
 
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkPaymentDate, setBulkPaymentDate] = useState(getThaiDateStr());
-  const [bulkMethod, setBulkMethod] = useState<"cash" | "bank_transfer" | "other">("cash");
+  const [bulkMethod, setBulkMethod] = useState<"cash" | "bank_transfer" | "other">("bank_transfer");
 
   const load = async () => {
     try {

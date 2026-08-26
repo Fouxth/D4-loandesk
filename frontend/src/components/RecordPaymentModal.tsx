@@ -63,7 +63,7 @@ export function RecordPaymentModal({
     amount: precalcSuggested ?? instAmount,
     paymentDate: getThaiDateStr(),
     installmentNumber: precalcNextNum ?? 1,
-    method: "cash" as "cash" | "bank_transfer" | "mobile" | "other",
+    method: "bank_transfer" as "cash" | "bank_transfer" | "mobile" | "other",
     category: (isInterestOnlyMode ? "interest" : "principal") as "interest" | "principal" | "roll_penalty",
     notes: isInterestOnlyMode ? "ชำระดอกเบี้ย 1 วัน" : "",
   });
@@ -113,7 +113,7 @@ export function RecordPaymentModal({
         amount: precalcSuggested,
         paymentDate: getThaiDateStr(),
         installmentNumber: precalcNextNum,
-        method: "cash",
+        method: "bank_transfer",
         category: isInterestOnlyMode ? "interest" : "principal",
         notes: isInterestOnlyMode ? "ชำระดอกเบี้ย 1 วัน" : "",
       });
@@ -159,7 +159,7 @@ export function RecordPaymentModal({
           amount: suggested,
           paymentDate: getThaiDateStr(),
           installmentNumber: nextNum,
-          method: "cash",
+          method: "bank_transfer",
           category: isInterestOnlyMode ? "interest" : "principal",
           notes: isInterestOnlyMode ? "ชำระดอกเบี้ย 1 วัน" : "",
         });

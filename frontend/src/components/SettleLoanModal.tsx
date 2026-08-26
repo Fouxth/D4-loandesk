@@ -46,7 +46,7 @@ export function SettleLoanModal({
   const [discount, setDiscount] = useState<number | "">("");
   const [customPayoff, setCustomPayoff] = useState<number | "">("");
   const [paymentDate, setPaymentDate] = useState(getThaiDateStr());
-  const [method, setMethod] = useState<"cash" | "bank_transfer" | "other">("cash");
+  const [method, setMethod] = useState<"cash" | "bank_transfer" | "other">("bank_transfer");
   const [notes, setNotes] = useState("ปิดยอดสัญญาครบถ้วน");
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -73,7 +73,7 @@ export function SettleLoanModal({
       setDiscount("");
       setCustomPayoff("");
       setPaymentDate(getThaiDateStr());
-      setMethod("cash");
+      setMethod("bank_transfer");
       setNotes("ปิดยอดสัญญาครบถ้วน");
       setSlipFile(null);
       if (precalcNextInstallmentNumber) {
@@ -117,7 +117,7 @@ export function SettleLoanModal({
         setDiscount("");
         setCustomPayoff("");
         setPaymentDate(getThaiDateStr());
-        setMethod("cash");
+        setMethod("bank_transfer");
         setNotes("ปิดยอดสัญญาครบถ้วน");
         setSlipFile(null);
         setNextInstallmentNumber(nextNum);
