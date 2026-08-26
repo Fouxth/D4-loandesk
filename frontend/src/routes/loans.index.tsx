@@ -170,13 +170,6 @@ function Loans() {
         category: isInterestOnly ? "interest" : "principal",
         notes: "ชำระด่วน",
       });
-      try {
-        await logActivity({
-          action: "record_payment",
-          entity_type: "payment",
-          details: { loanId, amount: instAmount, loanNumber: loan.loanNumber, customerName, isQuickPay: true },
-        });
-      } catch (e) {}
       toast.success(`⚡️ บันทึกชำระ ${customerName} ฿${instAmount.toLocaleString()} (งวดที่ ${nextNum}) เรียบร้อยแล้ว`);
       setQuickPayTarget(null);
       await load();
@@ -220,7 +213,9 @@ function Loans() {
           entity_type: "payment",
           details: { count: res.successCount, total: payloads.length, totalAmount: selectedTotalAmount },
         });
-      } catch (e) {}
+      } catch (logErr) {
+        console.error("Failed to log bulk activity:", logErr);
+      }
 
       toast.success(`⚡️ บันทึกรับชำระพร้อมกัน ${res.successCount} สัญญา (รวม ฿${selectedTotalAmount.toLocaleString()}) เรียบร้อยแล้ว`);
       setSelectedLoanIds(new Set());

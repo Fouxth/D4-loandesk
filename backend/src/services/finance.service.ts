@@ -43,23 +43,23 @@ export async function dbGetPaymentsByLoan(loanId: string, tenantId: string) {
   `;
 }
 
-export async function dbCreatePayment(data: any, userId: string, tenantId: string) {
-  // Finding 4: Verify that the target loan belongs to the caller tenant before inserting payment
-  const targetLoans = await sql`
+export async function dbCreatePayment(data: any, userId: string, tenantId: string, client: any = sql) {
+  // Verify that the target loan belongs to the caller tenant before inserting payment
+  const targetLoans = await client`
     SELECT id FROM loans WHERE id = ${data.loanId} AND tenant_id = ${tenantId}
   `;
   if (targetLoans.length === 0) {
     throw new Error('ไม่พบข้อมูลสัญญา หรือคุณไม่มีสิทธิ์เข้าถึงสัญญานี้');
   }
 
-  const result = await sql`
-    INSERT INTO payments ${sql({ ...data, createdBy: userId, tenantId })}
+  const result = await client`
+    INSERT INTO payments ${client({ ...data, createdBy: userId, tenantId })}
     RETURNING *
   `;
   
   if (result.length > 0) {
     const payment = result[0];
-    const loans = await sql`
+    const loans = await client`
       SELECT l.*, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name
       FROM loans l
       LEFT JOIN customers c ON l.customer_id = c.id
@@ -68,7 +68,7 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
     
     if (loans.length > 0) {
       const loan = loans[0];
-      const allPayments = await sql`SELECT amount, category FROM payments WHERE loan_id = ${payment.loanId} AND tenant_id = ${tenantId}`;
+      const allPayments = await client`SELECT amount, category FROM payments WHERE loan_id = ${payment.loanId} AND tenant_id = ${tenantId}`;
 
       let remaining = 0;
       let isClosedNow = false;
@@ -83,13 +83,7 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
 
         // If principal is fully paid (principalPaid >= principal), close contract!
         if (remaining === 0 && loan.status !== 'completed') {
-          await sql`UPDATE loans SET status = 'completed' WHERE id = ${loan.id} AND tenant_id = ${tenantId}`;
-          isClosedNow = true;
-        }
-
-        // Advance due date by 1 month to anchor start date day when interest is paid
-        if (remaining <= 0 && (loan.status || '').toLowerCase() !== 'completed') {
-          await sql`UPDATE loans SET status = 'completed' WHERE id = ${loan.id} AND tenant_id = ${tenantId}`;
+          await client`UPDATE loans SET status = 'completed' WHERE id = ${loan.id} AND tenant_id = ${tenantId}`;
           isClosedNow = true;
         }
 
@@ -101,7 +95,7 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
             const nextDate = new Date(y, m, d);
             const nextDueDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
-            await sql`UPDATE loans SET due_date = ${nextDueDateStr} WHERE id = ${loan.id} AND tenant_id = ${tenantId}`;
+            await client`UPDATE loans SET due_date = ${nextDueDateStr} WHERE id = ${loan.id} AND tenant_id = ${tenantId}`;
           }
         }
       } else {
@@ -109,7 +103,7 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
         remaining = Math.max(Number(loan.total_payable || loan.totalPayable) - totalPaid, 0);
 
         if (remaining <= 0 && (loan.status || '').toLowerCase() !== 'completed') {
-          await sql`UPDATE loans SET status = 'completed' WHERE id = ${loan.id} AND tenant_id = ${tenantId}`;
+          await client`UPDATE loans SET status = 'completed' WHERE id = ${loan.id} AND tenant_id = ${tenantId}`;
           isClosedNow = true;
         }
       }
@@ -135,7 +129,7 @@ export async function dbCreatePayment(data: any, userId: string, tenantId: strin
         }
       }
 
-      const [recorder] = await sql`
+      const [recorder] = await client`
         SELECT full_name FROM profiles WHERE id = ${userId}
       `;
       const recorderName = recorder?.fullName || '—';
@@ -196,13 +190,20 @@ export async function dbDeletePayment(id: string, tenantId: string) {
     
     // If the loan was previously marked as completed, check if deleting this payment reopens debt
     if (loanId && p.loanStatus === 'completed') {
-      const [remainingRes] = await sql`
-        SELECT COALESCE(SUM(amount::numeric), 0) as total_paid
-        FROM payments
-        WHERE loan_id = ${loanId} AND tenant_id = ${tenantId}
-      `;
+      const isInterestOnlyLoan = Boolean(p.isInterestOnly || p.is_interest_only);
+      const [remainingRes] = isInterestOnlyLoan
+        ? await sql`
+            SELECT COALESCE(SUM(amount::numeric), 0) as total_paid
+            FROM payments
+            WHERE loan_id = ${loanId} AND tenant_id = ${tenantId} AND category = 'principal'
+          `
+        : await sql`
+            SELECT COALESCE(SUM(amount::numeric), 0) as total_paid
+            FROM payments
+            WHERE loan_id = ${loanId} AND tenant_id = ${tenantId}
+          `;
       const totalPaid = Number(remainingRes?.totalPaid ?? remainingRes?.total_paid ?? 0);
-      const totalTarget = Number(p.isInterestOnly ? p.principal : p.totalPayable);
+      const totalTarget = Number(isInterestOnlyLoan ? p.principal : p.totalPayable);
       if (totalPaid < totalTarget) {
         await sql`
           UPDATE loans
@@ -247,32 +248,11 @@ export async function dbCreateBulkPayments(
     throw new Error('กรุณาระบุรายการชำระเงิน');
   }
 
-  // Execute all payments in an atomic transaction
+  // Execute all payments in an atomic transaction through dbCreatePayment
   const results = await sql.begin(async (tx) => {
     const resList: any[] = [];
     for (const item of paymentsList) {
-      const amount = Number(item.amount);
-      if (isNaN(amount) || amount <= 0) {
-        throw new Error(`จำนวนเงินของรายการชำระไม่ถูกต้อง (${item.amount})`);
-      }
-      const safeItem = {
-        loan_id: item.loanId || item.loan_id,
-        amount: String(amount),
-        installment_number: item.installmentNumber ?? item.installment_number ?? null,
-        payment_date: item.paymentDate || item.payment_date || new Date(),
-        method: item.method || 'cash',
-        category: item.category || 'principal',
-        notes: item.notes || '',
-        created_by: userId,
-        tenant_id: tenantId,
-        slip_url: item.slipUrl || null,
-        slip_file_name: item.slipFileName || null,
-      };
-
-      const [res] = await tx`
-        INSERT INTO payments ${tx(safeItem)}
-        RETURNING *
-      `;
+      const res = await dbCreatePayment(item, userId, tenantId, tx);
       resList.push(res);
     }
     return resList;
@@ -291,11 +271,13 @@ export async function dbGetExpenses(tenantId: string) {
 }
 
 export async function dbCreateExpense(data: any, userId: string, tenantId: string) {
+  const note = data.details || data.description || '';
   const expenseData = {
     category: data.category || 'other',
     amount: String(data.amount || 0),
     expense_date: data.expenseDate || data.expense_date || new Date(),
-    details: data.details || data.description || '',
+    details: note,
+    description: note,
     created_by: userId,
     tenant_id: tenantId,
   };

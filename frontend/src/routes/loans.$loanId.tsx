@@ -856,7 +856,7 @@ function PaymentForm({
   onDone: () => void;
 }) {
   const dailyRate = installmentAmount > 0 ? installmentAmount : suggested;
-  const initialDays = isInterestOnly ? (floatingDaysDue || 1) : 1;
+  const initialDays = isInterestOnly ? (floatingDaysDue !== undefined ? floatingDaysDue : 1) : 1;
   const initialAmount = isInterestOnly ? (initialDays * dailyRate) : suggested;
 
   const [interestDays, setInterestDays] = useState<number | "">(initialDays);
@@ -866,7 +866,7 @@ function PaymentForm({
     installmentNumber: nextNum, 
     method: "cash" as "cash" | "bank_transfer" | "mobile" | "other", 
     category: (isInterestOnly ? "interest" : "principal") as "interest" | "principal" | "roll_penalty",
-    notes: isInterestOnly ? `ชำระดอกเบี้ย ${initialDays} วัน` : "",
+    notes: isInterestOnly ? (initialDays > 0 ? `ชำระดอกเบี้ย ${initialDays} วัน` : "") : "",
   });
   const [rollDays, setRollDays] = useState<number | "">(1);
   const [slipFile, setSlipFile] = useState<File | null>(null);
@@ -876,7 +876,7 @@ function PaymentForm({
   // Re-initialize form whenever modal is opened
   useEffect(() => {
     if (isOpen && !prevOpenRef.current) {
-      const days = isInterestOnly ? (floatingDaysDue || 1) : 1;
+      const days = isInterestOnly ? (floatingDaysDue !== undefined ? floatingDaysDue : 1) : 1;
       const amt = isInterestOnly ? (days * dailyRate) : suggested;
       setInterestDays(days);
       setForm({
@@ -885,7 +885,7 @@ function PaymentForm({
         installmentNumber: nextNum,
         method: "cash",
         category: isInterestOnly ? "interest" : "principal",
-        notes: isInterestOnly ? `ชำระดอกเบี้ย ${days} วัน` : "",
+        notes: isInterestOnly ? (days > 0 ? `ชำระดอกเบี้ย ${days} วัน` : "") : "",
       });
       setRollDays(1);
       setSlipFile(null);

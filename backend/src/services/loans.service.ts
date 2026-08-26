@@ -40,7 +40,7 @@ function pickFields(data: any, allowed: Set<string>): Record<string, unknown> {
 export async function getAllLoans(tenantId: string) {
   return await sql`
     SELECT l.*, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name,
-           (SELECT COUNT(*)::int FROM payments p WHERE p.loan_id = l.id AND p.tenant_id = l.tenant_id) as paid_installments_count
+           COALESCE((SELECT GREATEST(MAX(p.installment_number), COUNT(*)::int) FROM payments p WHERE p.loan_id = l.id AND p.tenant_id = l.tenant_id), 0) as paid_installments_count
     FROM loans l
     LEFT JOIN customers c ON l.customer_id = c.id
     WHERE l.tenant_id = ${tenantId}
@@ -51,7 +51,7 @@ export async function getAllLoans(tenantId: string) {
 export async function getLoanById(id: string, tenantId: string) {
   const [loan] = await sql`
     SELECT l.*, COALESCE(c.full_name, l.pawn_item, 'จำนำไม่ระบุชื่อ') as customer_name, c.phone as customer_phone,
-           (SELECT COUNT(*)::int FROM payments p WHERE p.loan_id = l.id AND p.tenant_id = l.tenant_id) as paid_installments_count
+           COALESCE((SELECT GREATEST(MAX(p.installment_number), COUNT(*)::int) FROM payments p WHERE p.loan_id = l.id AND p.tenant_id = l.tenant_id), 0) as paid_installments_count
     FROM loans l
     LEFT JOIN customers c ON l.customer_id = c.id
     WHERE l.id = ${id} AND l.tenant_id = ${tenantId}
@@ -178,6 +178,7 @@ export async function getOverdueNotifications(tenantId: string) {
       const promiseDateStr = toDateStr(l.promiseDate || l.promise_date);
       const dueDateStr = toDateStr(l.dueDate || l.due_date);
       nextDue = promiseDateStr || dueDateStr;
+    } else {
       const loanPayments = payments.filter((p: any) => (p.loanId || p.loan_id) === l.id);
       const maxInst = Math.max(0, ...loanPayments.map((p: any) => Number(p.installmentNumber ?? p.installment_number ?? 0)));
       const paidCount = maxInst > 0 ? maxInst : loanPayments.length;
@@ -190,7 +191,11 @@ export async function getOverdueNotifications(tenantId: string) {
           const nextDate = new Date(y, m - 1, d);
           if (paymentType === 'daily') nextDate.setDate(nextDate.getDate() + paidCount);
           else if (paymentType === 'weekly') nextDate.setDate(nextDate.getDate() + paidCount * 7);
-          else if (paymentType === 'monthly') nextDate.setMonth(nextDate.getMonth() + paidCount);
+          else if (paymentType === 'monthly') {
+            const expectedDay = nextDate.getDate();
+            nextDate.setMonth(nextDate.getMonth() + paidCount);
+            if (nextDate.getDate() !== expectedDay) nextDate.setDate(0);
+          }
 
           const nextDueDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
           const finalDueDateStr = toDateStr(l.dueDate || l.due_date);
@@ -232,7 +237,7 @@ export async function getOverdueNotifications(tenantId: string) {
 export async function getLoansByCustomerId(customerId: string, tenantId: string) {
   return await sql`
     SELECT l.*,
-           (SELECT COUNT(*)::int FROM payments p WHERE p.loan_id = l.id AND p.tenant_id = l.tenant_id) as paid_installments_count
+           COALESCE((SELECT GREATEST(MAX(p.installment_number), COUNT(*)::int) FROM payments p WHERE p.loan_id = l.id AND p.tenant_id = l.tenant_id), 0) as paid_installments_count
     FROM loans l
     WHERE l.customer_id = ${customerId} AND l.tenant_id = ${tenantId}
     ORDER BY l.created_at DESC

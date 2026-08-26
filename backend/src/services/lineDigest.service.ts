@@ -48,7 +48,7 @@ export async function fetchOverdueLoans(tenantId: string, limit = DIGEST_LIMIT) 
 
     if (isIndefinite || isZeroDebt) continue;
 
-    const [p] = await sql`SELECT COUNT(*)::int as count FROM payments WHERE loan_id = ${l.id} AND tenant_id = ${tenantId}`;
+    const [p] = await sql`SELECT GREATEST(MAX(installment_number), COUNT(*)::int) as count FROM payments WHERE loan_id = ${l.id} AND tenant_id = ${tenantId}`;
     const paidCount = Number(p?.count || 0);
 
     const startDateStr = l.startDate ? l.startDate.toISOString().substring(0, 10) : (l.start_date ? String(l.start_date).substring(0, 10) : null);
@@ -64,7 +64,9 @@ export async function fetchOverdueLoans(tenantId: string, limit = DIGEST_LIMIT) 
     } else if (paymentType === 'weekly') {
       nextDate.setDate(nextDate.getDate() + paidCount * 7);
     } else if (paymentType === 'monthly') {
+      const expectedDay = nextDate.getDate();
       nextDate.setMonth(nextDate.getMonth() + paidCount);
+      if (nextDate.getDate() !== expectedDay) nextDate.setDate(0);
     }
 
     const nextDueDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;

@@ -63,7 +63,7 @@ function Reports() {
 
   useEffect(() => {
     setLoading(true);
-    const monthStart = selectedMonth === 'all' ? undefined : `${selectedMonth}-01`;
+    const monthStart = selectedMonth === 'all' ? 'all' : `${selectedMonth}-01`;
     getReportData(monthStart)
       .then((res) => {
         setData(res as ReportData);

@@ -223,7 +223,8 @@ export async function fetchDashboardRawData(tenantId: string, monthStartStr?: st
 }
 
 export async function fetchReportRawData(tenantId: string, ms?: string) {
-  const monthStart = ms || getDefaultMonthStart();
+  const isAllTime = ms === 'all';
+  const monthStart = isAllTime ? '' : (ms || getDefaultMonthStart());
   const today = getLogicalDateStr(new Date());
 
   const [allPayments, allExpenses, allLoans, allCustomers, settingsRes] = await Promise.all([
@@ -232,7 +233,9 @@ export async function fetchReportRawData(tenantId: string, ms?: string) {
         JOIN loans l ON p.loan_id = l.id
         LEFT JOIN customers c ON l.customer_id = c.id
         WHERE p.tenant_id = ${tenantId}`,
-    sql`SELECT amount, expense_date FROM expenses WHERE expense_date >= ${monthStart} AND tenant_id = ${tenantId}`,
+    isAllTime
+      ? sql`SELECT amount, expense_date FROM expenses WHERE tenant_id = ${tenantId}`
+      : sql`SELECT amount, expense_date FROM expenses WHERE expense_date >= ${monthStart} AND tenant_id = ${tenantId}`,
     sql`SELECT id, customer_id, total_payable, due_date, status, principal, installment_amount, payment_type, is_interest_only, is_indefinite, late_fee_mode, late_fee_amount FROM loans WHERE tenant_id = ${tenantId}`,
     sql`SELECT id, full_name FROM customers WHERE tenant_id = ${tenantId}`,
     sql`SELECT value FROM settings WHERE key = 'lending_config' AND tenant_id = ${tenantId}`
@@ -241,13 +244,17 @@ export async function fetchReportRawData(tenantId: string, ms?: string) {
   const lendingConfig = settingsRes[0]?.value || {};
   const tpConfig = tpConfigFromSettings(lendingConfig);
 
-  const [mYear, mMonth] = monthStart.split('-').map(Number);
-  const lastDay = new Date(mYear, mMonth, 0).getDate();
-  const monthEnd = `${mYear}-${String(mMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  let monthEnd = '';
+  if (!isAllTime) {
+    const [mYear, mMonth] = monthStart.split('-').map(Number);
+    const lastDay = new Date(mYear, mMonth, 0).getDate();
+    monthEnd = `${mYear}-${String(mMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  }
 
-  // Monthly income (payments in this month)
+  // Monthly income (payments in this period)
   const monthlyIncome = allPayments
     .filter((p: any) => {
+      if (isAllTime) return true;
       const d = toDateStr(p.paymentDate || p.payment_date);
       return d >= monthStart && d <= monthEnd;
     })
@@ -256,6 +263,7 @@ export async function fetchReportRawData(tenantId: string, ms?: string) {
   // Monthly expenses
   const monthlyExp = allExpenses
     .filter((e: any) => {
+      if (isAllTime) return true;
       const d = toDateStr(e.expenseDate || e.expense_date);
       return d >= monthStart && d <= monthEnd;
     })
