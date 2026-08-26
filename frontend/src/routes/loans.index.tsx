@@ -1113,6 +1113,7 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
                   ...form,
                   isInterestOnly: checked,
                   isIndefinite: checked,
+                  interestRate: checked ? 2 : (form.interestRate === 2 ? 20 : form.interestRate),
                   paymentType: checked ? "daily" : form.paymentType,
                   installmentsCount: checked ? 1 : (form.installmentsCount || 30),
                   isPrincipalInterestAtEnd: checked ? false : form.isPrincipalInterestAtEnd,

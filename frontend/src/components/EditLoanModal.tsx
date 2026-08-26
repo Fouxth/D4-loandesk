@@ -365,6 +365,7 @@ export function EditLoanModal({
                       ...form,
                       isInterestOnly: checked,
                       isIndefinite: checked ? true : form.isIndefinite,
+                      interestRate: checked ? 2 : (form.interestRate === 2 ? 20 : form.interestRate),
                       paymentType: checked ? "daily" : form.paymentType,
                       installmentsCount: checked ? 1 : form.installmentsCount,
                       isPrincipalInterestAtEnd: checked ? false : form.isPrincipalInterestAtEnd,

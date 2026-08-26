@@ -68,6 +68,40 @@ export function parsePaymentDateFromNote(noteText: string): string | null {
   return parseThaiDate(str);
 }
 
+export function isCellBlack(cell: any): boolean {
+  if (!cell || !cell.s) return false;
+  const s = cell.s;
+  if (s.patternType === 'solid' || s.fill) {
+    const fgRgb = (s.fgColor?.rgb || '').toLowerCase();
+    const bgRgb = (s.bgColor?.rgb || '').toLowerCase();
+    if (
+      fgRgb === '000000' ||
+      bgRgb === '000000' ||
+      fgRgb === 'ff000000' ||
+      bgRgb === 'ff000000' ||
+      fgRgb === 'black' ||
+      bgRgb === 'black'
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function isRowRangeBlack(
+  ws: XLSX.WorkSheet | undefined,
+  rowIdx: number,
+  startCol: number,
+  endCol: number,
+): boolean {
+  if (!ws) return false;
+  for (let c = startCol; c <= endCol; c++) {
+    const cell = ws[XLSX.utils.encode_cell({ r: rowIdx, c })];
+    if (isCellBlack(cell)) return true;
+  }
+  return false;
+}
+
 function inferStatus(
   paidCount: number,
   installmentsCount: number,
@@ -174,7 +208,7 @@ function inferInstallmentsCount(row: Row, startCol: number, maxDayCols: number):
 }
 
 /** รายวัน 3-5-7 วัน — 3 parallel blocks */
-export function parseDaily357Sheet(rows: Row[], sheetName: string): ParseResult {
+export function parseDaily357Sheet(rows: Row[], sheetName: string, ws?: XLSX.WorkSheet): ParseResult {
   const loans: ParsedLoan[] = [];
   const skipped: ParseResult['skipped'] = [];
   const blocks = [
@@ -212,7 +246,8 @@ export function parseDaily357Sheet(rows: Row[], sheetName: string): ParseResult 
       const noteText = String(noteVal ?? '').trim();
       const actualPaymentDate = parsePaymentDateFromNote(noteText);
 
-      const completed = (totalPaid != null && totalPaid > 0) || Boolean(actualPaymentDate);
+      const isBlack = isRowRangeBlack(ws, r, block.startCol, block.startCol + 7);
+      const completed = (totalPaid != null && totalPaid > 0) || Boolean(actualPaymentDate) || isBlack;
       const finalPaymentDate = actualPaymentDate ?? dueDate ?? startDate;
 
       loans.push({
@@ -233,6 +268,8 @@ export function parseDaily357Sheet(rows: Row[], sheetName: string): ParseResult 
         isIndefinite: false,
         isPawn: false,
         pawnItem: null,
+        isBlackHighlighted: isBlack,
+        rowNumber: r + 1,
         payments: completed
           ? [{ paymentDate: finalPaymentDate, amount: totalPayable, installmentNumber: 1, notes: noteText || undefined }]
           : [],
@@ -249,6 +286,7 @@ export function parseDailyGridSheet(
   sheetName: string,
   defaultInstallments?: number,
   tpConfig?: TpConfig,
+  ws?: XLSX.WorkSheet,
 ): ParseResult {
   const loans: ParsedLoan[] = [];
   const skipped: ParseResult['skipped'] = [];
@@ -312,10 +350,13 @@ export function parseDailyGridSheet(
       rollCount > 0
         ? totalPayable + rollCount * calcTpExtraOwed(installmentAmount, resolvedTpConfig)
         : totalPayable;
+
+    const isBlack = isRowRangeBlack(ws, r, 0, startCol + maxDayCols + 2);
     const status =
-      paidTotal >= totalOwed - 0.01
+      isBlack || paidTotal >= totalOwed - 0.01
         ? 'completed'
         : inferStatus(paidInstallments, installmentsCount, dueDate);
+
     const noteParts = [`นำเข้าจาก ${sheetName}`];
     if (rollCount > 0) noteParts.push(`ท+ป ${rollCount} ครั้ง`);
     noteParts.push(...notes.filter((n) => !n.startsWith('ท+ป')));
@@ -338,6 +379,8 @@ export function parseDailyGridSheet(
       isIndefinite: false,
       isPawn: false,
       pawnItem: null,
+      isBlackHighlighted: isBlack,
+      rowNumber: r + 1,
       payments,
     });
   }
@@ -346,7 +389,7 @@ export function parseDailyGridSheet(
 }
 
 /** รายเดือน */
-export function parseMonthlySheet(rows: Row[], sheetName: string): ParseResult {
+export function parseMonthlySheet(rows: Row[], sheetName: string, ws?: XLSX.WorkSheet): ParseResult {
   const loans: ParsedLoan[] = [];
   const skipped: ParseResult['skipped'] = [];
 
@@ -363,6 +406,7 @@ export function parseMonthlySheet(rows: Row[], sheetName: string): ParseResult {
 
     const interestRate = principal > 0 ? Math.round((installmentAmount / principal) * 10000) / 100 : 0;
     const startDate = anchorDateWithDueDay(dueDay);
+    const isBlack = isRowRangeBlack(ws, r, 0, 10);
 
     loans.push({
       customerName: name,
@@ -376,12 +420,14 @@ export function parseMonthlySheet(rows: Row[], sheetName: string): ParseResult {
       totalPayable: principal,
       startDate,
       dueDate: null,
-      status: 'active',
+      status: isBlack ? 'completed' : 'active',
       notes: `นำเข้าจาก ${sheetName}; ชำระทุกวันที่ ${dueDay ?? '-'}`,
       isInterestOnly: true,
       isIndefinite: true,
       isPawn: false,
       pawnItem: null,
+      isBlackHighlighted: isBlack,
+      rowNumber: r + 1,
       payments: [],
     });
   }
@@ -390,7 +436,7 @@ export function parseMonthlySheet(rows: Row[], sheetName: string): ParseResult {
 }
 
 /** ดอกลอย */
-export function parseInterestOnlySheet(rows: Row[], sheetName: string): ParseResult {
+export function parseInterestOnlySheet(rows: Row[], sheetName: string, ws?: XLSX.WorkSheet): ParseResult {
   const loans: ParsedLoan[] = [];
   const skipped: ParseResult['skipped'] = [];
 
@@ -405,6 +451,7 @@ export function parseInterestOnlySheet(rows: Row[], sheetName: string): ParseRes
     if (dailyAmount == null || dailyAmount <= 0) continue;
 
     const interestRate = principal > 0 ? Math.round((dailyAmount / principal) * 10000) / 100 : 0;
+    const isBlack = isRowRangeBlack(ws, r, 0, 10);
 
     loans.push({
       customerName: name,
@@ -418,12 +465,14 @@ export function parseInterestOnlySheet(rows: Row[], sheetName: string): ParseRes
       totalPayable: principal,
       startDate: `${INDEFINITE_ANCHOR_YM}-01`,
       dueDate: null,
-      status: 'active',
+      status: isBlack ? 'completed' : 'active',
       notes: `นำเข้าจาก ${sheetName} (ดอกลอย)`,
       isInterestOnly: true,
       isIndefinite: true,
       isPawn: false,
       pawnItem: null,
+      isBlackHighlighted: isBlack,
+      rowNumber: r + 1,
       payments: [],
     });
   }
@@ -432,7 +481,7 @@ export function parseInterestOnlySheet(rows: Row[], sheetName: string): ParseRes
 }
 
 /** รับจำนำ */
-export function parsePawnSheet(rows: Row[], sheetName: string): ParseResult {
+export function parsePawnSheet(rows: Row[], sheetName: string, ws?: XLSX.WorkSheet): ParseResult {
   const loans: ParsedLoan[] = [];
   const skipped: ParseResult['skipped'] = [];
 
@@ -451,6 +500,7 @@ export function parsePawnSheet(rows: Row[], sheetName: string): ParseResult {
     const interestRate = principal > 0 ? Math.round((installmentAmount / principal) * 10000) / 100 : 0;
     const startDate = anchorDateWithDueDay(dueDay);
     const notes = [`นำเข้าจาก ${sheetName}`, `ชำระทุกวันที่ ${dueDay ?? '-'}`, extraNote].filter(Boolean).join('; ');
+    const isBlack = isRowRangeBlack(ws, r, 0, 10);
 
     loans.push({
       customerName: item,
@@ -464,12 +514,14 @@ export function parsePawnSheet(rows: Row[], sheetName: string): ParseResult {
       totalPayable: principal,
       startDate,
       dueDate: null,
-      status: 'active',
+      status: isBlack ? 'completed' : 'active',
       notes,
       isInterestOnly: true,
       isIndefinite: true,
       isPawn: true,
       pawnItem: item,
+      isBlackHighlighted: isBlack,
+      rowNumber: r + 1,
       payments: [],
     });
   }
@@ -478,7 +530,7 @@ export function parsePawnSheet(rows: Row[], sheetName: string): ParseResult {
 }
 
 /** ยอดติด (ยอดหนี้ค้างชำระ ดอกเบี้ย 0%) */
-export function parseDebtBalanceSheet(rows: Row[], sheetName: string): ParseResult {
+export function parseDebtBalanceSheet(rows: Row[], sheetName: string, ws?: XLSX.WorkSheet): ParseResult {
   const loans: ParsedLoan[] = [];
   const skipped: ParseResult['skipped'] = [];
 
@@ -489,6 +541,8 @@ export function parseDebtBalanceSheet(rows: Row[], sheetName: string): ParseResu
 
     if (!name || SKIP_NAMES.has(name) || name === 'คงเหลือ') continue;
     if (principal == null || principal <= 0) continue;
+
+    const isBlack = isRowRangeBlack(ws, r, 0, 10);
 
     loans.push({
       customerName: name,
@@ -502,12 +556,14 @@ export function parseDebtBalanceSheet(rows: Row[], sheetName: string): ParseResu
       totalPayable: principal,
       startDate: '2025-01-01',
       dueDate: null,
-      status: 'active',
+      status: isBlack ? 'completed' : 'active',
       notes: `นำเข้าจาก ${sheetName} (ยอดติดค้างชำระเดิม)`,
       isInterestOnly: false,
       isIndefinite: true,
       isPawn: false,
       pawnItem: null,
+      isBlackHighlighted: isBlack,
+      rowNumber: r + 1,
       payments: [],
     });
   }
@@ -515,25 +571,28 @@ export function parseDebtBalanceSheet(rows: Row[], sheetName: string): ParseResu
   return { loans, skipped };
 }
 
-const SHEET_PARSERS: Record<string, (rows: Row[], tpConfig?: TpConfig) => ParseResult> = {
-  'รายวัน 3-5-7 วัน': (rows) => parseDaily357Sheet(rows, 'รายวัน 3-5-7 วัน'),
-  'รายวัน14วัน': (rows, tp) => parseDailyGridSheet(rows, 'รายวัน14วัน', 14, tp),
-  'รายวัน12-24วัน': (rows, tp) => parseDailyGridSheet(rows, 'รายวัน12-24วัน', undefined, tp),
-  'รายเดือน': (rows) => parseMonthlySheet(rows, 'รายเดือน'),
-  'ดอกลอย': (rows) => parseInterestOnlySheet(rows, 'ดอกลอย'),
-  'รับจำนำ': (rows) => parsePawnSheet(rows, 'รับจำนำ'),
-  'ยอดติด': (rows) => parseDebtBalanceSheet(rows, 'ยอดติด'),
+const SHEET_PARSERS: Record<string, (rows: Row[], tpConfig?: TpConfig, ws?: XLSX.WorkSheet) => ParseResult> = {
+  'รายวัน 3-5-7 วัน': (rows, _tp, ws) => parseDaily357Sheet(rows, 'รายวัน 3-5-7 วัน', ws),
+  'รายวัน14วัน': (rows, tp, ws) => parseDailyGridSheet(rows, 'รายวัน14วัน', 14, tp, ws),
+  'รายวัน12-24วัน': (rows, tp, ws) => parseDailyGridSheet(rows, 'รายวัน12-24วัน', undefined, tp, ws),
+  'รายเดือน': (rows, _tp, ws) => parseMonthlySheet(rows, 'รายเดือน', ws),
+  'ดอกลอย': (rows, _tp, ws) => parseInterestOnlySheet(rows, 'ดอกลอย', ws),
+  'รับจำนำ': (rows, _tp, ws) => parsePawnSheet(rows, 'รับจำนำ', ws),
+  'ยอดติด': (rows, _tp, ws) => parseDebtBalanceSheet(rows, 'ยอดติด', ws),
 };
 
-export function parseWorkbook(
-  filePath: string,
+export interface ParseWorkbookOptions {
+  tpConfig?: TpConfig;
+  skipClosed?: boolean;
+}
+
+export function parseWorkbookFromWb(
+  wb: XLSX.WorkBook,
   beYear?: number,
-  options?: { tpConfig?: TpConfig },
+  options?: ParseWorkbookOptions,
 ): ParseResult {
-  const wb = XLSX.readFile(filePath);
   const allLoans: ParsedLoan[] = [];
   const allSkipped: ParseResult['skipped'] = [];
-
   const tpConfig = options?.tpConfig ?? DEFAULT_TP_CONFIG;
 
   for (const sheetName of wb.SheetNames) {
@@ -542,11 +601,32 @@ export function parseWorkbook(
 
     const ws = wb.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json<Row>(ws, { header: 1, defval: '', raw: false });
-    const result = parser(rows, tpConfig);
+    const result = parser(rows, tpConfig, ws);
     allLoans.push(...result.loans);
     allSkipped.push(...result.skipped);
   }
 
-  const loans = beYear != null ? filterLoansByBeYear(allLoans, beYear) : allLoans;
+  let loans = beYear != null ? filterLoansByBeYear(allLoans, beYear) : allLoans;
+  if (options?.skipClosed) {
+    loans = loans.filter((l) => !l.isBlackHighlighted && l.status !== 'completed');
+  }
   return { loans, skipped: allSkipped };
+}
+
+export function parseWorkbook(
+  filePath: string,
+  beYear?: number,
+  options?: ParseWorkbookOptions,
+): ParseResult {
+  const wb = XLSX.readFile(filePath, { cellStyles: true });
+  return parseWorkbookFromWb(wb, beYear, options);
+}
+
+export function parseWorkbookFromBuffer(
+  buffer: Buffer,
+  beYear?: number,
+  options?: ParseWorkbookOptions,
+): ParseResult {
+  const wb = XLSX.read(buffer, { type: 'buffer', cellStyles: true });
+  return parseWorkbookFromWb(wb, beYear, options);
 }

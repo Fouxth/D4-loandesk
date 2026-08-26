@@ -103,3 +103,34 @@ export const createStaff = (data: { username: string; password: string; fullName
 export const deleteStaff = (id: string) => api.delete(`/auth/users/${id}`).then(r => r.data);
 export const resetStaffPassword = (id: string, newPassword: string) => api.patch(`/auth/users/${id}/password`, { newPassword }).then(r => r.data);
 export const updateStaffName = (id: string, fullName: string) => api.patch(`/auth/users/${id}/name`, { fullName }).then(r => r.data);
+
+// Google Sheet Sync
+export const getGoogleSyncConfig = () => api.get('/sync/google-sheet/config').then(r => r.data);
+export const saveGoogleSyncConfig = (config: any) => api.put('/sync/google-sheet/config', config).then(r => r.data);
+export const auditGoogleSheet = (data: { sheetUrl?: string; beYear?: number; skipClosed?: boolean; file?: File }) => {
+  if (data.file) {
+    const formData = new FormData();
+    formData.append('file', data.file);
+    if (data.sheetUrl) formData.append('sheetUrl', data.sheetUrl);
+    if (data.beYear) formData.append('beYear', String(data.beYear));
+    if (data.skipClosed !== undefined) formData.append('skipClosed', String(data.skipClosed));
+    return api.post('/sync/google-sheet/audit', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }).then(r => r.data);
+  }
+  return api.post('/sync/google-sheet/audit', data).then(r => r.data);
+};
+export const applyGoogleSheetSync = (data: { sheetUrl?: string; beYear?: number; skipClosed?: boolean; file?: File }) => {
+  if (data.file) {
+    const formData = new FormData();
+    formData.append('file', data.file);
+    if (data.sheetUrl) formData.append('sheetUrl', data.sheetUrl);
+    if (data.beYear) formData.append('beYear', String(data.beYear));
+    if (data.skipClosed !== undefined) formData.append('skipClosed', String(data.skipClosed));
+    return api.post('/sync/google-sheet/apply', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }).then(r => r.data);
+  }
+  return api.post('/sync/google-sheet/apply', data).then(r => r.data);
+};
+

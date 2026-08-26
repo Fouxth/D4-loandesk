@@ -55,10 +55,12 @@ import {
   KeyRound,
   Pencil,
   RefreshCw,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
 import { cn } from "@/utils/utils";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { GoogleSheetSyncCard } from "@/components/GoogleSheetSyncCard";
 import {
   DEFAULT_LENDING_CONFIG,
   normalizeLendingConfig,
@@ -622,7 +624,9 @@ function Settings() {
     { id: "lending", label: "ตั้งค่าเงินกู้", icon: Percent },
     { id: "limits", label: "วงเงินตามกลุ่มลูกค้า", icon: Users },
     { id: "notifications", label: "การแจ้งเตือน", icon: Bell },
+    { id: "google-sync", label: "ซิงค์ Google Sheets", icon: FileSpreadsheet },
     { id: "display", label: "การแสดงผล", icon: Moon },
+    { id: "system", label: "ระบบและสำรองข้อมูล", icon: Database },
   ];
 
   if (loading) return (
@@ -1278,6 +1282,11 @@ function Settings() {
                 </div>
               )}
             </div>
+          </section>
+
+          {/* Google Sheets Sync Section */}
+          <section id="google-sync" className="scroll-mt-24 space-y-4 pt-4 border-t border-border/50">
+            <GoogleSheetSyncCard />
           </section>
 
           {/* Display Settings */}

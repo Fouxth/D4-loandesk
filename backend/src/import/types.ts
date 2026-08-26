@@ -29,6 +29,8 @@ export interface ParsedLoan {
   isPawn: boolean;
   pawnItem: string | null;
   payments: ParsedPayment[];
+  isBlackHighlighted?: boolean;
+  rowNumber?: number;
 }
 
 export interface ParseResult {
@@ -43,3 +45,4 @@ export interface ImportSummary {
   loansBySheet: Record<string, number>;
   skipped: { sheet: string; row: number; reason: string }[];
 }
+

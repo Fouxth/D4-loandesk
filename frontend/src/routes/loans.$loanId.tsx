@@ -1443,7 +1443,16 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
                   id="refinanceIsInterestOnly"
                   checked={form.isInterestOnly}
                   disabled={form.isPrincipalInterestAtEnd}
-                  onChange={(e) => setForm({ ...form, isInterestOnly: e.target.checked })}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setForm({
+                      ...form,
+                      isInterestOnly: checked,
+                      interestRate: checked ? 2 : (form.interestRate === 2 ? 20 : form.interestRate),
+                      paymentType: checked ? "daily" : form.paymentType,
+                      installmentsCount: checked ? 1 : (form.installmentsCount || 30),
+                    });
+                  }}
                   className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
                 <Label htmlFor="refinanceIsInterestOnly" className="text-sm font-bold text-foreground cursor-pointer">
