@@ -23,6 +23,7 @@ import { CustomerSelect } from "@/components/CustomerSelect";
 import { EditLoanModal } from "@/components/EditLoanModal";
 import { RecordPaymentModal } from "@/components/RecordPaymentModal";
 import { SettleLoanModal } from "@/components/SettleLoanModal";
+import { SpecialLoanTypeConfirmDialog, type SpecialLoanType } from "@/components/SpecialLoanTypeConfirmDialog";
 import { calcCustomerCreditProfile } from "@/utils/creditScore";
 import { CreditScoreBadge } from "@/components/CreditScoreBadge";
 import { cn } from "@/utils/utils";
@@ -888,6 +889,40 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
   const [applyParkingFee, setApplyParkingFee] = useState(false);
   const [parkingFee, setParkingFee] = useState(lending.parkingFeeAmount);
   const [busy, setBusy] = useState(false);
+  const [confirmSpecialType, setConfirmSpecialType] = useState<SpecialLoanType | null>(null);
+
+  const handleConfirmSpecialType = () => {
+    if (confirmSpecialType === "interest_only") {
+      setForm((prev) => ({
+        ...prev,
+        isInterestOnly: true,
+        isIndefinite: true,
+        interestRate: 2,
+        paymentType: "daily",
+        installmentsCount: 1,
+        isPrincipalInterestAtEnd: false,
+        isPawn: false,
+      }));
+    } else if (confirmSpecialType === "principal_interest_at_end") {
+      setForm((prev) => ({
+        ...prev,
+        isPrincipalInterestAtEnd: true,
+        isInterestOnly: false,
+        isIndefinite: false,
+        isPawn: false,
+      }));
+    } else if (confirmSpecialType === "pawn") {
+      setForm((prev) => ({
+        ...prev,
+        isPawn: true,
+        paymentType: "monthly",
+        isInterestOnly: true,
+        isIndefinite: true,
+        isPrincipalInterestAtEnd: false,
+      }));
+    }
+    setConfirmSpecialType(null);
+  };
 
   useEffect(() => { 
     getCustomers().then(data => setCustomers(data ?? []));
@@ -993,6 +1028,14 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
       <DialogHeader>
         <DialogTitle className="text-xl font-bold">{t('loans.create_new')}</DialogTitle>
       </DialogHeader>
+      <SpecialLoanTypeConfirmDialog
+        type={confirmSpecialType}
+        open={!!confirmSpecialType}
+        onOpenChange={(open) => {
+          if (!open) setConfirmSpecialType(null);
+        }}
+        onConfirm={handleConfirmSpecialType}
+      />
       <form onSubmit={submit} className="space-y-4 pt-2">
         <div className="space-y-2">
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">เลือกลูกค้า</Label>
@@ -1109,15 +1152,16 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
               disabled={form.isPrincipalInterestAtEnd}
               onChange={(e) => {
                 const checked = e.target.checked;
-                setForm({
-                  ...form,
-                  isInterestOnly: checked,
-                  isIndefinite: checked,
-                  interestRate: checked ? 2 : (form.interestRate === 2 ? 20 : form.interestRate),
-                  paymentType: checked ? "daily" : form.paymentType,
-                  installmentsCount: checked ? 1 : (form.installmentsCount || 30),
-                  isPrincipalInterestAtEnd: checked ? false : form.isPrincipalInterestAtEnd,
-                });
+                if (checked) {
+                  setConfirmSpecialType("interest_only");
+                } else {
+                  setForm({
+                    ...form,
+                    isInterestOnly: false,
+                    isIndefinite: false,
+                    interestRate: form.interestRate === 2 ? 20 : form.interestRate,
+                  });
+                }
               }}
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
             />
@@ -1128,12 +1172,17 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
               type="checkbox"
               id="isPrincipalInterestAtEnd"
               checked={form.isPrincipalInterestAtEnd}
-              onChange={(e) => setForm({
-                ...form,
-                isPrincipalInterestAtEnd: e.target.checked,
-                isInterestOnly: e.target.checked ? false : form.isInterestOnly,
-                isIndefinite: false,
-              })}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                if (checked) {
+                  setConfirmSpecialType("principal_interest_at_end");
+                } else {
+                  setForm({
+                    ...form,
+                    isPrincipalInterestAtEnd: false,
+                  });
+                }
+              }}
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
             />
             <Label htmlFor="isPrincipalInterestAtEnd" className="text-sm font-bold text-foreground cursor-pointer">จบต้นจบดอก (ชำระครั้งเดียววันครบกำหนด)</Label>
@@ -1145,14 +1194,17 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
               checked={form.isPawn} 
               onChange={(e) => {
                 const checked = e.target.checked;
-                setForm({
-                  ...form,
-                  isPawn: checked,
-                  paymentType: checked ? "monthly" : form.paymentType,
-                  isInterestOnly: checked ? true : form.isInterestOnly,
-                  isIndefinite: checked,
-                  isPrincipalInterestAtEnd: checked ? false : form.isPrincipalInterestAtEnd,
-                });
+                if (checked) {
+                  setConfirmSpecialType("pawn");
+                } else {
+                  setForm({
+                    ...form,
+                    isPawn: false,
+                    paymentType: "daily",
+                    isInterestOnly: false,
+                    isIndefinite: false,
+                  });
+                }
               }}
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
             />

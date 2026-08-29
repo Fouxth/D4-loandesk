@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { formatTHB, getThaiDateStr } from "@/utils/format";
 import { calcLoan } from "@/utils/loanCalc";
 import { updateLoan, logActivity } from "@/lib/services";
+import { SpecialLoanTypeConfirmDialog, type SpecialLoanType } from "@/components/SpecialLoanTypeConfirmDialog";
 
 interface EditLoanModalProps {
   loan: any;
@@ -32,7 +33,41 @@ export function EditLoanModal({
 
   const [form, setForm] = useState<any>({});
   const [busy, setBusy] = useState(false);
+  const [confirmSpecialType, setConfirmSpecialType] = useState<SpecialLoanType | null>(null);
   const prevOpenRef = useRef(false);
+
+  const handleConfirmSpecialType = () => {
+    if (confirmSpecialType === "interest_only") {
+      setForm((prev: any) => ({
+        ...prev,
+        isInterestOnly: true,
+        isIndefinite: true,
+        interestRate: 2,
+        paymentType: "daily",
+        installmentsCount: 1,
+        isPrincipalInterestAtEnd: false,
+        isPawn: false,
+      }));
+    } else if (confirmSpecialType === "principal_interest_at_end") {
+      setForm((prev: any) => ({
+        ...prev,
+        isPrincipalInterestAtEnd: true,
+        isInterestOnly: false,
+        isIndefinite: false,
+        isPawn: false,
+      }));
+    } else if (confirmSpecialType === "pawn") {
+      setForm((prev: any) => ({
+        ...prev,
+        isPawn: true,
+        paymentType: "monthly",
+        isInterestOnly: true,
+        isIndefinite: true,
+        isPrincipalInterestAtEnd: false,
+      }));
+    }
+    setConfirmSpecialType(null);
+  };
 
   // Initialize form ONLY when modal opens (transition from false to true)
   useEffect(() => {
@@ -184,6 +219,15 @@ export function EditLoanModal({
           </Button>
         </DialogTrigger>
       )}
+
+      <SpecialLoanTypeConfirmDialog
+        type={confirmSpecialType}
+        open={!!confirmSpecialType}
+        onOpenChange={(open) => {
+          if (!open) setConfirmSpecialType(null);
+        }}
+        onConfirm={handleConfirmSpecialType}
+      />
 
       <DialogContent className="max-w-xl w-[95vw] sm:w-full max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6">
         <DialogHeader>
@@ -359,17 +403,19 @@ export function EditLoanModal({
                 <input
                   type="checkbox"
                   checked={form.isInterestOnly}
+                  disabled={form.isPrincipalInterestAtEnd}
                   onChange={(e) => {
                     const checked = e.target.checked;
-                    setForm({
-                      ...form,
-                      isInterestOnly: checked,
-                      isIndefinite: checked ? true : form.isIndefinite,
-                      interestRate: checked ? 2 : (form.interestRate === 2 ? 20 : form.interestRate),
-                      paymentType: checked ? "daily" : form.paymentType,
-                      installmentsCount: checked ? 1 : form.installmentsCount,
-                      isPrincipalInterestAtEnd: checked ? false : form.isPrincipalInterestAtEnd,
-                    });
+                    if (checked) {
+                      setConfirmSpecialType("interest_only");
+                    } else {
+                      setForm({
+                        ...form,
+                        isInterestOnly: false,
+                        isIndefinite: false,
+                        interestRate: form.interestRate === 2 ? 20 : form.interestRate,
+                      });
+                    }
                   }}
                   className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
@@ -380,7 +426,14 @@ export function EditLoanModal({
                 <input
                   type="checkbox"
                   checked={form.isPrincipalInterestAtEnd}
-                  onChange={(e) => setForm({ ...form, isPrincipalInterestAtEnd: e.target.checked })}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    if (checked) {
+                      setConfirmSpecialType("principal_interest_at_end");
+                    } else {
+                      setForm({ ...form, isPrincipalInterestAtEnd: false });
+                    }
+                  }}
                   className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
                 <span>จบต้นจบดอก</span>
@@ -400,7 +453,20 @@ export function EditLoanModal({
                 <input
                   type="checkbox"
                   checked={form.isPawn}
-                  onChange={(e) => setForm({ ...form, isPawn: e.target.checked })}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    if (checked) {
+                      setConfirmSpecialType("pawn");
+                    } else {
+                      setForm({
+                        ...form,
+                        isPawn: false,
+                        paymentType: "daily",
+                        isInterestOnly: false,
+                        isIndefinite: false,
+                      });
+                    }
+                  }}
                   className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
                 <span>สัญญาจำนำสิ่งของ</span>

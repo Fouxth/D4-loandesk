@@ -23,6 +23,7 @@ import { PromiseDateEditor } from "@/components/PromiseDateEditor";
 import { EditLoanModal } from "@/components/EditLoanModal";
 import { TopupLoanModal } from "@/components/TopupLoanModal";
 import { SettleLoanModal } from "@/components/SettleLoanModal";
+import { SpecialLoanTypeConfirmDialog, type SpecialLoanType } from "@/components/SpecialLoanTypeConfirmDialog";
 import { getLoanCategory } from "@/utils/loanType";
 import {
   calcLoanPaidTotal,
@@ -1264,6 +1265,38 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
   const [advanceFee, setAdvanceFee] = useState<number | string>(lending.advanceFeeAmount || 500);
   const [applyParkingFee, setApplyParkingFee] = useState(false);
   const [parkingFee, setParkingFee] = useState<number | string>(lending.parkingFeeAmount || 500);
+  const [confirmSpecialType, setConfirmSpecialType] = useState<SpecialLoanType | null>(null);
+
+  const handleConfirmSpecialType = () => {
+    if (confirmSpecialType === "interest_only") {
+      setForm((prev) => ({
+        ...prev,
+        isInterestOnly: true,
+        interestRate: 2,
+        paymentType: "daily",
+        installmentsCount: 1,
+        isPrincipalInterestAtEnd: false,
+        isPawn: false,
+      }));
+    } else if (confirmSpecialType === "principal_interest_at_end") {
+      setForm((prev) => ({
+        ...prev,
+        isPrincipalInterestAtEnd: true,
+        isInterestOnly: false,
+        isPawn: false,
+      }));
+    } else if (confirmSpecialType === "pawn") {
+      setForm((prev) => ({
+        ...prev,
+        isPawn: true,
+        paymentType: "monthly",
+        isInterestOnly: true,
+        isPrincipalInterestAtEnd: false,
+      }));
+    }
+    setConfirmSpecialType(null);
+  };
+
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
@@ -1274,6 +1307,7 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
       setAdvanceFee(lending.advanceFeeAmount || 500);
       setApplyParkingFee(false);
       setParkingFee(lending.parkingFeeAmount || 500);
+      setConfirmSpecialType(null);
     }
   };
 
@@ -1351,6 +1385,14 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
           <RefreshCw className="mr-2 h-5 w-5" />รียอดใหม่
         </Button>
       </DialogTrigger>
+      <SpecialLoanTypeConfirmDialog
+        type={confirmSpecialType}
+        open={!!confirmSpecialType}
+        onOpenChange={(open) => {
+          if (!open) setConfirmSpecialType(null);
+        }}
+        onConfirm={handleConfirmSpecialType}
+      />
       <DialogContent className="max-w-xl w-[95vw] sm:w-full max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">รียอดสัญญาใหม่ (Refinance)</DialogTitle>
@@ -1445,13 +1487,15 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
                   disabled={form.isPrincipalInterestAtEnd}
                   onChange={(e) => {
                     const checked = e.target.checked;
-                    setForm({
-                      ...form,
-                      isInterestOnly: checked,
-                      interestRate: checked ? 2 : (form.interestRate === 2 ? 20 : form.interestRate),
-                      paymentType: checked ? "daily" : form.paymentType,
-                      installmentsCount: checked ? 1 : (form.installmentsCount || 30),
-                    });
+                    if (checked) {
+                      setConfirmSpecialType("interest_only");
+                    } else {
+                      setForm({
+                        ...form,
+                        isInterestOnly: false,
+                        interestRate: form.interestRate === 2 ? 20 : form.interestRate,
+                      });
+                    }
                   }}
                   className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
@@ -1465,13 +1509,17 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
                   type="checkbox"
                   id="refinanceIsPrincipalInterestAtEnd"
                   checked={form.isPrincipalInterestAtEnd}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      isPrincipalInterestAtEnd: e.target.checked,
-                      isInterestOnly: e.target.checked ? false : form.isInterestOnly,
-                    })
-                  }
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    if (checked) {
+                      setConfirmSpecialType("principal_interest_at_end");
+                    } else {
+                      setForm({
+                        ...form,
+                        isPrincipalInterestAtEnd: false,
+                      });
+                    }
+                  }}
                   className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
                 <Label htmlFor="refinanceIsPrincipalInterestAtEnd" className="text-sm font-bold text-foreground cursor-pointer">
@@ -1486,13 +1534,16 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
                   checked={form.isPawn}
                   onChange={(e) => {
                     const checked = e.target.checked;
-                    setForm({
-                      ...form,
-                      isPawn: checked,
-                      paymentType: checked ? "monthly" : form.paymentType,
-                      isInterestOnly: checked ? true : form.isInterestOnly,
-                      isPrincipalInterestAtEnd: checked ? false : form.isPrincipalInterestAtEnd,
-                    });
+                    if (checked) {
+                      setConfirmSpecialType("pawn");
+                    } else {
+                      setForm({
+                        ...form,
+                        isPawn: false,
+                        paymentType: "daily",
+                        isInterestOnly: false,
+                      });
+                    }
                   }}
                   className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
