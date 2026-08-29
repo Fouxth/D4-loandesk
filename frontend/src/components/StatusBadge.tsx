@@ -31,7 +31,7 @@ export function StatusBadge({ children, tone = "muted", className }: StatusBadge
 export function getLoanNextDueDate(l: any): string | null {
   if (!l) return null;
   const rawStatus = (l.status ?? '').toLowerCase();
-  if (['completed', 'cancelled', 'forfeited', 'refinanced'].includes(rawStatus)) {
+  if (['completed', 'cancelled', 'forfeited'].includes(rawStatus)) {
     return null;
   }
 

@@ -659,8 +659,18 @@ function LoanDetail() {
             <div className="flex justify-between items-center">
               <dt className="text-muted-foreground">รอบชำระถัดไป</dt>
               <dd className="text-xs font-bold text-primary">
-                {getLoanNextDueDate(loan) ? formatDate(getLoanNextDueDate(loan)) : (
-                  loan.paymentType === 'monthly' ? `วันที่ ${new Date(loan.startDate || loan.start_date).getDate() || 1} ของเดือนถัดไป` : 'ไม่มีกำหนด'
+                {getLoanNextDueDate(loan) ? (
+                  formatDate(getLoanNextDueDate(loan))
+                ) : loan.isIndefinite || loan.notes?.includes("ยอดติด") ? (
+                  "ไม่มีกำหนด (ยอดติด)"
+                ) : loan.isPawn ? (
+                  "ไม่มีกำหนด (จำนำสิ่งของ)"
+                ) : loan.isInterestOnly ? (
+                  "รายวัน (เก็บดอกเบี้ย)"
+                ) : loan.paymentType === "monthly" ? (
+                  `วันที่ ${new Date(loan.startDate || loan.start_date).getDate() || 1} ของเดือนถัดไป`
+                ) : (
+                  "ไม่มีกำหนด"
                 )}
               </dd>
             </div>
