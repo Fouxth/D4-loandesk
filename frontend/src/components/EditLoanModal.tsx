@@ -120,7 +120,7 @@ export function EditLoanModal({
       count,
       type,
       form.startDate || getThaiDateStr(),
-      form.isInterestOnly,
+      form.isInterestOnly || form.isPawn,
       form.isIndefinite,
       form.isPrincipalInterestAtEnd
     );
@@ -574,18 +574,30 @@ export function EditLoanModal({
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div>
-                <span className="text-muted-foreground block">ดอกเบี้ยรวม</span>
-                <span className="font-bold text-primary">{formatTHB(calc.interest)}</span>
+                <span className="text-muted-foreground block">
+                  {form.isInterestOnly ? "ดอกเบี้ยต่อวัน" : form.isPawn ? "ดอกเบี้ยต่อเดือน" : "ดอกเบี้ยรวม"}
+                </span>
+                <span className="font-bold text-primary">
+                  {formatTHB(calc.interest)}
+                  {form.isInterestOnly && <span className="text-[10px] font-normal text-muted-foreground"> /วัน</span>}
+                  {form.isPawn && <span className="text-[10px] font-normal text-muted-foreground"> /เดือน</span>}
+                </span>
               </div>
               <div>
-                <span className="text-muted-foreground block">ยอดรวมทั้งหมด</span>
+                <span className="text-muted-foreground block">
+                  {form.isInterestOnly || form.isPawn ? "เงินต้นคงค้าง" : "ยอดรวมทั้งหมด"}
+                </span>
                 <span className="font-bold text-primary">{formatTHB(calc.total)}</span>
               </div>
               <div>
                 <span className="text-muted-foreground block">
-                  {form.isPrincipalInterestAtEnd ? "ยอดปิด" : "ค่างวด"}
+                  {form.isInterestOnly ? "ดอกเบี้ยที่ต้องเก็บ" : form.isPawn ? "ดอกเบี้ยต่อเดือน" : form.isPrincipalInterestAtEnd ? "ยอดปิด" : "ค่างวด"}
                 </span>
-                <span className="font-bold text-primary">{formatTHB(calc.installment)}</span>
+                <span className="font-bold text-primary">
+                  {formatTHB(calc.installment)}
+                  {form.isInterestOnly && <span className="text-[10px] font-normal text-muted-foreground"> /วัน</span>}
+                  {form.isPawn && <span className="text-[10px] font-normal text-muted-foreground"> /เดือน</span>}
+                </span>
               </div>
               <div>
                 <span className="text-muted-foreground block">เงินออกสุทธิ</span>

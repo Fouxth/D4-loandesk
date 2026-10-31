@@ -1300,7 +1300,7 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
         ...prev,
         isPawn: true,
         paymentType: "monthly",
-        isInterestOnly: true,
+        isInterestOnly: false,
         isPrincipalInterestAtEnd: false,
       }));
     }
@@ -1329,7 +1329,7 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
     Number(form.installmentsCount || 1),
     form.paymentType,
     form.startDate,
-    form.isInterestOnly,
+    form.isInterestOnly || form.isPawn,
     isIndefiniteLoan,
     form.isPrincipalInterestAtEnd
   );
@@ -1353,9 +1353,9 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
         interestRate: Number(form.interestRate),
         interestAmount: calc.interest,
         totalPayable: calc.total,
-        installmentsCount: Number(form.installmentsCount),
+        installmentsCount: form.isInterestOnly || form.isPawn ? 1 : Number(form.installmentsCount),
         installmentAmount: calc.installment,
-        paymentType: form.paymentType,
+        paymentType: form.isInterestOnly ? "daily" : form.isPawn ? "monthly" : form.paymentType,
         startDate: form.startDate,
         dueDate: isIndefiniteLoan ? null : (calc.dueStr || (calc.due ? calc.due.toISOString().split("T")[0] : null)),
         promiseDate: form.promiseDate || (form.isPrincipalInterestAtEnd ? (calc.dueStr || (calc.due ? calc.due.toISOString().split("T")[0] : null)) : null),
@@ -1450,18 +1450,32 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">จำนวนงวด (เริ่มส่งใหม่)</Label>
-              <Input
-                type="number"
-                min={1}
-                value={form.installmentsCount}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" as any : Number(e.target.value) })}
-                className="bg-muted/20"
-              />
+              {form.isInterestOnly ? (
+                <div className="h-10 px-3 rounded-md bg-primary/10 border border-primary/30 flex items-center text-xs font-bold text-primary">
+                  ไม่มีกำหนด (เก็บดอกเบี้ยรายวันไปเรื่อยๆ)
+                </div>
+              ) : form.isPawn ? (
+                <div className="h-10 px-3 rounded-md bg-primary/10 border border-primary/30 flex items-center text-xs font-bold text-primary">
+                  ไม่มีกำหนด (เก็บดอกเบี้ยรายเดือนไปเรื่อยๆ)
+                </div>
+              ) : (
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.installmentsCount}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => setForm({ ...form, installmentsCount: e.target.value === "" ? "" as any : Number(e.target.value) })}
+                  className="bg-muted/20"
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ความถี่ในการชำระ</Label>
-              <Select value={form.paymentType} onValueChange={(v: any) => setForm({ ...form, paymentType: v })}>
+              <Select
+                value={form.isInterestOnly ? "daily" : form.isPawn ? "monthly" : form.paymentType}
+                disabled={form.isInterestOnly || form.isPawn}
+                onValueChange={(v: any) => setForm({ ...form, paymentType: v })}
+              >
                 <SelectTrigger className="bg-muted/20"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="daily">รายวัน</SelectItem>
@@ -1681,18 +1695,30 @@ function RefinanceDialog({ loan, remaining, onDone }: { loan: any; remaining: nu
                   <p className="text-sm font-bold text-primary">{formatTHB(Number(form.principal || 0))}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">ดอกเบี้ย</p>
-                  <p className="text-sm font-bold text-primary">{formatTHB(calc.interest)}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">
+                    {form.isInterestOnly ? "ดอกเบี้ยต่อวัน" : form.isPawn ? "ดอกเบี้ยต่อเดือน" : "ดอกเบี้ย"}
+                  </p>
+                  <p className="text-sm font-bold text-primary">
+                    {formatTHB(calc.interest)}
+                    {form.isInterestOnly && <span className="text-[10px] font-normal text-muted-foreground"> /วัน</span>}
+                    {form.isPawn && <span className="text-[10px] font-normal text-muted-foreground"> /เดือน</span>}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">ยอดรวมทั้งหมด</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">
+                    {form.isInterestOnly || form.isPawn ? "เงินต้นคงค้าง" : "ยอดรวมทั้งหมด"}
+                  </p>
                   <p className="text-sm font-bold text-primary">{formatTHB(calc.total)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">
-                    {form.isPrincipalInterestAtEnd ? "ยอดปิด" : "ต่องวด"}
+                    {form.isInterestOnly ? "ดอกเบี้ยที่ต้องเก็บ" : form.isPawn ? "ดอกเบี้ยต่อเดือน" : form.isPrincipalInterestAtEnd ? "ยอดปิด" : "ต่องวด"}
                   </p>
-                  <p className="text-sm font-bold text-primary">{formatTHB(calc.installment)}</p>
+                  <p className="text-sm font-bold text-primary">
+                    {formatTHB(calc.installment)}
+                    {form.isInterestOnly && <span className="text-[10px] font-normal text-muted-foreground"> /วัน</span>}
+                    {form.isPawn && <span className="text-[10px] font-normal text-muted-foreground"> /เดือน</span>}
+                  </p>
                 </div>
               </div>
             </div>

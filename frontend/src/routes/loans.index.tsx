@@ -916,7 +916,7 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
         ...prev,
         isPawn: true,
         paymentType: "monthly",
-        isInterestOnly: true,
+        isInterestOnly: false,
         isIndefinite: true,
         isPrincipalInterestAtEnd: false,
       }));
@@ -945,7 +945,7 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
     form.installmentsCount,
     form.paymentType,
     form.startDate,
-    form.isInterestOnly,
+    form.isInterestOnly || form.isPawn,
     isIndefiniteLoan,
     form.isPrincipalInterestAtEnd,
   );
@@ -969,9 +969,9 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
         interestRate: form.interestRate,
         interestAmount: calc.interest,
         totalPayable: calc.total,
-        installmentsCount: form.isInterestOnly ? 1 : form.installmentsCount,
+        installmentsCount: form.isInterestOnly || form.isPawn ? 1 : form.installmentsCount,
         installmentAmount: calc.installment,
-        paymentType: form.isInterestOnly ? "daily" : form.paymentType,
+        paymentType: form.isInterestOnly ? "daily" : form.isPawn ? "monthly" : form.paymentType,
         startDate: form.startDate,
         dueDate: isIndefiniteLoan ? null : (calc.dueStr || (calc.due ? calc.due.toISOString().split("T")[0] : null)),
         promiseDate: form.promiseDate || (form.isPrincipalInterestAtEnd ? (calc.dueStr || (calc.due ? calc.due.toISOString().split("T")[0] : null)) : null),
@@ -1097,6 +1097,10 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
               <div className="h-10 px-3 rounded-md bg-primary/10 border border-primary/30 flex items-center text-xs font-bold text-primary">
                 ไม่มีกำหนด (เก็บดอกเบี้ยรายวันไปเรื่อยๆ)
               </div>
+            ) : form.isPawn ? (
+              <div className="h-10 px-3 rounded-md bg-primary/10 border border-primary/30 flex items-center text-xs font-bold text-primary">
+                ไม่มีกำหนด (เก็บดอกเบี้ยรายเดือนไปเรื่อยๆ)
+              </div>
             ) : isIndefiniteLoan ? (
               <div className="h-10 px-3 rounded-md bg-muted/40 border border-border flex items-center text-xs font-medium text-muted-foreground">
                 ไม่มีกำหนดสิ้นสุด
@@ -1115,8 +1119,8 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ความถี่ในการชำระ</Label>
             <Select
-              value={form.isInterestOnly ? "daily" : form.paymentType}
-              disabled={form.isInterestOnly}
+              value={form.isInterestOnly ? "daily" : form.isPawn ? "monthly" : form.paymentType}
+              disabled={form.isInterestOnly || form.isPawn}
               onValueChange={(v: any) => setForm({ ...form, paymentType: v })}
             >
               <SelectTrigger className="bg-muted/20 font-medium">
@@ -1334,26 +1338,28 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">
-                {form.isInterestOnly ? "ดอกเบี้ยต่อวัน" : "ดอกเบี้ย"}
+                {form.isInterestOnly ? "ดอกเบี้ยต่อวัน" : form.isPawn ? "ดอกเบี้ยต่อเดือน" : "ดอกเบี้ย"}
               </p>
               <p className="text-sm font-bold text-primary">
                 {formatTHB(calc.interest)}
                 {form.isInterestOnly && <span className="text-xs font-normal text-muted-foreground"> /วัน</span>}
+                {form.isPawn && <span className="text-xs font-normal text-muted-foreground"> /เดือน</span>}
               </p>
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">
-                {form.isInterestOnly ? "เงินต้นคงค้าง" : "ยอดรวมทั้งหมด"}
+                {form.isInterestOnly || form.isPawn ? "เงินต้นคงค้าง" : "ยอดรวมทั้งหมด"}
               </p>
               <p className="text-sm font-bold text-primary">{formatTHB(calc.total)}</p>
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">
-                {form.isInterestOnly ? "ดอกเบี้ยที่ต้องเก็บ" : form.isPrincipalInterestAtEnd ? "ยอดปิด" : "ต่องวด"}
+                {form.isInterestOnly ? "ดอกเบี้ยที่ต้องเก็บ" : form.isPawn ? "ดอกเบี้ยต่อเดือน" : form.isPrincipalInterestAtEnd ? "ยอดปิด" : "ต่องวด"}
               </p>
               <p className="text-sm font-bold text-primary">
                 {formatTHB(calc.installment)}
                 {form.isInterestOnly && <span className="text-xs font-normal text-muted-foreground"> /วัน</span>}
+                {form.isPawn && <span className="text-xs font-normal text-muted-foreground"> /เดือน</span>}
               </p>
             </div>
             <div>
@@ -1368,6 +1374,10 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
                 ) : form.paymentType === "weekly" ? (
                   "ทุกสัปดาห์"
                 ) : (
+                  "รายวัน"
+                )}
+              </p>
+            </div>
                   "รายวัน"
                 )}
               </p>
