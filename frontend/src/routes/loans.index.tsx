@@ -1378,10 +1378,6 @@ function NewLoanForm({ onDone, existingLoans = [] }: { onDone: () => void; exist
                 )}
               </p>
             </div>
-                  "รายวัน"
-                )}
-              </p>
-            </div>
             <div>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">สิ้นสุดวันที่</p>
               <p className="text-sm font-bold text-primary">
